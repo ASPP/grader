@@ -146,11 +146,11 @@ class Grader(cmd_completer.Cmd_Completer):
             raise ValueError('formula not set yet')
 
         for person in self.applications:
-            person.score = grade_person(person, self.formula,
-                                        self.config['programming_rating'],
-                                        self.config['open_source_rating'],
-                                        self.config['applied_rating'],
-                                        self.config)
+            person.score = rank_person(person, self.formula,
+                                       self.config['programming_rating'],
+                                       self.config['open_source_rating'],
+                                       self.config['applied_rating'],
+                                       self.config)
         ranked = sorted(self.applications, key=lambda p: p.score, reverse=True)
         for rank, person in enumerate(ranked):
             if rank == self.config['formula']['accept_count']:
@@ -165,9 +165,9 @@ class Grader(cmd_completer.Cmd_Completer):
         opts = self.save_options.parse_args(args.split())
         self.config.save(opts.filename)
 
-def grade_person(person, formula,
-                 programming_rating, open_source_rating, applied_rating,
-                 config):
+def rank_person(person, formula,
+                programming_rating, open_source_rating, applied_rating,
+                config):
     "Apply formula to person and return score"
     vars = {}
     for type in 'programming', 'open_source', 'applied':
