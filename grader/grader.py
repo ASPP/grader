@@ -45,8 +45,7 @@ class Grader(cmd_completer.Cmd_Completer):
     @formula.setter
     def formula(self, value):
         # check syntax
-        formula = ' '.join(opts.args)
-        compile(formula, '--formula--', 'eval')
+        compile(value, '--formula--', 'eval')
         self.config['formula']['formula'] = value
 
     def do_dump(self, arg):
@@ -78,8 +77,8 @@ class Grader(cmd_completer.Cmd_Completer):
 
         if opts.what == 'formula':
             if opts.args:
-                self.formula = formula
-            printf('formula is {}', self.formula)
+                self.formula = ' '.join(opts.args)
+            printf('formula = {}', self.formula)
             return
 
         for person in self.applications:
@@ -106,7 +105,7 @@ class Grader(cmd_completer.Cmd_Completer):
     def _grade(self, person, what):
         assert what in {'motivation', 'cv'}, what
         text = getattr(person, what)
-        old_score = getattr(person, what + '_score', None)
+        old_score = self.config[what + '_score'].get(person.fullname, None)
         default = old_score if old_score is not None else ''
         printf('{line}\n{}\n{line}', wrap_paragraphs(text), line='-'*70)
         printf('Old score was {}', old_score)
@@ -126,7 +125,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 print(e)
             else:
                 break
-        setattr(person, what + '_score', choice)
+        self.config[what + '_score'][person.fullname] = choice
         printf('{} score set to {}', what, choice)
 
     def do_rank(self, arg):
@@ -138,7 +137,8 @@ class Grader(cmd_completer.Cmd_Completer):
             person.score = grade_person(person, self.formula,
                                         self.config['programming_rating'],
                                         self.config['open_source_rating'],
-                                        self.config['applied_rating'])
+                                        self.config['applied_rating'],
+                                        self.config)
         ranked = sorted(self.applications, key=lambda p: p.score, reverse=True)
         for rank, person in enumerate(ranked):
             if rank == self.config['formula']['accept_count']:
@@ -146,8 +146,16 @@ class Grader(cmd_completer.Cmd_Completer):
             printf('{: 2} {p.score:2.1f} {p.name} {p.lastname} <{p.email}>',
                    rank, p=person)
 
+    save_options = cmd_completer.ModArgumentParser('save')\
+        .add_argument('filename', nargs='?')
+
+    def do_save(self, args):
+        opts = self.save_options.parse_args(args.split())
+        self.config.save(opts.filename)
+
 def grade_person(person, formula,
-                 programming_rating, open_source_rating, applied_rating):
+                 programming_rating, open_source_rating, applied_rating,
+                 config):
     "Apply formula to person and return score"
     vars = {}
     for type in 'programming', 'open_source', 'applied':
@@ -162,22 +170,22 @@ def grade_person(person, formula,
                        # from None, when implemented!
         vars[type] = value
     try:
-        person.motivation_score
-        person.cv_score
-    except AttributeError as e:
+        motivation_score = config['motivation_score'][person.fullname]
+        cv_score = config['cv_score'][person.fullname]
+    except KeyError as e:
         #raise ValueError('{p.name} {p.lastname}: {e}'.format(p=person, e=e))
         import random
-        person.motivation_score = random.choice(SCORE_RANGE)
-        person.cv_score = random.choice(SCORE_RANGE)
+        motivation_score = random.choice(SCORE_RANGE)
+        cv_score = random.choice(SCORE_RANGE)
 
-    vars.update(born=person.born, # if we decide to implement agism
+    vars.update(born=person.born, # if we decide to implement ageism
                 gender=person.gender, # if we decide, ...
                                       # oh we already did
                 female=(person.gender == 'Female'),
                 nation=person.nation,
                 country=person.country,
-                motivation=person.motivation_score,
-                cv=person.cv_score,
+                motivation=motivation_score,
+                cv=cv_score,
                 email=person.email, # should we discriminate against gmail?
                 )
     try:
@@ -197,7 +205,9 @@ def csv_file(filename, names):
     header = next(reader)
     assert len(header) == 21
     class Person(collections.namedtuple('Person', names)):
-        pass
+        @property
+        def fullname(self):
+            return '{p.name} {p.lastname}'.format(p=self)
     while True:
         yield Person(*next(reader))
 
@@ -220,6 +230,8 @@ def our_configfile(filename):
                                  open_source_rating=float,
                                  applied_rating=float,
                                  formula=str,
+                                 motivation_score=float,
+                                 cv_score=float,
                                  )
 
 grader_options = cmd_completer.ModArgumentParser('grader')\
