@@ -13,7 +13,7 @@ import vector
 def printf(fmt, *args, **kwargs):
     print(fmt.format(*args, **kwargs))
 
-dump_fmt = '''\
+DUMP_FMT = '''\
 name: {p.name} {p.lastname} <{p.email}>
 born: {p.nation} {p.born}
 gender: {p.gender}
@@ -27,6 +27,10 @@ python: {p.python} [{python_score}]
 open source: {p.open_source}{open_source_description} [{open_source_score}]
 rank: {p.rank} {p.score}
 '''
+
+RANK_FMT = ('{: 2} {p.rank: 2} {p.score:2.1f}'
+            ' {p.fullname:{fullname_width}} {email:{email_width}}'
+            ' {p.institute:{institute_width}} / {p.group:{group_width}}')
 
 SCORE_RANGE = (-1, 0, 1)
 
@@ -86,7 +90,7 @@ class Grader(cmd_completer.Cmd_Completer):
             open_source_description = \
                 ('\nopen source: {.open_source_description:.72}'.format(p)
                  if p.open_source_description else '')
-            printf(dump_fmt,
+            printf(DUMP_FMT,
                    p=p,
                    position_other=position_other,
                    programming_description=programming_description,
@@ -196,18 +200,23 @@ class Grader(cmd_completer.Cmd_Completer):
         for person in ranked:
             person.rank = count
             count += 1
-        return ranked
+        return vector.vector(ranked)
 
     def do_rank(self, args):
         if args != '':
             raise ValueError('no args please')
 
         ranked = self._ranking()
+        fullname_width = max(len(field) for field in ranked.fullname)
+        email_width = max(len(field) for field in ranked.email)
+        institute_width = min(max(len(field) for field in ranked.institute), 20)
+        group_width = min(max(len(field) for field in ranked.group), 20)
         for pos, person in enumerate(ranked):
             if person.rank == self.accept_count:
                 print('-' * 70)
-            printf('{: 2} {p.rank: 2} {p.score:2.1f} {p.name} {p.lastname} <{p.email}>',
-                   pos, p=person)
+            printf(RANK_FMT, pos, p=person, email='<{}>'.format(person.email),
+                   fullname_width=fullname_width, email_width=email_width,
+                   institute_width=institute_width, group_width=group_width)
 
     save_options = cmd_completer.ModArgumentParser('save')\
         .add_argument('filename', nargs='?')
