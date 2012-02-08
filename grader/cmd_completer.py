@@ -91,6 +91,11 @@ class Cmd_Completer(cmd.Cmd):
                 for a in self.get_names() if a.startswith(dotext)]
 
 class ModArgumentParser(argparse.ArgumentParser):
+    def exit(status=0, message=None):
+        if message:
+            print(message)
+        raise KeyboardInterrupt
+
     def add_argument(self, *args, **kwargs):
         super(ModArgumentParser, self).add_argument(*args, **kwargs)
         return self
@@ -104,5 +109,5 @@ class InputFile:
     def __next__(self):
         while True:
             line = next(self.file)
-            if not COMMENT_OR_EMPTY_RE.match(line):
+            if not self.COMMENT_OR_EMPTY_RE.match(line):
                 return line
