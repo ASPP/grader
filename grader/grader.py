@@ -54,6 +54,13 @@ class Grader(cmd_completer.Cmd_Completer):
         compile(value, '--formula--', 'eval')
         self.config['formula']['formula'] = value
 
+    @property
+    def accept_count(self):
+        return int(self.config['formula']['accept_count'])
+    @accept_count.setter
+    def accept_count(self, value):
+        self.config['formula']['accept_count'] = value
+
     def do_dump(self, arg):
         for p in self.applications:
             position_other = \
@@ -143,7 +150,7 @@ class Grader(cmd_completer.Cmd_Completer):
         section[person.fullname] = scores
         printf('{} score set to {}', what, choice)
 
-    def do_rank(self, arg):
+    def _ranking(self):
         "Order applications by rank"
         if self.formula is None:
             raise ValueError('formula not set yet')
@@ -163,9 +170,15 @@ class Grader(cmd_completer.Cmd_Completer):
                                        open_source_rating,
                                        applied_rating,
                                        self.config, minsc, maxsc)
-        ranked = sorted(self.applications, key=lambda p: p.score, reverse=True)
+        return sorted(self.applications, key=lambda p: p.score, reverse=True)
+
+    def do_rank(self, args):
+        if args != '':
+            raise ValueError('no args please')
+
+        ranked = self._ranking()
         for rank, person in enumerate(ranked):
-            if rank == self.config['formula']['accept_count']:
+            if rank == self.accept_count:
                 print('-' * 70)
             printf('{: 2} {p.score:2.1f} {p.name} {p.lastname} <{p.email}>',
                    rank, p=person)
@@ -176,6 +189,25 @@ class Grader(cmd_completer.Cmd_Completer):
     def do_save(self, args):
         opts = self.save_options.parse_args(args.split())
         self.config.save(opts.filename)
+
+    def do_write(self, args):
+        if args != '':
+            raise ValueError('no args please')
+        ranked = self._ranking()
+        print(self.accept_count)
+        _write_file('applications_accepted.csv',
+                    ranked[:self.accept_count])
+        _write_file('applications_rejected.csv',
+                    ranked[self.accept_count:])
+
+def _write_file(filename, persons):
+    header = '$NAME$;$SURNAME$;$EMAIL$'
+    with open(filename, 'w') as f:
+        f.write(header + '\n')
+        for person in persons:
+            row = ';'.join((person.name, person.lastname, person.email))
+            f.write(row + '\n')
+    printf("'{}' written with header + {} rows", filename, len(persons))
 
 def eval_formula(formula, vars):
     try:
