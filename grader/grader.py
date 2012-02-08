@@ -287,7 +287,7 @@ def main(argv0, *args):
                 cmd.cmdloop()
                 break
             except KeyboardInterrupt:
-                print
+                print()
             except SyntaxError as e:
                 print('bad command: %s', e)
             except ValueError as e:
