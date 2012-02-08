@@ -35,6 +35,7 @@ class Grader(cmd_completer.Cmd_Completer):
         super().__init__(histfile=self.HISTFILE)
 
         self.applications = applications
+        self.formula = None
 
     def do_dump(self, arg):
         for p in self.applications:
@@ -54,13 +55,20 @@ class Grader(cmd_completer.Cmd_Completer):
                    open_source_description=open_source_description)
 
     grade_options = cmd_completer.ModArgumentParser('grade')\
-        .add_argument('what', choices=['motivation', 'cv'],
-                      help='what to grade')
+        .add_argument('what', choices=['motivation', 'cv', 'formula'],
+                      help='what to grade | set formula')\
+        .add_argument('args', nargs='*')
 
-    @set_completions('motivation', 'cv')
+    @set_completions('motivation', 'cv', 'formula')
     def do_grade(self, arg):
         "Assign points to motivation or CV statements"
         opts = self.grade_options.parse_args(arg.split())
+
+        if opts.what == 'formula':
+            if opts.args:
+                self.formula = ' '.join(opts.args)
+            printf('formula is {}', self.formula)
+            return
 
         for person in self.applications:
             self._grade(person, opts.what)
