@@ -2,6 +2,7 @@ import sys
 import traceback
 import csv
 import collections
+import textwrap
 
 import cmd_completer
 import vector
@@ -23,8 +24,11 @@ python: {p.python}
 open source: {p.open_source}{open_source_description}
 '''
 
+score_range = (-1, 0, 1)
+
 class Grader(cmd_completer.Cmd_Completer):
     prompt = 'grader> '
+    set_completions = cmd_completer.Cmd_Completer.set_completions
     HISTFILE = '~/.grader_history'
 
     def __init__(self, applications):
@@ -49,6 +53,49 @@ class Grader(cmd_completer.Cmd_Completer):
                    programming_description=programming_description,
                    open_source_description=open_source_description)
 
+    grade_options = cmd_completer.ModArgumentParser('grade')\
+        .add_argument('what', choices=['motivation', 'cv'],
+                      help='what to grade')
+
+    @set_completions('motivation', 'cv')
+    def do_grade(self, arg):
+        "Assign points to motivation or CV statements"
+        opts = self.grade_options.parse_args(arg.split())
+
+        for person in self.applications:
+            self._grade(person, opts.what)
+
+
+    def _grade(self, person, what):
+        assert what in {'motivation', 'cv'}, what
+        text = getattr(person, what)
+        old_score = getattr(person, what + '_score', None)
+        default = old_score if old_score is not None else ''
+        printf('{line}\n{}\n{line}', wrap_paragraphs(text), line='-'*70)
+        printf('Old score was {}', old_score)
+        while True:
+            choice = input('Your choice {} [{}]? '.format(score_range, default))
+            if choice == '':
+                choice = default
+            if choice == '+':
+                choice = score_range[-1]
+            if choice == '-':
+                choice = score_range[0]
+            try:
+                choice = int(choice)
+                if choice not in score_range:
+                    raise ValueError('illegal value: {}'.format(choice))
+            except ValueError as e:
+                print(e)
+            else:
+                break
+        setattr(person, what + '_score', choice)
+        printf('{} score set to {}', what, choice)
+
+def wrap_paragraphs(text):
+    paras = text.strip().split('\n\n')
+    wrapped = ('\n'.join(textwrap.wrap(para)) for para in paras)
+    return '\n\n'.join(wrapped)
 
 @vector.vectorize
 def csv_file(filename, names):

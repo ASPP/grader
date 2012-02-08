@@ -91,7 +91,7 @@ class Cmd_Completer(cmd.Cmd):
                 for a in self.get_names() if a.startswith(dotext)]
 
 class ModArgumentParser(argparse.ArgumentParser):
-    def exit(status=0, message=None):
+    def exit(self, status=0, message=None):
         if message:
             print(message)
         raise KeyboardInterrupt
