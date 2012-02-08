@@ -25,6 +25,7 @@ appl.prev.: {p.applied}  [{applied_score}]
 programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
 open source: {p.open_source}{open_source_description} [{open_source_score}]
+rank: {p.rank} {p.score}
 '''
 
 SCORE_RANGE = (-1, 0, 1)
@@ -190,18 +191,23 @@ class Grader(cmd_completer.Cmd_Completer):
                                        self.applied_rating,
                                        self.python_rating,
                                        self.config, minsc, maxsc)
-        return sorted(self.applications, key=lambda p: p.score, reverse=True)
+        ranked = sorted(self.applications, key=lambda p: p.score, reverse=True)
+        count = 0
+        for person in ranked:
+            person.rank = count
+            count += 1
+        return ranked
 
     def do_rank(self, args):
         if args != '':
             raise ValueError('no args please')
 
         ranked = self._ranking()
-        for rank, person in enumerate(ranked):
-            if rank == self.accept_count:
+        for pos, person in enumerate(ranked):
+            if person.rank == self.accept_count:
                 print('-' * 70)
-            printf('{: 2} {p.score:2.1f} {p.name} {p.lastname} <{p.email}>',
-                   rank, p=person)
+            printf('{: 2} {p.rank: 2} {p.score:2.1f} {p.name} {p.lastname} <{p.email}>',
+                   pos, p=person)
 
     save_options = cmd_completer.ModArgumentParser('save')\
         .add_argument('filename', nargs='?')
@@ -320,6 +326,10 @@ def csv_file(filename, names):
     header = next(reader)
     assert len(header) == 21
     class Person(collections.namedtuple('Person', names)):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.score = None
+            self.rank = None
         @property
         def fullname(self):
             return '{p.name} {p.lastname}'.format(p=self)
