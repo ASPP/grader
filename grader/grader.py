@@ -21,10 +21,10 @@ institute: {p.institute}
 group: {p.group}
 country: {p.country}
 position: {p.position}{position_other}
-appl.prev.: {p.applied}
-programming: {p.programming}{programming_description}
-python: {p.python}
-open source: {p.open_source}{open_source_description}
+appl.prev.: {p.applied}  [{applied_score}]
+programming: {p.programming}{programming_description} [{programming_score}]
+python: {p.python} [{python_score}]
+open source: {p.open_source}{open_source_description} [{open_source_score}]
 '''
 
 SCORE_RANGE = (-1, 0, 1)
@@ -61,6 +61,19 @@ class Grader(cmd_completer.Cmd_Completer):
     def accept_count(self, value):
         self.config['formula']['accept_count'] = value
 
+    @property
+    def programming_rating(self):
+        return self.config['programming_rating']
+    @property
+    def open_source_rating(self):
+        return self.config['open_source_rating']
+    @property
+    def applied_rating(self):
+        return self.config['applied_rating']
+    @property
+    def python_rating(self):
+        return self.config['python_rating']
+
     def do_dump(self, arg):
         for p in self.applications:
             position_other = \
@@ -76,7 +89,16 @@ class Grader(cmd_completer.Cmd_Completer):
                    p=p,
                    position_other=position_other,
                    programming_description=programming_description,
-                   open_source_description=open_source_description)
+                   open_source_description=open_source_description,
+                   programming_score=\
+                       get_rating('programming', self.programming_rating, p.programming),
+                   open_source_score=\
+                       get_rating('open_source', self.open_source_rating, p.open_source),
+                   applied_score=\
+                       get_rating('applied', self.applied_rating, p.applied),
+                   python_score=\
+                       get_rating('python', self.python_rating, p.python),
+                   )
 
     grade_options = cmd_completer.ModArgumentParser('grade')\
         .add_argument('what', choices=['motivation', 'cv', 'formula'],
@@ -102,10 +124,10 @@ class Grader(cmd_completer.Cmd_Completer):
 
     rate_options = cmd_completer.ModArgumentParser('rate')\
         .add_argument('what',
-                      choices=['programming', 'open_source', 'applied'])\
+                      choices=['programming', 'open_source', 'applied', 'python'])\
         .add_argument('args', nargs='*')
 
-    @set_completions('programming', 'open_source', 'applied')
+    @set_completions('programming', 'open_source', 'applied', 'python')
     def do_rate(self, arg):
         "Get rating for activity or set to some value"
         opts = self.rate_options.parse_args(arg.split())
@@ -155,20 +177,18 @@ class Grader(cmd_completer.Cmd_Completer):
         if self.formula is None:
             raise ValueError('formula not set yet')
 
-        programming_rating = self.config['programming_rating']
-        open_source_rating = self.config['open_source_rating']
-        applied_rating = self.config['applied_rating']
-
         minsc, maxsc = find_min_max(self. formula,
-                                    programming_rating,
-                                    open_source_rating,
-                                    applied_rating)
+                                    self.programming_rating,
+                                    self.open_source_rating,
+                                    self.applied_rating,
+                                    self.python_rating)
 
         for person in self.applications:
             person.score = rank_person(person, self.formula,
-                                       programming_rating,
-                                       open_source_rating,
-                                       applied_rating,
+                                       self.programming_rating,
+                                       self.open_source_rating,
+                                       self.applied_rating,
+                                       self.python_rating,
                                        self.config, minsc, maxsc)
         return sorted(self.applications, key=lambda p: p.score, reverse=True)
 
@@ -215,21 +235,29 @@ def eval_formula(formula, vars):
     except (NameError, TypeError) as e:
         raise ValueError('formula failed: {}'.format(e))
 
+def get_rating(name, dict, key):
+    """Retrieve rating.
+
+    Explanation in () or after / is ignored in the key.
+
+    Throws ValueError is rating is not present.
+    """
+    key = key.partition('(')[0].partition('/')[0].strip()
+    try:
+        return dict[key]
+    except KeyError:
+        raise ValueError('{} not rated for {}'.format(name, key))
+        # raise ... from None, when implemented!
+
 def rank_person(person, formula,
                 programming_rating, open_source_rating, applied_rating,
-                config, minsc, maxsc):
+                python_rating, config, minsc, maxsc):
     "Apply formula to person and return score"
     vars = {}
-    for type in 'programming', 'open_source', 'applied':
+    for type in 'programming', 'open_source', 'applied', 'python':
         dict = locals().get(type + '_rating')
         key = getattr(person, type)
-        key = key.partition('(')[0].partition('/')[0].strip()
-                    # remove explanation in () or after /
-        try:
-            value = dict[key]
-        except KeyError:
-            raise ValueError('{} not rated for {}'.format(key, type))
-                       # from None, when implemented!
+        value = get_rating(type, dict, key)
         vars[type] = value
     try:
         motivation_score = config['motivation_score'][person.fullname]
@@ -262,7 +290,8 @@ def _yield_values(var, *values):
         yield var, value
 
 def find_min_max(formula,
-                 programming_rating, open_source_rating, applied_rating):
+                 programming_rating, open_source_rating, applied_rating,
+                 python_rating):
     # coordinate with rank_person!
     options = itertools.product(
         _yield_values('born', 1900, 2012),
@@ -275,6 +304,7 @@ def find_min_max(formula,
         _yield_values('programming', *programming_rating.values()),
         _yield_values('open_source', *open_source_rating.values()),
         _yield_values('applied', *applied_rating.values()),
+        _yield_values('python', *python_rating.values()),
         )
     values = [eval_formula(formula, dict(vars)) for vars in options]
     return min(values), max(values)
@@ -338,6 +368,7 @@ def our_configfile(filename):
                                  programming_rating=float,
                                  open_source_rating=float,
                                  applied_rating=float,
+                                 python_rating=float,
                                  formula=str,
                                  motivation_score=list_of_float,
                                  cv_score=list_of_float,
