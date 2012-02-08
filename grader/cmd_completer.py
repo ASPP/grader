@@ -103,8 +103,11 @@ class ModArgumentParser(argparse.ArgumentParser):
 class InputFile:
     COMMENT_OR_EMPTY_RE = re.compile('\s* (?: [#] | $ )', re.X)
 
-    def __init__(self, filename):
-        self.file = open(filename)
+    def __init__(self, input):
+        self.file = input
+
+    def __iter__(self):
+        return self
 
     def __next__(self):
         while True:

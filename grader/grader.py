@@ -4,12 +4,13 @@ import csv
 import collections
 import textwrap
 import pprint
+import configfile
 
 import cmd_completer
 import vector
 
 def printf(fmt, *args, **kwargs):
-    return print(fmt.format(*args, **kwargs))
+    print(fmt.format(*args, **kwargs))
 
 dump_fmt = '''\
 name: {p.name} {p.lastname} <{p.email}>
@@ -27,43 +28,26 @@ open source: {p.open_source}{open_source_description}
 
 SCORE_RANGE = (-1, 0, 1)
 
-PROGRAMMING_RATING = {
-    'Novice': 0,
-    'Advanced beginner': 0,
-    'Competent': 0.7,
-    'Expert': 0.9,
-    'Proficient': 1,
-}
-
-OPEN_SOURCE_RATING = {
-    'Never used': -1,
-    'User': 0,
-    'Minor contributions': 0.5,
-    'Major contributions': 1,
-    'Project membership': 1,
-}
-
-# FIXME: should be changed to the real number of times
-APPLIED_RATING = {
-    'N': 0, # ???
-    'No': 0,
-    'Yes': 1,
-}
-
 class Grader(cmd_completer.Cmd_Completer):
     prompt = 'grader> '
     set_completions = cmd_completer.Cmd_Completer.set_completions
     HISTFILE = '~/.grader_history'
 
-    def __init__(self, applications):
+    def __init__(self, applications, config):
         super().__init__(histfile=self.HISTFILE)
 
         self.applications = applications
-        self.formula = None
-        self.programming_rating = PROGRAMMING_RATING
-        self.open_source_rating = OPEN_SOURCE_RATING
-        self.applied_rating = APPLIED_RATING
-        self.accept_count = 30
+        self.config = config
+
+    @property
+    def formula(self):
+        return self.config['formula']['formula']
+    @formula.setter
+    def formula(self, value):
+        # check syntax
+        formula = ' '.join(opts.args)
+        compile(formula, '--formula--', 'eval')
+        self.config['formula']['formula'] = value
 
     def do_dump(self, arg):
         for p in self.applications:
@@ -94,9 +78,6 @@ class Grader(cmd_completer.Cmd_Completer):
 
         if opts.what == 'formula':
             if opts.args:
-                # check syntax
-                formula = ' '.join(opts.args)
-                compile(formula, '--formula--', 'eval')
                 self.formula = formula
             printf('formula is {}', self.formula)
             return
@@ -111,10 +92,10 @@ class Grader(cmd_completer.Cmd_Completer):
 
     @set_completions('programming', 'open_source', 'applied')
     def do_rate(self, arg):
-        "Set rating for activity to some value"
+        "Get rating for activity or set to some value"
         opts = self.rate_options.parse_args(arg.split())
-        varname = opts.what + '_rating'
-        dict = getattr(self, varname)
+        section = opts.what + '_rating'
+        dict = self.config[section]
         if not opts.args:
             pprint.pprint(dict)
         else:
@@ -155,12 +136,12 @@ class Grader(cmd_completer.Cmd_Completer):
 
         for person in self.applications:
             person.score = grade_person(person, self.formula,
-                                        self.programming_rating,
-                                        self.open_source_rating,
-                                        self.applied_rating)
+                                        self.config['programming_rating'],
+                                        self.config['open_source_rating'],
+                                        self.config['applied_rating'])
         ranked = sorted(self.applications, key=lambda p: p.score, reverse=True)
         for rank, person in enumerate(ranked):
-            if rank == self.accept_count:
+            if rank == self.config['formula']['accept_count']:
                 print('-' * 70)
             printf('{: 2} {p.score:2.1f} {p.name} {p.lastname} <{p.email}>',
                    rank, p=person)
@@ -233,13 +214,22 @@ def applications_original(filename):
                token"""
     return csv_file(filename, names)
 
+def our_configfile(filename):
+    return configfile.ConfigFile(filename,
+                                 programming_rating=float,
+                                 open_source_rating=float,
+                                 applied_rating=float,
+                                 formula=str,
+                                 )
+
 grader_options = cmd_completer.ModArgumentParser('grader')\
     .add_argument('applications', type=applications_original,
-                  help='CSV file with application data')
+                  help='CSV file with application data')\
+    .add_argument('config', type=our_configfile)
 
 def main(argv0, *args):
     opts = grader_options.parse_args(args)
-    cmd = Grader(opts.applications)
+    cmd = Grader(opts.applications, opts.config)
 
     if sys.stdin.isatty():
         while True:
