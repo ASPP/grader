@@ -28,16 +28,19 @@ open source: {p.open_source}{open_source_description}
 
 SCORE_RANGE = (-1, 0, 1)
 
+IDENTITIES = (0, 1)
+
 class Grader(cmd_completer.Cmd_Completer):
     prompt = 'grader> '
     set_completions = cmd_completer.Cmd_Completer.set_completions
     HISTFILE = '~/.grader_history'
 
-    def __init__(self, applications, config):
+    def __init__(self, applications, config, identity):
         super().__init__(histfile=self.HISTFILE)
 
         self.applications = applications
         self.config = config
+        self.identity = identity
 
     @property
     def formula(self):
@@ -73,6 +76,9 @@ class Grader(cmd_completer.Cmd_Completer):
     @set_completions('motivation', 'cv', 'formula')
     def do_grade(self, arg):
         "Assign points to motivation or CV statements"
+        if self.identity is None:
+            raise ValueError('cannot do grading because identity was not set')
+
         opts = self.grade_options.parse_args(arg.split())
 
         if opts.what == 'formula':
@@ -104,8 +110,13 @@ class Grader(cmd_completer.Cmd_Completer):
 
     def _grade(self, person, what):
         assert what in {'motivation', 'cv'}, what
+        printf('doing grading for identity {}', self.identity)
         text = getattr(person, what)
-        old_score = self.config[what + '_score'].get(person.fullname, None)
+        section = self.config[what + '_score']
+        scores = section.get(person.fullname, None)
+        if scores is None:
+            scores = section[person.fullname] = list_of_float()
+        old_score = scores[self.identity]
         default = old_score if old_score is not None else ''
         printf('{line}\n{}\n{line}', wrap_paragraphs(text), line='-'*70)
         printf('Old score was {}', old_score)
@@ -125,7 +136,8 @@ class Grader(cmd_completer.Cmd_Completer):
                 print(e)
             else:
                 break
-        self.config[what + '_score'][person.fullname] = choice
+        scores[self.identity] = choice
+        section[person.fullname] = scores
         printf('{} score set to {}', what, choice)
 
     def do_rank(self, arg):
@@ -174,9 +186,8 @@ def grade_person(person, formula,
         cv_score = config['cv_score'][person.fullname]
     except KeyError as e:
         #raise ValueError('{p.name} {p.lastname}: {e}'.format(p=person, e=e))
-        import random
-        motivation_score = random.choice(SCORE_RANGE)
-        cv_score = random.choice(SCORE_RANGE)
+        motivation_score = list_of_float()
+        cv_score = list_of_float()
 
     vars.update(born=person.born, # if we decide to implement ageism
                 gender=person.gender, # if we decide, ...
@@ -184,8 +195,8 @@ def grade_person(person, formula,
                 female=(person.gender == 'Female'),
                 nation=person.nation,
                 country=person.country,
-                motivation=motivation_score,
-                cv=cv_score,
+                motivation=motivation_score.avg(),
+                cv=cv_score.avg(),
                 email=person.email, # should we discriminate against gmail?
                 )
     try:
@@ -224,24 +235,51 @@ def applications_original(filename):
                token"""
     return csv_file(filename, names)
 
+
+class list_of_float(list):
+    def __init__(self, arg=''):
+        values = (item.strip() for item in arg.split(','))
+        values = [float(value) if value else None for value in values]
+        missing = len(IDENTITIES) - len(values)
+        if missing < 0:
+            raise ValueError('list is too long')
+        values += [None] * missing
+        super().__init__(values)
+
+    def __str__(self):
+        return ', '.join(str(item) if item is not None else '' for item in self)
+
+    def avg(self):
+        if True:
+            import random
+            lst = (item if item is not None else random.choice(SCORE_RANGE)
+                   for item in self)
+        else:
+            lst = self
+        return sum(lst) / len(self)
+
+
 def our_configfile(filename):
     return configfile.ConfigFile(filename,
                                  programming_rating=float,
                                  open_source_rating=float,
                                  applied_rating=float,
                                  formula=str,
-                                 motivation_score=float,
-                                 cv_score=float,
+                                 motivation_score=list_of_float,
+                                 cv_score=list_of_float,
                                  )
 
 grader_options = cmd_completer.ModArgumentParser('grader')\
     .add_argument('applications', type=applications_original,
                   help='CSV file with application data')\
-    .add_argument('config', type=our_configfile)
+    .add_argument('config', type=our_configfile)\
+    .add_argument('-i', '--identity', type=int,
+                  choices=IDENTITIES,
+                  help='Index of person grading applications')
 
 def main(argv0, *args):
     opts = grader_options.parse_args(args)
-    cmd = Grader(opts.applications, opts.config)
+    cmd = Grader(opts.applications, opts.config, opts.identity)
 
     if sys.stdin.isatty():
         while True:
