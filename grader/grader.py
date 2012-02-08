@@ -5,6 +5,7 @@ import collections
 import textwrap
 import pprint
 import configfile
+import itertools
 
 import cmd_completer
 import vector
@@ -29,6 +30,8 @@ open source: {p.open_source}{open_source_description}
 SCORE_RANGE = (-1, 0, 1)
 
 IDENTITIES = (0, 1)
+
+HOST_COUNTRY = 'Germany'
 
 class Grader(cmd_completer.Cmd_Completer):
     prompt = 'grader> '
@@ -145,12 +148,21 @@ class Grader(cmd_completer.Cmd_Completer):
         if self.formula is None:
             raise ValueError('formula not set yet')
 
+        programming_rating = self.config['programming_rating']
+        open_source_rating = self.config['open_source_rating']
+        applied_rating = self.config['applied_rating']
+
+        minsc, maxsc = find_min_max(self. formula,
+                                    programming_rating,
+                                    open_source_rating,
+                                    applied_rating)
+
         for person in self.applications:
             person.score = rank_person(person, self.formula,
-                                       self.config['programming_rating'],
-                                       self.config['open_source_rating'],
-                                       self.config['applied_rating'],
-                                       self.config)
+                                       programming_rating,
+                                       open_source_rating,
+                                       applied_rating,
+                                       self.config, minsc, maxsc)
         ranked = sorted(self.applications, key=lambda p: p.score, reverse=True)
         for rank, person in enumerate(ranked):
             if rank == self.config['formula']['accept_count']:
@@ -165,9 +177,15 @@ class Grader(cmd_completer.Cmd_Completer):
         opts = self.save_options.parse_args(args.split())
         self.config.save(opts.filename)
 
+def eval_formula(formula, vars):
+    try:
+        return eval(formula, vars, {})
+    except (NameError, TypeError) as e:
+        raise ValueError('formula failed: {}'.format(e))
+
 def rank_person(person, formula,
                 programming_rating, open_source_rating, applied_rating,
-                config):
+                config, minsc, maxsc):
     "Apply formula to person and return score"
     vars = {}
     for type in 'programming', 'open_source', 'applied':
@@ -199,11 +217,35 @@ def rank_person(person, formula,
                 cv=cv_score.avg(),
                 email=person.email, # should we discriminate against gmail?
                 )
-    try:
-        score = eval(formula, vars, {})
-    except (NameError, TypeError) as e:
-        raise ValueError('formula failed: {}'.format(e))
+    score = eval_formula(formula, vars)
+    assert minsc <= score <= maxsc, (minsc, score, maxsc)
+    # scale linearly to SCORE_RANGE/min/max
+    range = max(SCORE_RANGE) - min(SCORE_RANGE)
+    offset = min(SCORE_RANGE)
+    score = (score - minsc) / (maxsc - minsc) * range + offset
     return score
+
+def _yield_values(var, *values):
+    for value in values:
+        yield var, value
+
+def find_min_max(formula,
+                 programming_rating, open_source_rating, applied_rating):
+    # coordinate with rank_person!
+    options = itertools.product(
+        _yield_values('born', 1900, 2012),
+        _yield_values('gender', 'M', 'F'),
+        _yield_values('female', 0, 1),
+        _yield_values('nation', 'Nicaragua', HOST_COUNTRY),
+        _yield_values('country', 'Nicaragua', HOST_COUNTRY),
+        _yield_values('motivation', *SCORE_RANGE),
+        _yield_values('cv', *SCORE_RANGE),
+        _yield_values('programming', *programming_rating.values()),
+        _yield_values('open_source', *open_source_rating.values()),
+        _yield_values('applied', *applied_rating.values()),
+        )
+    values = [eval_formula(formula, dict(vars)) for vars in options]
+    return min(values), max(values)
 
 def wrap_paragraphs(text):
     paras = text.strip().split('\n\n')

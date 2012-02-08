@@ -26,6 +26,10 @@ class _Section:
         except KeyError:
             return fallback
 
+    def values(self):
+        for name, value in self.cp.items(self.section):
+            yield value
+
 class ConfigFile:
     def __init__(self, filename, **sections):
         self.filename = filename
