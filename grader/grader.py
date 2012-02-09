@@ -196,11 +196,29 @@ class Grader(cmd_completer.Cmd_Completer):
                                        self.python_rating,
                                        self.config, minsc, maxsc)
         ranked = sorted(self.applications, key=lambda p: p.score, reverse=True)
-        count = 0
+
+        labs = {}
+        rank = 0
         for person in ranked:
-            person.rank = count
-            count += 1
+            group = self._equiv_master(person.group)
+            institute = self._equiv_master(person.institute)
+            lab = institute + ' / ' + group
+            if lab not in labs:
+                labs[lab] = rank
+                rank += 1
+            person.rank = labs[lab]
+        pprint.pprint(labs)
+
+        ranked = sorted(ranked, key=lambda p: p.rank)
         return vector.vector(ranked)
+
+    def _equiv_master(self, variant):
+        "Return the key for equiv canocalization"
+        for key, values in self.config['equivs'].items():
+            if (variant.lower() == key.lower() or
+                variant.lower() in (spelling.lower() for spelling in values)):
+                return key
+        return variant.strip()
 
     def do_rank(self, args):
         if args != '':
@@ -218,6 +236,17 @@ class Grader(cmd_completer.Cmd_Completer):
                    fullname_width=fullname_width, email_width=email_width,
                    institute_width=institute_width, group_width=group_width)
 
+    def do_equiv(self, args):
+        if args == '':
+            for key, value in self.config['equivs'].items():
+                printf('{} = {}', key, value)
+            return
+
+        variant, *equivs = [item.strip() for item in args.split('=')]
+        saved = self.config['equivs'].get(variant, list_of_equivs())
+        saved.extend(equivs)
+        self.config['equivs'][variant] = saved
+
     save_options = cmd_completer.ModArgumentParser('save')\
         .add_argument('filename', nargs='?')
 
@@ -229,20 +258,28 @@ class Grader(cmd_completer.Cmd_Completer):
         if args != '':
             raise ValueError('no args please')
         ranked = self._ranking()
-        print(self.accept_count)
+        printf('accepting {}', self.accept_count)
+        count = collections.Counter(ranked.rank)
+
         _write_file('applications_accepted.csv',
-                    ranked[:self.accept_count])
+                    (person for person in ranked if
+                     person.rank < self.accept_count and count[person.rank] == 1))
+        _write_file('applications_same_lab.csv',
+                    (person for person in ranked if
+                     person.rank < self.accept_count and count[person.rank] != 1))
         _write_file('applications_rejected.csv',
-                    ranked[self.accept_count:])
+                    (person for person in ranked if
+                     person.rank >= self.accept_count))
+
 
 def _write_file(filename, persons):
     header = '$NAME$;$SURNAME$;$EMAIL$'
     with open(filename, 'w') as f:
         f.write(header + '\n')
-        for person in persons:
+        for i, person in enumerate(persons):
             row = ';'.join((person.name, person.lastname, person.email))
             f.write(row + '\n')
-    printf("'{}' written with header + {} rows", filename, len(persons))
+    printf("'{}' written with header + {} rows", filename, i+1)
 
 def eval_formula(formula, vars):
     try:
@@ -381,6 +418,14 @@ class list_of_float(list):
             lst = self
         return sum(lst) / len(self)
 
+class list_of_equivs(list):
+    def __init__(self, arg=None):
+        equivs = ((item.strip() for item in arg.split('='))
+                  if arg is not None else ())
+        super().__init__(equivs)
+
+    def __str__(self):
+        return ' = '.join(self)
 
 def our_configfile(filename):
     return configfile.ConfigFile(filename,
@@ -391,6 +436,7 @@ def our_configfile(filename):
                                  formula=str,
                                  motivation_score=list_of_float,
                                  cv_score=list_of_float,
+                                 equivs=list_of_equivs,
                                  )
 
 grader_options = cmd_completer.ModArgumentParser('grader')\
