@@ -6,6 +6,7 @@ import textwrap
 import pprint
 import configfile
 import itertools
+import logging
 
 import cmd_completer
 import vector
@@ -448,6 +449,8 @@ grader_options = cmd_completer.ModArgumentParser('grader')\
                   help='Index of person grading applications')
 
 def main(argv0, *args):
+    logging.basicConfig(level=logging.INFO)
+
     opts = grader_options.parse_args(args)
     cmd = Grader(opts.applications, opts.config, opts.identity)
 
