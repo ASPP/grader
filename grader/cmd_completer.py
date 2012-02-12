@@ -42,12 +42,31 @@ class Cmd_Completer(cmd.Cmd):
             return None
 
         for word in words[1:-1]:
+            if callable(where):
+                try:
+                    where = where(self, word)
+                    log.debug('callable replaced with %s', where)
+                except Exception as e:
+                    log.exception('callable %s', where, e)
             if not isinstance(where, dict):
                 return None
             where = where[word]
 
-        return ['%s ' % word
-                for word in where if str(word).startswith(words[-1])]
+        log.debug('where bef=%s', where)
+        special = False
+        if callable(where):
+            try:
+                where = where(self, words[-1])
+                log.debug('where aft=%s', where)
+                special = True
+            except Exception as e:
+                log.exception('where aft', e)
+
+        log.debug('filtering %s with %s', where, words[-1])
+        ans = ['%s ' % word for word in where
+               if str(word).startswith(words[-1]) or special]
+        log.debug('filtered down to %s', ans)
+        return ans
 
     def completedefault(self, text, line, begidx, endidx):
         words = line[:endidx].rstrip().split()

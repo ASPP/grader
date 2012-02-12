@@ -123,15 +123,32 @@ class Grader(cmd_completer.Cmd_Completer):
     grade_options = cmd_completer.ModArgumentParser('grade')\
         .add_argument('what', choices=['motivation', 'cv', 'formula'],
                       help='what to grade | set formula')\
-        .add_argument('args', nargs='*')
+        .add_argument('-g', '--graded', action='store_true',
+                      help='grade already graded too')\
+        .add_argument('person', nargs='*')
 
-    @set_completions('motivation', 'cv', 'formula')
+    def _complete_name(self, prefix):
+        """Return a list of dictionaries {name -> [last-name+]}
+
+        Name or last-name must start with prefix.
+        """
+        completions = collections.defaultdict(set)
+        for p in self.applications:
+            if p.name.startswith(prefix) or p.lastname.startswith(prefix):
+                completions[p.name].add(p.lastname)
+        return completions
+
+    @set_completions('formula',
+                     motiviation=_complete_name,
+                     cv=_complete_name)
     def do_grade(self, arg):
         "Assign points to motivation or CV statements"
         if self.identity is None:
             raise ValueError('cannot do grading because identity was not set')
 
         opts = self.grade_options.parse_args(arg.split())
+        if opts.graded and opts.person:
+            raise ValueError('cannot use --graded option with explicit name')
 
         if opts.what == 'formula':
             if opts.args:
@@ -143,8 +160,13 @@ class Grader(cmd_completer.Cmd_Completer):
 
         printf('Doing grading for identity {}', self.identity)
         print('Press ^C or ^D to stop')
+        fullname = ' '.join(opts.person)
         for person in self.applications:
-            if not self._grade(person, opts.what):
+            if fullname:
+                do = person.fullname == fullname
+            else:
+                do = opts.graded or person.score is None
+            if do and not self._grade(person, opts.what):
                 break
 
     rate_options = cmd_completer.ModArgumentParser('rate')\
