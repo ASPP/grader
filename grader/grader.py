@@ -141,8 +141,11 @@ class Grader(cmd_completer.Cmd_Completer):
             printf('formula = {}', self.formula)
             return
 
+        printf('Doing grading for identity {}', self.identity)
+        print('Press ^C or ^D to stop')
         for person in self.applications:
-            self._grade(person, opts.what)
+            if not self._grade(person, opts.what):
+                break
 
     rate_options = cmd_completer.ModArgumentParser('rate')\
         .add_argument('what',
@@ -165,7 +168,6 @@ class Grader(cmd_completer.Cmd_Completer):
 
     def _grade(self, person, what):
         assert what in {'motivation', 'cv'}, what
-        printf('doing grading for identity {}', self.identity)
         text = getattr(person, what)
         section = self.config[what + '_score']
         scores = section.get(person.fullname, None)
@@ -176,7 +178,12 @@ class Grader(cmd_completer.Cmd_Completer):
         printf('{line}\n{}\n{line}', wrap_paragraphs(text), line='-'*70)
         printf('Old score was {}', old_score)
         while True:
-            choice = input('Your choice {} [{}]? '.format(SCORE_RANGE, default))
+            prompt = 'Your choice {} [{}]? '.format(SCORE_RANGE, default)
+            try:
+                choice = input(prompt)
+            except EOFError:
+                print()
+                return False
             if choice == '':
                 choice = default
             if choice == '+':
@@ -196,6 +203,7 @@ class Grader(cmd_completer.Cmd_Completer):
             section[person.fullname] = scores
             printf('{} score set to {}', what, choice)
             self.modified = True
+        return True
 
     def _ranking(self):
         "Order applications by rank"
