@@ -1,4 +1,5 @@
 import sys
+import os
 import traceback
 import csv
 import collections
@@ -7,12 +8,24 @@ import pprint
 import configfile
 import itertools
 import logging
+import tempfile
+import contextlib
 
 import cmd_completer
 import vector
 
+
 def printf(fmt, *args, **kwargs):
     print(fmt.format(*args, **kwargs))
+
+@contextlib.contextmanager
+def Umask(umask):
+    old = os.umask(umask)
+    try:
+        yield
+    finally:
+        os.umask(old)
+
 
 DUMP_FMT = '''\
 name: {p.name} {p.lastname} <{p.email}>
@@ -50,6 +63,7 @@ class Grader(cmd_completer.Cmd_Completer):
         self.applications = applications
         self.config = config
         self.identity = identity
+        self.modified = False
 
     @property
     def formula(self):
@@ -122,6 +136,8 @@ class Grader(cmd_completer.Cmd_Completer):
         if opts.what == 'formula':
             if opts.args:
                 self.formula = ' '.join(opts.args)
+                self.modified = True
+
             printf('formula = {}', self.formula)
             return
 
@@ -145,6 +161,7 @@ class Grader(cmd_completer.Cmd_Completer):
             how = ' '.join(opts.args[:-1])
             value = float(opts.args[-1])
             dict[how] = value
+            self.modified = True
 
     def _grade(self, person, what):
         assert what in {'motivation', 'cv'}, what
@@ -175,8 +192,10 @@ class Grader(cmd_completer.Cmd_Completer):
             else:
                 break
         scores[self.identity] = choice
-        section[person.fullname] = scores
-        printf('{} score set to {}', what, choice)
+        if section[person.fullname] != scores:
+            section[person.fullname] = scores
+            printf('{} score set to {}', what, choice)
+            self.modified = True
 
     def _ranking(self):
         "Order applications by rank"
@@ -247,6 +266,7 @@ class Grader(cmd_completer.Cmd_Completer):
         saved = self.config['equivs'].get(variant, list_of_equivs())
         saved.extend(equivs)
         self.config['equivs'][variant] = saved
+        self.modified = True
 
     save_options = cmd_completer.ModArgumentParser('save')\
         .add_argument('filename', nargs='?')
@@ -254,6 +274,7 @@ class Grader(cmd_completer.Cmd_Completer):
     def do_save(self, args):
         opts = self.save_options.parse_args(args.split())
         self.config.save(opts.filename)
+        self.modified = False
 
     def do_write(self, args):
         if args != '':
@@ -470,6 +491,13 @@ def main(argv0, *args):
         input = cmd_completer.InputFile(sys.stdin)
         for line in input:
             cmd.onecmd(line)
+
+    if cmd.modified:
+        print("It seems thy labours' fruits may be going into oblivion...")
+        with Umask(0o077):
+            tmpfile = tempfile.mkstemp(prefix='grader-', suffix='.conf')[1]
+            printf("Saving them to {} instead", tmpfile)
+            cmd.do_save(tmpfile)
 
 if __name__ == '__main__':
     sys.exit(main(*sys.argv))
