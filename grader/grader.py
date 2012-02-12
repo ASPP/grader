@@ -95,6 +95,7 @@ class Grader(cmd_completer.Cmd_Completer):
         return self.config['python_rating']
 
     def do_dump(self, arg):
+        "Print information about applications"
         for p in self.applications:
             position_other = \
                 (' ({})'.format(p.position_other)
@@ -271,6 +272,7 @@ class Grader(cmd_completer.Cmd_Completer):
         return variant.strip()
 
     def do_rank(self, args):
+        "Print list of people sorted by ranking"
         if args != '':
             raise ValueError('no args please')
 
@@ -287,6 +289,7 @@ class Grader(cmd_completer.Cmd_Completer):
                    institute_width=institute_width, group_width=group_width)
 
     def do_equiv(self, args):
+        "Specify institutions'/labs' names as equivalent"
         if args == '':
             for key, value in self.config['equivs'].items():
                 printf('{} = {}', key, value)
@@ -302,11 +305,13 @@ class Grader(cmd_completer.Cmd_Completer):
         .add_argument('filename', nargs='?')
 
     def do_save(self, args):
+        "Save the fruits of thy labour"
         opts = self.save_options.parse_args(args.split())
         self.config.save(opts.filename)
         self.modified = False
 
     def do_write(self, args):
+        "Write lists of mailing ricipients"
         if args != '':
             raise ValueError('no args please')
         ranked = self._ranking()

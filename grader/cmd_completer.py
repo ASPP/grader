@@ -89,10 +89,12 @@ class Cmd_Completer(cmd.Cmd):
         return cmd
 
     def do_EOF(self, arg):
+        "Quit"
         log.info('***bye***')
         return True
 
     def do_py(self, arg):
+        "Execute python statements"
         try:
             ans = eval(arg, sys.modules['__main__'].__dict__, self.__dict__)
             if ans is not None:
@@ -101,6 +103,7 @@ class Cmd_Completer(cmd.Cmd):
             log.error(e)
 
     def do_shell(self, arg):
+        "Execute shell statements"
         os.system(arg)
 
     def emptyline(self):
