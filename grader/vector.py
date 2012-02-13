@@ -1,9 +1,8 @@
-import numpy
 import functools
 
 class vector(list):
     """A vector of objects with easy extraction:
-           v.E == numpy.array(elem.E for elem in v)
+           v.E == vector(elem.E for elem in v)
 
     >>> V = vector((1, 2, 3, 4))
     >>> V.numerator
@@ -17,12 +16,6 @@ class vector(list):
     >>> V[:3]                             # doctest: +NORMALIZE_WHITESPACE
     vector[ 1, 2, 3]
 
-    Numpy array subscripting is also supported:
-    >>> V.numerator < 3                   # doctest: +NORMALIZE_WHITESPACE
-    array([ True, True, False, False], dtype=bool)
-    >>> V[V.numerator < 3]                # doctest: +NORMALIZE_WHITESPACE
-    vector[ 1, 2]
-
     >>> @vectorize
     ... def gen():
     ...     yield 1; yield 2; yield 3
@@ -32,19 +25,14 @@ class vector(list):
     """
 
     def __getattr__(self, name):
-        if len(self) and isinstance(getattr(self[0], name), tuple):
-            # array of tuples is not very usefull
-            return vector(getattr(elem, name) for elem in self)
-        else:
-            return numpy.array([getattr(elem, name) for elem in self])
+        # array of tuples is not very usefull
+        return vector(getattr(elem, name) for elem in self)
 
     def __repr__(self):
         return 'vector[\t'+',\n\t'.join([str(elem) for elem in self])+']'
 
     def __getitem__(self, i):
-        if isinstance(i, numpy.ndarray):
-            return vector(numpy.array(self)[i])
-        elif isinstance(i, slice):
+        if isinstance(i, slice):
             return vector(super(vector,self).__getitem__(i))
         else:
             return super(vector,self).__getitem__(i)
@@ -56,8 +44,7 @@ class vector(list):
         return vector(super(vector,self).__add__(other))
 
     def argsort(self):
-        return numpy.array(self).argsort()
-
+        return vector(key for key,val in sorted(zip(self, xrange(len(self)))))
 
 def vectorize(generator_func):
     def wrapper(*args, **kwargs):
