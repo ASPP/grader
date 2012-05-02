@@ -113,11 +113,8 @@ class Grader(cmd_completer.Cmd_Completer):
 
     @property
     def accept_count(self):
-        try:
-            return int(self.config['formula']['accept_count'])
-        except KeyError:
-            self.config['formula']['accept_count'] = DEFAULT_ACCEPT_COUNT
-            return DEFAULT_ACCEPT_COUNT
+        return int(self.config['formula'].create('accept_count',
+                                                 lambda:DEFAULT_ACCEPT_COUNT))
     @accept_count.setter
     def accept_count(self, value):
         self.config['formula']['accept_count'] = value
@@ -448,14 +445,9 @@ def rank_person(person, formula,
         key = getattr(person, type)
         value = get_rating(type, dict, key)
         vars[type] = value
-    try:
-        motivation_score = config['motivation_score'][person.fullname]
-        cv_score = config['cv_score'][person.fullname]
-    except KeyError as e:
-        #raise ValueError('{p.name} {p.lastname}: {e}'.format(p=person, e=e))
-        motivation_score = list_of_float()
-        cv_score = list_of_float()
-
+    fullname = person.fullname
+    motivation = config['motivation_score'].create(fullname, list_of_float)
+    cv = config['cv_score'].create(fullname, list_of_float)
     vars.update(born=person.born, # if we decide to implement ageism
                 gender=person.gender, # if we decide, ...
                                       # oh we already did
@@ -463,8 +455,8 @@ def rank_person(person, formula,
                 applied=(person.applied[0] not in 'nN'),
                 nation=person.nation,
                 country=person.country,
-                motivation=motivation_score.avg(),
-                cv=cv_score.avg(),
+                motivation=motivation.avg(),
+                cv=cv.avg(),
                 email=person.email, # should we discriminate against gmail?
                 )
     score = eval_formula(formula, vars)

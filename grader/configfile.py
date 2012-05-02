@@ -26,6 +26,14 @@ class _Section:
         except KeyError:
             return fallback
 
+    def create(self, item, fallback):
+        try:
+            return self.__getitem__(item)
+        except KeyError:
+            value = fallback()
+            self.__setitem__(item, value)
+            return value
+
     def keys(self):
         for name, value in self.cp.items(self.section):
             yield name
