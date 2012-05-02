@@ -185,7 +185,7 @@ class Grader(cmd_completer.Cmd_Completer):
         .add_argument('person', nargs='*')
 
     @set_completions('formula',
-                     motiviation=_complete_name,
+                     motivation=_complete_name,
                      cv=_complete_name)
     def do_grade(self, arg):
         "Assign points to motivation or CV statements"
