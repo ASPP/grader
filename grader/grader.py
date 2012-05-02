@@ -148,7 +148,11 @@ class Grader(cmd_completer.Cmd_Completer):
                        if any(arg in p.fullname for arg in args))
         else:
             persons = self.applications
+        self._dump(persons)
 
+    do_dump.completions = _complete_name
+
+    def _dump(self, persons):
         for p in persons:
             position_other = \
                 (' ({})'.format(p.position_other)
@@ -172,7 +176,10 @@ class Grader(cmd_completer.Cmd_Completer):
                        get_rating('python', self.python_rating, p.python),
                    )
 
-    do_dump.completions = _complete_name
+    def do_grep(self, args):
+        "Look for string in applications"
+        self._dump(p for p in self.applications
+                   if args in str(p))
 
     grade_options = cmd_completer.ModArgumentParser('grade')\
         .add_argument('what', choices=['motivation', 'cv', 'formula'],
