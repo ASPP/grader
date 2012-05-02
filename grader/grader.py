@@ -206,24 +206,50 @@ class Grader(cmd_completer.Cmd_Completer):
             if do and not self._grade(person, opts.what):
                 break
 
+    RATING_CATEGORIES = ['programming', 'open_source', 'python']
+
     rate_options = cmd_completer.ModArgumentParser('rate')\
-        .add_argument('what',
-                      choices=['programming', 'open_source', 'python'])\
+        .add_argument('-m', '--missing', action='store_true',
+                      help='rate all missing fields')\
+        .add_argument('what', nargs='?',
+                      choices=RATING_CATEGORIES)\
         .add_argument('args', nargs='*')
 
-    @set_completions('programming', 'open_source', 'python')
+    @set_completions(*RATING_CATEGORIES)
     def do_rate(self, arg):
         "Get rating for activity or set to some value"
         opts = self.rate_options.parse_args(arg.split())
-        section = opts.what + '_rating'
-        current = self.config[section]
-        if not opts.args:
-            pprint.pprint(dict(current.items()))
+        if opts.missing and opts.args:
+            raise SyntaxError('cannot use -m with arguments')
+
+        if opts.what is None:
+            whats = self.RATING_CATEGORIES
         else:
-            how = ' '.join(opts.args[:-1])
-            value = float(opts.args[-1])
-            current[how] = value
-            self.modified = True
+            whats = [opts.what]
+
+        for what in whats:
+            if opts.what is None:
+                printf('== {} ==', what)
+            section = what + '_rating'
+            current = self.config[section]
+            if opts.args:
+                how = ' '.join(opts.args[:-1])
+                value = float(opts.args[-1])
+                current[how] = value
+                self.modified = True
+            else:
+                pprint.pprint(dict(current.items()))
+                if opts.missing:
+                    used = set(getattr(p, what).lower()
+                               for p in self.applications)
+                    for descr in used:
+                        try:
+                            get_rating(what, current, descr)
+                        except MissingRating as e:
+                            raw = input('{} = '.format(descr))
+                            value = float(raw)
+                            current[e.key] = value
+                            self.modified = True
 
     def _grade(self, person, what):
         assert what in {'motivation', 'cv'}, what
@@ -381,6 +407,13 @@ def eval_formula(formula, vars):
                                                       pprint.pformat(vars))
         raise ValueError(msg)
 
+class MissingRating(KeyError):
+    def __str__(self):
+        return '{} not rated for {}'.format(*self.args)
+    @property
+    def key(self):
+        return self.args[1]
+
 def get_rating(name, dict, key):
     """Retrieve rating.
 
@@ -392,7 +425,7 @@ def get_rating(name, dict, key):
     try:
         return dict[key]
     except KeyError:
-        raise ValueError('{} not rated for {}'.format(name, key))
+        raise MissingRating(name, key)
         # raise ... from None, when implemented!
 
 def rank_person(person, formula,

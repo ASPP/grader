@@ -25,6 +25,10 @@ class _Section:
         except KeyError:
             return fallback
 
+    def keys(self):
+        for name, value in self.cp.items(self.section):
+            yield name
+
     def values(self):
         for name, value in self.cp.items(self.section):
             yield self.type(value)
