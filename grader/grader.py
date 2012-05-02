@@ -451,7 +451,7 @@ def rank_person(person, formula,
     fullname = person.fullname
     motivation = config['motivation_score'].create(fullname, list_of_float)
     cv = config['cv_score'].create(fullname, list_of_float)
-    vars.update(born=person.born, # if we decide to implement ageism
+    vars.update(born=int(person.born), # if we decide to implement ageism
                 gender=person.gender, # if we decide, ...
                                       # oh we already did
                 female=(person.gender == 'Female'),
