@@ -132,9 +132,27 @@ class Grader(cmd_completer.Cmd_Completer):
     def python_rating(self):
         return self.config['python_rating']
 
-    def do_dump(self, arg):
-        "Print information about applications"
+    def _complete_name(self, prefix):
+        """Return a list of dictionaries {name -> [last-name+]}
+
+        Name or last-name must start with prefix.
+        """
+        completions = collections.defaultdict(set)
         for p in self.applications:
+            if p.name.startswith(prefix) or p.lastname.startswith(prefix):
+                completions[p.name].add(p.lastname)
+        return completions
+
+    def do_dump(self, args):
+        "Print information about applications"
+        args = args.split()
+        if args:
+            persons = (p for p in self.applications
+                       if any(arg in p.fullname for arg in args))
+        else:
+            persons = self.applications
+
+        for p in persons:
             position_other = \
                 (' ({})'.format(p.position_other)
                  if p.position=='Other' else '')
@@ -157,23 +175,14 @@ class Grader(cmd_completer.Cmd_Completer):
                        get_rating('python', self.python_rating, p.python),
                    )
 
+    do_dump.completions = _complete_name
+
     grade_options = cmd_completer.ModArgumentParser('grade')\
         .add_argument('what', choices=['motivation', 'cv', 'formula'],
                       help='what to grade | set formula')\
         .add_argument('-g', '--graded', action='store_true',
                       help='grade already graded too')\
         .add_argument('person', nargs='*')
-
-    def _complete_name(self, prefix):
-        """Return a list of dictionaries {name -> [last-name+]}
-
-        Name or last-name must start with prefix.
-        """
-        completions = collections.defaultdict(set)
-        for p in self.applications:
-            if p.name.startswith(prefix) or p.lastname.startswith(prefix):
-                completions[p.name].add(p.lastname)
-        return completions
 
     @set_completions('formula',
                      motiviation=_complete_name,
