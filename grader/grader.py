@@ -505,8 +505,11 @@ def our_configfile(filename):
                                  equivs=list_of_equivs,
                                  )
 
+def open_no_newlines(filename):
+    return open(filename, newline='')
+
 grader_options = cmd_completer.ModArgumentParser('grader')\
-    .add_argument('applications', type=open,
+    .add_argument('applications', type=open_no_newlines,
                   help='CSV file with application data')\
     .add_argument('config', type=our_configfile)\
     .add_argument('-i', '--identity', type=int,
