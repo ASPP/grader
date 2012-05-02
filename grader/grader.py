@@ -531,9 +531,12 @@ def main(argv0, *args):
             except KeyboardInterrupt:
                 print()
             except SyntaxError as e:
-                print('bad command: %s', e)
+                printf('bad command: {}', e)
             except ValueError as e:
-                print('bad value: %s', e)
+                printf('bad value: {}', e)
+                traceback.print_exc()
+            except Exception as e:
+                printf('programming error: {}', e)
                 traceback.print_exc()
     else:
         input = cmd_completer.InputFile(sys.stdin)
