@@ -98,7 +98,10 @@ class Grader(cmd_completer.Cmd_Completer):
 
     @property
     def formula(self):
-        return self.config['formula']['formula']
+        try:
+            return self.config['formula']['formula']
+        except KeyError:
+            return None
     @formula.setter
     def formula(self, value):
         # check syntax
@@ -264,7 +267,7 @@ class Grader(cmd_completer.Cmd_Completer):
         if self.formula is None:
             raise ValueError('formula not set yet')
 
-        minsc, maxsc = find_min_max(self. formula,
+        minsc, maxsc = find_min_max(self.formula,
                                     self.programming_rating,
                                     self.open_source_rating,
                                     self.applied_rating,
