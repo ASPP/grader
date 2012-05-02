@@ -57,13 +57,28 @@ class Grader(cmd_completer.Cmd_Completer):
     set_completions = cmd_completer.Cmd_Completer.set_completions
     HISTFILE = '~/.grader_history'
 
-    def __init__(self, applications, config, identity):
+    def __init__(self, identity, config, applications):
         super().__init__(histfile=self.HISTFILE)
 
-        self.applications = applications
-        self.config = config
         self.identity = identity
+        self.config = config
+        self.applications = self._read_applications(applications)
+
         self.modified = False
+
+    def _read_applications(self, file):
+        names = """completed
+                   nation born gender
+                   institute group country
+                   position position_other
+                   applied
+                   programming python programming_description
+                   open_source open_source_description
+                   motivation cv
+                   name lastname email
+                   token"""
+        return csv_file(file, names.split())
+
 
     @property
     def formula(self):
@@ -424,10 +439,10 @@ def wrap_paragraphs(text):
     return '\n\n'.join(wrapped)
 
 @vector.vectorize
-def csv_file(filename, names):
-    reader = csv.reader(open(filename, newline=''))
+def csv_file(file, names):
+    reader = csv.reader(file)
     header = next(reader)
-    assert len(header) == 21
+    assert len(header) == len(names)
     class Person(collections.namedtuple('Person', names)):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
@@ -438,20 +453,6 @@ def csv_file(filename, names):
             return '{p.name} {p.lastname}'.format(p=self)
     while True:
         yield Person(*next(reader))
-
-def applications_original(filename):
-    names = """completed
-               nation born gender
-               institute group country
-               position position_other
-               applied
-               programming python programming_description
-               open_source open_source_description
-               motivation cv
-               name lastname email
-               token"""
-    return csv_file(filename, names)
-
 
 class list_of_float(list):
     def __init__(self, arg=''):
@@ -497,7 +498,7 @@ def our_configfile(filename):
                                  )
 
 grader_options = cmd_completer.ModArgumentParser('grader')\
-    .add_argument('applications', type=applications_original,
+    .add_argument('applications', type=open,
                   help='CSV file with application data')\
     .add_argument('config', type=our_configfile)\
     .add_argument('-i', '--identity', type=int,
@@ -508,7 +509,7 @@ def main(argv0, *args):
     logging.basicConfig(level=logging.INFO)
 
     opts = grader_options.parse_args(args)
-    cmd = Grader(opts.applications, opts.config, opts.identity)
+    cmd = Grader(opts.identity, opts.config, opts.applications)
 
     if sys.stdin.isatty():
         while True:
