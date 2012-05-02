@@ -370,7 +370,10 @@ def eval_formula(formula, vars):
     try:
         return eval(formula, vars, {})
     except (NameError, TypeError) as e:
-        raise ValueError('formula failed: {}'.format(e))
+        vars.pop('__builtins__', None)
+        msg = 'formula failed: {}\n[{}]\n[{}]'.format(e, formula,
+                                                      pprint.pformat(vars))
+        raise ValueError(msg)
 
 def get_rating(name, dict, key):
     """Retrieve rating.
