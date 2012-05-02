@@ -53,6 +53,8 @@ IDENTITIES = (0, 1)
 
 HOST_COUNTRY = 'Germany'
 
+DEFAULT_ACCEPT_COUNT = 30
+
 class Grader(cmd_completer.Cmd_Completer):
     prompt = 'grader> '
     set_completions = cmd_completer.Cmd_Completer.set_completions
@@ -111,7 +113,11 @@ class Grader(cmd_completer.Cmd_Completer):
 
     @property
     def accept_count(self):
-        return int(self.config['formula']['accept_count'])
+        try:
+            return int(self.config['formula']['accept_count'])
+        except KeyError:
+            self.config['formula']['accept_count'] = DEFAULT_ACCEPT_COUNT
+            return DEFAULT_ACCEPT_COUNT
     @accept_count.setter
     def accept_count(self, value):
         self.config['formula']['accept_count'] = value
