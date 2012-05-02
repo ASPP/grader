@@ -208,7 +208,8 @@ class Grader(cmd_completer.Cmd_Completer):
             if fullname:
                 do = person.fullname == fullname
             else:
-                do = opts.graded or person.score is None
+                do = (opts.graded or
+                      self._get_grading(person, opts.what)[self.identity] is None)
             if do and not self._grade(person, opts.what):
                 break
 
@@ -257,11 +258,15 @@ class Grader(cmd_completer.Cmd_Completer):
                             current[e.key] = value
                             self.modified = True
 
+    def _get_grading(self, person, what):
+        section = self.config[what + '_score']
+        scores = section.create(person.fullname, list_of_float)
+        return scores
+
     def _grade(self, person, what):
         assert what in {'motivation', 'cv'}, what
         text = getattr(person, what)
-        section = self.config[what + '_score']
-        scores = section.create(person.fullname, list_of_float)
+        scores = self._get_grading(person, what)
         old_score = scores[self.identity]
         default = old_score if old_score is not None else ''
         printf('{line}\n{}\n{line}', wrap_paragraphs(text), line='-'*70)
@@ -289,7 +294,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 break
         if choice != default:
             scores[self.identity] = choice
-            section[person.fullname] = scores
+            self.config[what + '_score'][person.fullname] = scores
             printf('{} score set to {}', what, choice)
             self.modified = True
         return True
