@@ -185,7 +185,23 @@ class Grader(cmd_completer.Cmd_Completer):
                      motivation=_complete_name,
                      cv=_complete_name)
     def do_grade(self, arg):
-        "Assign points to motivation or CV statements"
+        """Assign points to motivation or CV statements or set formula
+
+        Formula is set with:
+          grade formula ...
+        where ... is a python expression using the following variables:
+          born: int,
+          gender: 'M' or 'F',
+          female: 0 or 1,
+          nation: str,
+          country: str,
+          motivation: float,
+          cv: float,
+          programming: float,
+          open_source: float,
+          applied: 0 or 1,
+          python: float.
+        """
         if self.identity is None:
             raise ValueError('cannot do grading because identity was not set')
 
