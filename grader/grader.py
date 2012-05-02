@@ -261,9 +261,7 @@ class Grader(cmd_completer.Cmd_Completer):
         assert what in {'motivation', 'cv'}, what
         text = getattr(person, what)
         section = self.config[what + '_score']
-        scores = section.get(person.fullname, None)
-        if scores is None:
-            scores = section[person.fullname] = list_of_float()
+        scores = section.create(person.fullname, list_of_float)
         old_score = scores[self.identity]
         default = old_score if old_score is not None else ''
         printf('{line}\n{}\n{line}', wrap_paragraphs(text), line='-'*70)
@@ -289,8 +287,8 @@ class Grader(cmd_completer.Cmd_Completer):
                 print(e)
             else:
                 break
-        scores[self.identity] = choice
-        if section[person.fullname] != scores:
+        if choice != default:
+            scores[self.identity] = choice
             section[person.fullname] = scores
             printf('{} score set to {}', what, choice)
             self.modified = True
