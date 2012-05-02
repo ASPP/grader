@@ -36,7 +36,7 @@ institute: {p.institute}
 group: {p.group}
 country: {p.country}
 position: {p.position}{position_other}
-appl.prev.: {p.applied}  [{applied_score}]
+appl.prev.: {p.applied}
 programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
 open source: {p.open_source}{open_source_description} [{open_source_score}]
@@ -123,9 +123,6 @@ class Grader(cmd_completer.Cmd_Completer):
     def open_source_rating(self):
         return self.config['open_source_rating']
     @property
-    def applied_rating(self):
-        return self.config['applied_rating']
-    @property
     def python_rating(self):
         return self.config['python_rating']
 
@@ -150,8 +147,6 @@ class Grader(cmd_completer.Cmd_Completer):
                        get_rating('programming', self.programming_rating, p.programming),
                    open_source_score=\
                        get_rating('open_source', self.open_source_rating, p.open_source),
-                   applied_score=\
-                       get_rating('applied', self.applied_rating, p.applied),
                    python_score=\
                        get_rating('python', self.python_rating, p.python),
                    )
@@ -207,10 +202,10 @@ class Grader(cmd_completer.Cmd_Completer):
 
     rate_options = cmd_completer.ModArgumentParser('rate')\
         .add_argument('what',
-                      choices=['programming', 'open_source', 'applied', 'python'])\
+                      choices=['programming', 'open_source', 'python'])\
         .add_argument('args', nargs='*')
 
-    @set_completions('programming', 'open_source', 'applied', 'python')
+    @set_completions('programming', 'open_source', 'python')
     def do_rate(self, arg):
         "Get rating for activity or set to some value"
         opts = self.rate_options.parse_args(arg.split())
@@ -271,14 +266,12 @@ class Grader(cmd_completer.Cmd_Completer):
         minsc, maxsc = find_min_max(self.formula,
                                     self.programming_rating,
                                     self.open_source_rating,
-                                    self.applied_rating,
                                     self.python_rating)
 
         for person in self.applications:
             person.score = rank_person(person, self.formula,
                                        self.programming_rating,
                                        self.open_source_rating,
-                                       self.applied_rating,
                                        self.python_rating,
                                        self.config, minsc, maxsc)
         ranked = sorted(self.applications, key=lambda p: p.score, reverse=True)
@@ -394,11 +387,11 @@ def get_rating(name, dict, key):
         # raise ... from None, when implemented!
 
 def rank_person(person, formula,
-                programming_rating, open_source_rating, applied_rating,
-                python_rating, config, minsc, maxsc):
+                programming_rating, open_source_rating, python_rating,
+                config, minsc, maxsc):
     "Apply formula to person and return score"
     vars = {}
-    for type in 'programming', 'open_source', 'applied', 'python':
+    for type in 'programming', 'open_source', 'python':
         dict = locals().get(type + '_rating')
         key = getattr(person, type)
         value = get_rating(type, dict, key)
@@ -415,6 +408,7 @@ def rank_person(person, formula,
                 gender=person.gender, # if we decide, ...
                                       # oh we already did
                 female=(person.gender == 'Female'),
+                applied=(person.applied[0] not in 'nN'),
                 nation=person.nation,
                 country=person.country,
                 motivation=motivation_score.avg(),
@@ -434,8 +428,7 @@ def _yield_values(var, *values):
         yield var, value
 
 def find_min_max(formula,
-                 programming_rating, open_source_rating, applied_rating,
-                 python_rating):
+                 programming_rating, open_source_rating, python_rating):
     # coordinate with rank_person!
     options = itertools.product(
         _yield_values('born', 1900, 2012),
@@ -447,7 +440,7 @@ def find_min_max(formula,
         _yield_values('cv', *SCORE_RANGE),
         _yield_values('programming', *programming_rating.values()),
         _yield_values('open_source', *open_source_rating.values()),
-        _yield_values('applied', *applied_rating.values()),
+        _yield_values('applied', 0, 1),
         _yield_values('python', *python_rating.values()),
         )
     values = [eval_formula(formula, dict(vars)) for vars in options]
@@ -503,7 +496,6 @@ def our_configfile(filename):
     return configfile.ConfigFile(filename,
                                  programming_rating=float,
                                  open_source_rating=float,
-                                 applied_rating=float,
                                  python_rating=float,
                                  formula=str,
                                  motivation_score=list_of_float,
