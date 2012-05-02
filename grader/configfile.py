@@ -1,7 +1,7 @@
 import configparser
 
 class _Section:
-    def __init__(self, configparser, section, type):
+    def __init__(self, configparser, section, type=str):
         self.cp = configparser
         self.section = section
         self.type = type
@@ -13,8 +13,7 @@ class _Section:
             value = None
         if value is None:
             raise KeyError(item)
-        if self.type is not None:
-            value = self.type(value)
+        value = self.type(value)
         return value
 
     def __setitem__(self, item, value):
@@ -28,11 +27,11 @@ class _Section:
 
     def values(self):
         for name, value in self.cp.items(self.section):
-            yield value
+            yield self.type(value)
 
     def items(self):
         for name, value in self.cp.items(self.section):
-            yield name, value
+            yield name, self.type(value)
 
 class ConfigFile:
     def __init__(self, filename, **sections):
