@@ -214,13 +214,13 @@ class Grader(cmd_completer.Cmd_Completer):
         "Get rating for activity or set to some value"
         opts = self.rate_options.parse_args(arg.split())
         section = opts.what + '_rating'
-        dict = self.config[section]
+        current = self.config[section]
         if not opts.args:
-            pprint.pprint(dict)
+            pprint.pprint(dict(current.items()))
         else:
             how = ' '.join(opts.args[:-1])
             value = float(opts.args[-1])
-            dict[how] = value
+            current[how] = value
             self.modified = True
 
     def _grade(self, person, what):
