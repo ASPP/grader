@@ -186,8 +186,8 @@ class Grader(cmd_completer.Cmd_Completer):
             raise ValueError('cannot use --graded option with explicit name')
 
         if opts.what == 'formula':
-            if opts.args:
-                self.formula = ' '.join(opts.args)
+            if opts.person:
+                self.formula = ' '.join(opts.person)
                 self.modified = True
 
             printf('formula = {}', self.formula)
