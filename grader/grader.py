@@ -438,11 +438,11 @@ def rank_person(person, formula,
                 config, minsc, maxsc):
     "Apply formula to person and return score"
     vars = {}
-    for type in 'programming', 'open_source', 'python':
-        dict = locals().get(type + '_rating')
-        key = getattr(person, type)
+    for attr, dict in zip(('programming', 'open_source', 'python'),
+                          (programming_rating, open_source_rating, python_rating)):
+        key = getattr(person, attr)
         value = get_rating(type, dict, key)
-        vars[type] = value
+        vars[attr] = value
     fullname = person.fullname
     motivation = config['motivation_score'].create(fullname, list_of_float)
     cv = config['cv_score'].create(fullname, list_of_float)
