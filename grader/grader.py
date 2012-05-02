@@ -14,6 +14,7 @@ import contextlib
 import cmd_completer
 import vector
 
+float_nan = float("nan")
 
 def printf(fmt, *args, **kwargs):
     print(fmt.format(*args, **kwargs))
@@ -450,6 +451,8 @@ def find_min_max(formula,
         _yield_values('python', *python_rating.values()),
         )
     values = [eval_formula(formula, dict(vars)) for vars in options]
+    if not values:
+        return float_nan, float_nan
     return min(values), max(values)
 
 def wrap_paragraphs(text):
