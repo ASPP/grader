@@ -67,18 +67,34 @@ class Grader(cmd_completer.Cmd_Completer):
         self.modified = False
 
     def _read_applications(self, file):
-        names = """completed
-                   nation born gender
-                   institute group country
-                   position position_other
-                   applied
-                   programming python programming_description
-                   open_source open_source_description
-                   motivation cv
-                   name lastname email
-                   token"""
-        return csv_file(file, names.split())
+        return csv_file(file, self.Person(self.application_fields))
 
+    @classmethod
+    def Person(cls, names):
+        class Person(collections.namedtuple('Person', names)):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.score = None
+                self.rank = None
+            @property
+            def fullname(self):
+                return '{p.name} {p.lastname}'.format(p=self)
+        return Person
+
+    @property
+    def application_fields(self):
+        return """id completed last_page_seen start_language
+                  date_last_action date_started
+                  ip_address referrer
+                  nation born gender
+                  institute group country
+                  position position_other
+                  applied
+                  programming python programming_description
+                  open_source open_source_description
+                  motivation cv
+                  name lastname email
+                  token""".split()
 
     @property
     def formula(self):
@@ -439,20 +455,12 @@ def wrap_paragraphs(text):
     return '\n\n'.join(wrapped)
 
 @vector.vectorize
-def csv_file(file, names):
+def csv_file(file, tuple_factory):
     reader = csv.reader(file)
     header = next(reader)
-    assert len(header) == len(names)
-    class Person(collections.namedtuple('Person', names)):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.score = None
-            self.rank = None
-        @property
-        def fullname(self):
-            return '{p.name} {p.lastname}'.format(p=self)
+    assert len(header) == len(tuple_factory._fields)
     while True:
-        yield Person(*next(reader))
+        yield tuple_factory(*next(reader))
 
 class list_of_float(list):
     def __init__(self, arg=''):
