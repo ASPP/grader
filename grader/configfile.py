@@ -1,4 +1,5 @@
 import configparser
+import operator
 
 class _Section:
     def __init__(self, configparser, section, type=str):
@@ -36,6 +37,10 @@ class _Section:
     def items(self):
         for name, value in self.cp.items(self.section):
             yield name, self.type(value)
+
+    def print_sorted(self):
+        for key, val in sorted(self.items(), key=operator.itemgetter(1)):
+            print(key, '=', val)
 
 class ConfigFile:
     def __init__(self, filename, **sections):

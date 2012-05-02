@@ -238,7 +238,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 current[how] = value
                 self.modified = True
             else:
-                pprint.pprint(dict(current.items()))
+                current.print_sorted()
                 if opts.missing:
                     used = set(getattr(p, what).lower()
                                for p in self.applications)
