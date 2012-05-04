@@ -169,11 +169,13 @@ class Grader(cmd_completer.Cmd_Completer):
                    programming_description=programming_description,
                    open_source_description=open_source_description,
                    programming_score=\
-                       get_rating('programming', self.programming_rating, p.programming),
+                       get_rating('programming', self.programming_rating,
+                                  p.programming, '-'),
                    open_source_score=\
-                       get_rating('open_source', self.open_source_rating, p.open_source),
+                       get_rating('open_source', self.open_source_rating,
+                                  p.open_source, '-'),
                    python_score=\
-                       get_rating('python', self.python_rating, p.python),
+                       get_rating('python', self.python_rating, p.python, '-'),
                    )
 
     def do_grep(self, args):
@@ -447,7 +449,7 @@ class MissingRating(KeyError):
     def key(self):
         return self.args[1]
 
-def get_rating(name, dict, key):
+def get_rating(name, dict, key, fallback=None):
     """Retrieve rating.
 
     Explanation in () or after / is ignored in the key.
@@ -458,8 +460,11 @@ def get_rating(name, dict, key):
     try:
         return dict[key]
     except KeyError:
-        raise MissingRating(name, key)
-        # raise ... from None, when implemented!
+        if fallback is None:
+            raise MissingRating(name, key)
+            # raise ... from None, when implemented!
+        else:
+            return fallback
 
 def rank_person(person, formula,
                 programming_rating, open_source_rating, python_rating,
