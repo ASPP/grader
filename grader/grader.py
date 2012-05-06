@@ -477,7 +477,7 @@ def rank_person(person, formula,
     for attr, dict in zip(('programming', 'open_source', 'python'),
                           (programming_rating, open_source_rating, python_rating)):
         key = getattr(person, attr)
-        value = get_rating(type, dict, key)
+        value = get_rating(attr, dict, key)
         vars[attr] = value
     fullname = person.fullname
     motivation = config['motivation_score'].create(fullname, list_of_float)
