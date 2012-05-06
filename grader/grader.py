@@ -303,11 +303,14 @@ class Grader(cmd_completer.Cmd_Completer):
             except EOFError:
                 print()
                 return False
+            if choice == 's':
+                print('person skipped')
+                return True
             if choice == '':
                 choice = default
             if choice == '+':
                 choice = SCORE_RANGE[-1]
-            if choice == '-':
+            elif choice == '-':
                 choice = SCORE_RANGE[0]
             try:
                 choice = int(choice)
