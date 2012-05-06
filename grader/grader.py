@@ -152,36 +152,50 @@ class Grader(cmd_completer.Cmd_Completer):
 
     do_dump.completions = _complete_name
 
-    def _dump(self, persons):
+    def _dump(self, persons, format='short'):
         for p in persons:
-            position_other = \
-                (' ({})'.format(p.position_other)
-                 if p.position=='Other' else '')
-            programming_description = \
-                ('\nprogramming: {.programming_description:.72}'.format(p)
-                 if p.programming_description else '')
-            open_source_description = \
-                ('\nopen source: {.open_source_description:.72}'.format(p)
-                 if p.open_source_description else '')
-            printf(DUMP_FMT,
-                   p=p,
-                   position_other=position_other,
-                   programming_description=programming_description,
-                   open_source_description=open_source_description,
-                   programming_score=\
-                       get_rating('programming', self.programming_rating,
-                                  p.programming, '-'),
-                   open_source_score=\
-                       get_rating('open_source', self.open_source_rating,
-                                  p.open_source, '-'),
-                   python_score=\
-                       get_rating('python', self.python_rating, p.python, '-'),
-                   )
+            self._dumpone(p, format=format)
+
+    def _dumpone(self, p, format='short'):
+        position_other = \
+            (' ({})'.format(p.position_other) if p.position=='Other' else '')
+        if format == 'short':
+            pd = p.programming_description.replace('\n', ' ')[:72]
+            osd = p.open_source_description.replace('\n', ' ')[:72]
+        elif format == 'long':
+            pd = wrap_paragraphs(p.programming_description) + '\n'
+            osd = wrap_paragraphs(p.open_source_description) + '\n'
+        else:
+            raise KeyError("unknown format '{}'".format(format))
+        programming_description = ('\nprogramming: {}'.format(pd)
+                                   if p.programming_description else '')
+        open_source_description = ('\nopen source: {}'.format(osd)
+                                   if p.open_source_description else '')
+        printf(DUMP_FMT,
+               p=p,
+               position_other=position_other,
+               programming_description=programming_description,
+               open_source_description=open_source_description,
+               programming_score=\
+                   get_rating('programming', self.programming_rating,
+                              p.programming, '-'),
+               open_source_score=\
+                   get_rating('open_source', self.open_source_rating,
+                              p.open_source, '-'),
+               python_score=\
+                   get_rating('python', self.python_rating, p.python, '-'),
+               )
 
     def do_grep(self, args):
         "Look for string in applications"
-        self._dump(p for p in self.applications
-                   if args in str(p))
+        if args.split()[0] == '-l':
+            format = 'long'
+            args = args[args.index('-l')+2:].lstrip()
+        else:
+            format='short'
+
+        self._dump((p for p in self.applications
+                    if args in str(p)), format=format)
 
     grade_options = cmd_completer.ModArgumentParser('grade')\
         .add_argument('what', choices=['motivation', 'cv', 'formula'],
@@ -309,7 +323,11 @@ class Grader(cmd_completer.Cmd_Completer):
             if choice == 's':
                 print('person skipped')
                 return True
-            if choice == '':
+            elif choice == 'd':
+                print('showing person on request')
+                self._dumpone(person, format='long')
+                continue
+            elif choice == '':
                 choice = default
             if choice == '+':
                 choice = SCORE_RANGE[-1]
