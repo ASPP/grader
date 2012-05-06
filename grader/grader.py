@@ -229,13 +229,16 @@ class Grader(cmd_completer.Cmd_Completer):
         printf('Doing grading for identity {}', self.identity)
         print('Press ^C or ^D to stop')
         fullname = ' '.join(opts.person)
-        for person in self.applications:
-            if fullname:
-                do = person.fullname == fullname
-            else:
-                do = (opts.graded or
-                      self._get_grading(person, opts.what)[self.identity] is None)
-            if do and not self._grade(person, opts.what):
+
+        todo = [p for p in self.applications
+                if (person.fullname == fullname if fullname
+                    else
+                    opts.graded or
+                    self._get_grading(p, opts.what)[self.identity] is None)]
+        for num, person in enumerate(todo):
+            printf('{:.2f}% done, {} left to go',
+                   100*num/len(todo), len(todo)-num)
+            if not self._grade(person, opts.what):
                 break
 
     RATING_CATEGORIES = ['programming', 'open_source', 'python']
