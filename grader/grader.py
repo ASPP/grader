@@ -146,13 +146,18 @@ class Grader(cmd_completer.Cmd_Completer):
 
     def do_dump(self, args):
         "Print information about applications"
+        if args.split() and args.split()[0] == '-l':
+            format = 'long'
+            args = args[args.index('-l')+2:].rstrip()
+        else:
+            format='short'
         args = args.split()
         if args:
             persons = (p for p in self.applications
                        if any(arg in p.fullname for arg in args))
         else:
             persons = self.applications
-        self._dump(persons)
+        self._dump(persons, format=format)
 
     do_dump.completions = _complete_name
 
