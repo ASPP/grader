@@ -71,12 +71,10 @@ class Grader(cmd_completer.Cmd_Completer):
 
         self.identity = identity
         self.config = config
-        self.applications = self._read_applications(applications)
+        self.applications = csv_file(applications,
+                                     self.Person(self.application_fields))
 
         self.modified = False
-
-    def _read_applications(self, file):
-        return csv_file(file, self.Person(self.application_fields))
 
     @classmethod
     def Person(cls, names):
