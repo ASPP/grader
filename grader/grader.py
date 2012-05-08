@@ -150,6 +150,8 @@ class Grader(cmd_completer.Cmd_Completer):
         .add_argument('-l', '--long', action='store_const',
                       dest='format', const='long', default='short',
                       help='do not truncate free texts')\
+        .add_argument('-r', '--ranked', action='store_true',
+                      help='print applications sorted by rank')\
         .add_argument('persons', nargs='*',
                       help='name fragments of people do display')
 
@@ -161,6 +163,8 @@ class Grader(cmd_completer.Cmd_Completer):
                        if any(arg in p.fullname for arg in opts.persons))
         else:
             persons = self.applications
+        if opts.ranked:
+            persons = self._ranked(persons)
         self._dump(persons, format=opts.format)
 
     do_dump.completions = _complete_name
@@ -377,7 +381,7 @@ class Grader(cmd_completer.Cmd_Completer):
             self._set_grading(what, person, choice)
         return True
 
-    def _ranking(self):
+    def _assign_rankings(self):
         "Order applications by rank"
         if self.formula is None:
             raise ValueError('formula not set yet')
@@ -409,7 +413,11 @@ class Grader(cmd_completer.Cmd_Completer):
             person.rank = labs[lab]
         pprint.pprint(labs)
 
-        ranked = sorted(ranked, key=lambda p: p.rank)
+    def _ranked(self, applications=None):
+        if applications is None:
+            applications = self.applications
+
+        ranked = sorted(applications, key=lambda p: p.rank)
         return vector.vector(ranked)
 
     def _equiv_master(self, variant):
@@ -425,7 +433,8 @@ class Grader(cmd_completer.Cmd_Completer):
         if args != '':
             raise ValueError('no args please')
 
-        ranked = self._ranking()
+        self._assign_rankings()
+        ranked = self._ranked()
         fullname_width = max(len(field) for field in ranked.fullname)
         email_width = max(len(field) for field in ranked.email)
         institute_width = min(max(len(field) for field in ranked.institute), 20)
