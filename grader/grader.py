@@ -1,5 +1,7 @@
 import sys
 import os
+import math
+import numbers
 import traceback
 import csv
 import collections
@@ -54,6 +56,8 @@ IDENTITIES = (0, 1)
 HOST_COUNTRY = 'Germany'
 
 DEFAULT_ACCEPT_COUNT = 30
+
+section_name = '{}_score-{}'.format
 
 class Grader(cmd_completer.Cmd_Completer):
     prompt = 'grader> '
@@ -248,7 +252,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 if (person.fullname == fullname if fullname
                     else
                     opts.graded or
-                    self._get_grading(p, opts.what)[self.identity] is None)]
+                    self._get_grading(p, opts.what) is None)]
         for num, person in enumerate(todo):
             printf('{:.2f}% done, {} left to go',
                    100*num/len(todo), len(todo)-num)
@@ -301,15 +305,25 @@ class Grader(cmd_completer.Cmd_Completer):
                             self.modified = True
 
     def _get_grading(self, person, what):
-        section = self.config[what + '_score']
-        scores = section.create(person.fullname, list_of_float)
-        return scores
+        section = self.config[section_name(what, self.identity)]
+        return section.get(person.fullname, None)
+
+    def _gradings(self, person, what):
+        for identity in IDENTITIES:
+            section = self.config[section_name(what, identity)]
+            yield section.get(person.fullname, None)
+
+    def _set_grading(self, person, what, score):
+        assert isnstance(score, number.Number), score
+        section = self.config[section_name(what, self.identity)]
+        section.set(person.fullname, score)
+        printf('{} score set to {}', what, choice)
+        self.modified = True
 
     def _grade(self, person, what):
         assert what in {'motivation', 'cv'}, what
         text = getattr(person, what)
-        scores = self._get_grading(person, what)
-        old_score = scores[self.identity]
+        old_score = self._get_grading(person, what)
         default = old_score if old_score is not None else ''
         printf('{line}\n{}\n{line}', wrap_paragraphs(text), line='-'*70)
         printf('Old score was {}', old_score)
@@ -342,10 +356,7 @@ class Grader(cmd_completer.Cmd_Completer):
             else:
                 break
         if choice != default:
-            scores[self.identity] = choice
-            self.config[what + '_score'][person.fullname] = scores
-            printf('{} score set to {}', what, choice)
-            self.modified = True
+            self._set_grading(what, person, choice)
         return True
 
     def _ranking(self):
@@ -363,7 +374,9 @@ class Grader(cmd_completer.Cmd_Completer):
                                        self.programming_rating,
                                        self.open_source_rating,
                                        self.python_rating,
-                                       self.config, minsc, maxsc)
+                                       self._gradings(person, 'motivation'),
+                                       self._gradings(person, 'cv'),
+                                       minsc, maxsc)
         ranked = sorted(self.applications, key=lambda p: p.score, reverse=True)
 
         labs = {}
@@ -490,9 +503,15 @@ def get_rating(name, dict, key, fallback=None):
         else:
             return fallback
 
+def mean(*args):
+    valid = [arg for arg in args if arg is not None]
+    if not valid:
+        return float_nan
+    return sum(valid) / len(valid)
+
 def rank_person(person, formula,
                 programming_rating, open_source_rating, python_rating,
-                config, minsc, maxsc):
+                motivation_scores, cv_scores, minsc, maxsc):
     "Apply formula to person and return score"
     vars = {}
     for attr, dict in zip(('programming', 'open_source', 'python'),
@@ -501,8 +520,6 @@ def rank_person(person, formula,
         value = get_rating(attr, dict, key)
         vars[attr] = value
     fullname = person.fullname
-    motivation = config['motivation_score'].create(fullname, list_of_float)
-    cv = config['cv_score'].create(fullname, list_of_float)
     vars.update(born=int(person.born), # if we decide to implement ageism
                 gender=person.gender, # if we decide, ...
                                       # oh we already did
@@ -510,12 +527,12 @@ def rank_person(person, formula,
                 applied=(person.applied[0] not in 'nN'),
                 nation=person.nation,
                 country=person.country,
-                motivation=motivation.avg(),
-                cv=cv.avg(),
+                motivation=mean(*motivation_scores),
+                cv=mean(*cv_scores),
                 email=person.email, # should we discriminate against gmail?
                 )
     score = eval_formula(formula, vars)
-    assert minsc <= score <= maxsc, (minsc, score, maxsc)
+    assert math.isnan(score) or minsc <= score <= maxsc, (minsc, score, maxsc)
     # scale linearly to SCORE_RANGE/min/max
     range = max(SCORE_RANGE) - min(SCORE_RANGE)
     offset = min(SCORE_RANGE)
@@ -560,28 +577,6 @@ def csv_file(file, tuple_factory):
     while True:
         yield tuple_factory(*next(reader))
 
-class list_of_float(list):
-    def __init__(self, arg=''):
-        values = (item.strip() for item in arg.split(','))
-        values = [float(value) if value else None for value in values]
-        missing = len(IDENTITIES) - len(values)
-        if missing < 0:
-            raise ValueError('list is too long')
-        values += [None] * missing
-        super().__init__(values)
-
-    def __str__(self):
-        return ', '.join(str(item) if item is not None else '' for item in self)
-
-    def avg(self):
-        if True:
-            import random
-            lst = (item if item is not None else random.choice(SCORE_RANGE)
-                   for item in self)
-        else:
-            lst = self
-        return sum(lst) / len(self)
-
 class list_of_equivs(list):
     def __init__(self, arg=None):
         equivs = ((item.strip() for item in arg.split('='))
@@ -592,15 +587,16 @@ class list_of_equivs(list):
         return ' = '.join(self)
 
 def our_configfile(filename):
+    kw = {section_name(what, ident):float
+          for what in ('motivation', 'cv')
+          for ident in IDENTITIES}
     return configfile.ConfigFile(filename,
                                  programming_rating=float,
                                  open_source_rating=float,
                                  python_rating=float,
                                  formula=str,
-                                 motivation_score=list_of_float,
-                                 cv_score=list_of_float,
                                  equivs=list_of_equivs,
-                                 )
+                                 **kw)
 
 def open_no_newlines(filename):
     return open(filename, newline='')
