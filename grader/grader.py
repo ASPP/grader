@@ -42,6 +42,8 @@ appl.prev.: {p.applied}
 programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
 open source: {p.open_source}{open_source_description} [{open_source_score}]
+cv: {cv} [{cv_scores}]
+motivation: {motivation} [{motivation_scores}]
 rank: {p.rank} {p.score}
 '''
 
@@ -144,20 +146,22 @@ class Grader(cmd_completer.Cmd_Completer):
                 completions[p.name].add(p.lastname)
         return completions
 
+    dump_options = cmd_completer.ModArgumentParser('dump')\
+        .add_argument('-l', '--long', action='store_const',
+                      dest='format', const='long', default='short',
+                      help='do not truncate free texts')\
+        .add_argument('persons', nargs='*',
+                      help='name fragments of people do display')
+
     def do_dump(self, args):
         "Print information about applications"
-        if args.split() and args.split()[0] == '-l':
-            format = 'long'
-            args = args[args.index('-l')+2:].rstrip()
-        else:
-            format='short'
-        args = args.split()
-        if args:
+        opts = self.dump_options.parse_args(args.split())
+        if opts.persons:
             persons = (p for p in self.applications
-                       if any(arg in p.fullname for arg in args))
+                       if any(arg in p.fullname for arg in opts.persons))
         else:
             persons = self.applications
-        self._dump(persons, format=format)
+        self._dump(persons, format=opts.format)
 
     do_dump.completions = _complete_name
 
@@ -171,9 +175,13 @@ class Grader(cmd_completer.Cmd_Completer):
         if format == 'short':
             pd = p.programming_description.replace('\n', ' ')[:72]
             osd = p.open_source_description.replace('\n', ' ')[:72]
+            cv = p.cv.replace('\n', ' ')[:72]
+            motivation = p.motivation.replace('\n', ' ')[:72]
         elif format == 'long':
             pd = wrap_paragraphs(p.programming_description) + '\n'
             osd = wrap_paragraphs(p.open_source_description) + '\n'
+            cv = wrap_paragraphs(p.cv) + '\n'
+            motivation = wrap_paragraphs(p.motivation) + '\n'
         else:
             raise KeyError("unknown format '{}'".format(format))
         programming_description = ('\nprogramming: {}'.format(pd)
@@ -193,6 +201,10 @@ class Grader(cmd_completer.Cmd_Completer):
                               p.open_source, '-'),
                python_score=\
                    get_rating('python', self.python_rating, p.python, '-'),
+               cv=cv,
+               motivation=motivation,
+               cv_scores=self._gradings(p, 'cv'),
+               motivation_scores=self._gradings(p, 'motivation'),
                )
 
     def do_grep(self, args):
@@ -314,9 +326,10 @@ class Grader(cmd_completer.Cmd_Completer):
         return section.get(person.fullname, None)
 
     def _gradings(self, person, what):
-        for identity in IDENTITIES:
-            section = self.config[section_name(what, identity)]
-            yield section.get(person.fullname, None)
+        gen = (
+            self.config[section_name(what, identity)].get(person.fullname, None)
+            for identity in IDENTITIES)
+        return list_of_float(gen)
 
     def _set_grading(self, person, what, score):
         assert isnstance(score, number.Number), score
@@ -508,11 +521,16 @@ def get_rating(name, dict, key, fallback=None):
         else:
             return fallback
 
-def mean(*args):
-    valid = [arg for arg in args if arg is not None]
-    if not valid:
-        return float_nan
-    return sum(valid) / len(valid)
+class list_of_float(list):
+    def __str__(self):
+        return ', '.join(str(item) if item is not None else '-'
+                         for item in self)
+
+    def mean(self):
+        valid = [arg for arg in self if arg is not None]
+        if not valid:
+            return float_nan
+        return sum(valid) / len(valid)
 
 def rank_person(person, formula,
                 programming_rating, open_source_rating, python_rating,
@@ -532,8 +550,8 @@ def rank_person(person, formula,
                 applied=(person.applied[0] not in 'nN'),
                 nation=person.nation,
                 country=person.country,
-                motivation=mean(*motivation_scores),
-                cv=mean(*cv_scores),
+                motivation=motivation_scores.mean(),
+                cv=cv_scores.mean(),
                 email=person.email, # should we discriminate against gmail?
                 )
     score = eval_formula(formula, vars)
