@@ -334,10 +334,10 @@ class Grader(cmd_completer.Cmd_Completer):
         return list_of_float(gen)
 
     def _set_grading(self, person, what, score):
-        assert isinstance(score, number.Number), score
+        assert isinstance(score, numbers.Number), score
         section = self.config[section_name(what, self.identity)]
-        section.set(person.fullname, score)
-        printf('{} score set to {}', what, choice)
+        section[person.fullname] = score
+        printf('{} score set to {}', what, score)
         self.modified = True
 
     def _grade(self, person, what):
@@ -376,7 +376,7 @@ class Grader(cmd_completer.Cmd_Completer):
             else:
                 break
         if choice != default:
-            self._set_grading(what, person, choice)
+            self._set_grading(person, what, choice)
         return True
 
     def _assign_rankings(self):
