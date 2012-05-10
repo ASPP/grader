@@ -272,9 +272,11 @@ class Grader(cmd_completer.Cmd_Completer):
                     else
                     opts.graded or
                     self._get_grading(p, opts.what) is None)]
+        done_already = len(self.applications) - len(todo)
         for num, person in enumerate(todo):
             printf('{:.2f}% done, {} left to go',
-                   100*num/len(todo), len(todo)-num)
+                   100*(num+done_already)/len(self.applications),
+                   len(todo)-num)
             if not self._grade(person, opts.what):
                 break
 
