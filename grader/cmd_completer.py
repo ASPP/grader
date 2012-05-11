@@ -96,7 +96,7 @@ class Cmd_Completer(cmd.Cmd):
     def do_py(self, arg):
         "Execute python statements"
         try:
-            ans = eval(arg, sys.modules['__main__'].__dict__, self.__dict__)
+            ans = eval(arg, self.__dict__)
             if ans is not None:
                 print(ans)
         except Exception as e:
