@@ -268,7 +268,7 @@ class Grader(cmd_completer.Cmd_Completer):
         fullname = ' '.join(opts.person)
 
         todo = [p for p in self.applications
-                if (person.fullname == fullname if fullname
+                if (p.fullname == fullname if fullname
                     else
                     opts.graded or
                     self._get_grading(p, opts.what) is None)]
