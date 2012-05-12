@@ -12,7 +12,6 @@ import itertools
 import logging
 import tempfile
 import contextlib
-import collections
 import operator
 
 import cmd_completer
@@ -428,7 +427,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 labs[lab] = rank
                 rank += 1
             person.rank = labs[lab]
-        pprint.pprint(labs)
+        #pprint.pprint(labs)
 
     def _ranked(self, applications=None):
         if applications is None:
@@ -472,6 +471,58 @@ class Grader(cmd_completer.Cmd_Completer):
                        fullname_width=fullname_width, email_width=email_width,
                        institute_width=institute_width, group_width=group_width)
 
+    stat_options = cmd_completer.ModArgumentParser('stat')\
+                   .add_argument('-d', '--detailed', action='store_const',
+                                 dest='detailed', const=True, default=False,
+                                 help='display detailed statistics')\
+                   .add_argument('-a', '--accepted', action='store_const',
+                                 dest='accepted', const=True, default=False,
+                                 help='display statistics only for accepted')
+
+    def do_stat(self, args):
+        "Display statistics"
+        opts = self.stat_options.parse_args(args.split())
+        if opts.accepted:
+            self._assign_rankings()
+            ranked = self._ranked()
+            pool = [person for person in ranked if person.rank <= self.accept_count]
+        else:
+            pool = self.applications
+        nation = collections.defaultdict(lambda: 0)
+        country = collections.defaultdict(lambda: 0)
+        gender = collections.defaultdict(lambda: 0)
+        position = collections.defaultdict(lambda: 0)
+        position_other = collections.defaultdict(lambda: 0) 
+        for p in pool:
+            nation[p.nation] += 1
+            country[p.country] += 1
+            gender[p.gender] += 1
+            position[p.position] += 1
+            if p.position_other:
+                position_other[p.position_other] += 1
+            
+        applicants = len(pool)
+        nations = len(nation)
+        affiliations = len(country)
+        female = gender['Female']
+        positions = sorted(position.items(), key=operator.itemgetter(1), reverse=True)
+        FMT_STAT = '{:24} = {:>3d}'
+        FMT_STAP = FMT_STAT + ' ({:4.1f}%)'
+        printf(FMT_STAT,'Applicants', applicants) 
+        printf(FMT_STAT, 'Nationalities', nations)
+        printf(FMT_STAT, 'Countries of affiliation', affiliations)
+        printf(FMT_STAP, 'Females', female, female/applicants*100)
+        for pos in positions:
+            printf(FMT_STAP, pos[0], pos[1], pos[1]/applicants*100)
+        if not opts.detailed:
+            return
+        print('---\nNationalities: ')
+        for n in sorted(nation.items(), key=operator.itemgetter(1), reverse=True):
+            printf(FMT_STAP, n[0], n[1], n[1]/applicants*100)
+        print('---\nAffiliations:') 
+        for c in sorted(country.items(), key=operator.itemgetter(1), reverse=True):
+            printf(FMT_STAP, c[0], c[1], c[1]/applicants*100)
+       
     def do_equiv(self, args):
         "Specify institutions'/labs' names as equivalent"
         if args == '':
