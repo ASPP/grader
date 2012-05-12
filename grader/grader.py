@@ -262,8 +262,14 @@ class Grader(cmd_completer.Cmd_Completer):
             if opts.person:
                 self.formula = ' '.join(opts.person)
                 self.modified = True
+            minsc, maxsc = find_min_max(self.formula,
+                                        self.programming_rating,
+                                        self.open_source_rating,
+                                        self.python_rating)
+
 
             printf('formula = {}', self.formula)
+            printf('score ∈ [{:6.3f},{:6.3f}]', minsc, maxsc)
             return
 
         printf('Doing grading for identity {}', self.identity)
