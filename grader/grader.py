@@ -12,6 +12,7 @@ import itertools
 import logging
 import tempfile
 import contextlib
+import collections
 
 import cmd_completer
 import vector
@@ -262,14 +263,19 @@ class Grader(cmd_completer.Cmd_Completer):
             if opts.person:
                 self.formula = ' '.join(opts.person)
                 self.modified = True
-            minsc, maxsc = find_min_max(self.formula,
-                                        self.programming_rating,
-                                        self.open_source_rating,
-                                        self.python_rating)
+            minsc, maxsc, contr = find_min_max(self.formula,
+                                               self.programming_rating,
+                                               self.open_source_rating,
+                                               self.python_rating)
 
 
             printf('formula = {}', self.formula)
             printf('score ∈ [{:6.3f},{:6.3f}]', minsc, maxsc)
+            print('contributions:')
+            # print single contributions
+            field_width = max(len(item[0].strip()) for item in contr.items())
+            for item in contr.items():
+                printf('{:{w}} : {:4.1f}', item[0].strip(), item[1], w=field_width)
             return
 
         printf('Doing grading for identity {}', self.identity)
@@ -395,10 +401,10 @@ class Grader(cmd_completer.Cmd_Completer):
         if self.formula is None:
             raise ValueError('formula not set yet')
 
-        minsc, maxsc = find_min_max(self.formula,
-                                    self.programming_rating,
-                                    self.open_source_rating,
-                                    self.python_rating)
+        minsc, maxsc, contr = find_min_max(self.formula,
+                                           self.programming_rating,
+                                           self.open_source_rating,
+                                           self.python_rating)
 
         for person in self.applications:
             person.score = rank_person(person, self.formula,
@@ -598,7 +604,7 @@ def _yield_values(var, *values):
 def find_min_max(formula,
                  programming_rating, open_source_rating, python_rating):
     # coordinate with rank_person!
-    options = itertools.product(
+    options = tuple(itertools.product(
         _yield_values('born', 1900, 2012),
         _yield_values('gender', 'M', 'F'),
         _yield_values('female', 0, 1),
@@ -610,11 +616,21 @@ def find_min_max(formula,
         _yield_values('open_source', *open_source_rating.values()),
         _yield_values('applied', 0, 1),
         _yield_values('python', *python_rating.values()),
-        )
+        ))
     values = [eval_formula(formula, dict(vars)) for vars in options]
     if not values:
-        return float_nan, float_nan
-    return min(values), max(values)
+        return float_nan, float_nan, {}
+
+    minsc = min(values)
+    maxsc = max(values)
+    # scorporate in single contributions
+    items = collections.OrderedDict()
+    for item in formula.split('+'):
+        values = [eval_formula(item, dict(vars)) for vars in options]
+        max_ = max(values)
+        min_ = min(values)
+        items[item] = (max_-min_)/(maxsc-minsc)*100
+    return minsc, maxsc, items
 
 def wrap_paragraphs(text):
     paras = text.strip().split('\n\n')
