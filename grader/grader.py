@@ -577,10 +577,12 @@ def rank_person(person, formula,
                 )
     score = eval_formula(formula, vars)
     assert math.isnan(score) or minsc <= score <= maxsc, (minsc, score, maxsc)
+    # XXX: Remove scaling until we find a better solution to compare
+    #      different formulas
     # scale linearly to SCORE_RANGE/min/max
-    range = max(SCORE_RANGE) - min(SCORE_RANGE)
-    offset = min(SCORE_RANGE)
-    score = (score - minsc) / (maxsc - minsc) * range + offset
+    #range = max(SCORE_RANGE) - min(SCORE_RANGE)
+    #offset = min(SCORE_RANGE)
+    #score = (score - minsc) / (maxsc - minsc) * range + offset
     return score
 
 def _yield_values(var, *values):
