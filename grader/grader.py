@@ -423,7 +423,7 @@ class Grader(cmd_completer.Cmd_Completer):
         for person in ranked:
             group = self._equiv_master(person.group)
             institute = self._equiv_master(person.institute)
-            lab = institute + ' / ' + group
+            lab = institute + ' | ' + group
             if lab not in labs:
                 labs[lab] = rank
                 rank += 1
