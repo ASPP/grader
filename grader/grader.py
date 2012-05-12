@@ -275,7 +275,7 @@ class Grader(cmd_completer.Cmd_Completer):
             # print single contributions
             field_width = max(len(item[0].strip()) for item in contr.items())
             for item in contr.items():
-                printf('{:{w}} : {:4.1f}', item[0].strip(), item[1], w=field_width)
+                printf('{:{w}} : {:4.1f}%', item[0].strip(), item[1], w=field_width)
             return
 
         printf('Doing grading for identity {}', self.identity)
