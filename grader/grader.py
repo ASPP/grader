@@ -13,6 +13,7 @@ import logging
 import tempfile
 import contextlib
 import collections
+import operator
 
 import cmd_completer
 import vector
@@ -274,7 +275,8 @@ class Grader(cmd_completer.Cmd_Completer):
             print('contributions:')
             # print single contributions
             field_width = max(len(item[0].strip()) for item in contr.items())
-            for item in contr.items():
+            items = sorted(contr.items(), key=operator.itemgetter(1), reverse=True)
+            for item in items:
                 printf('{:{w}} : {:4.1f}%', item[0].strip(), item[1], w=field_width)
             return
 
