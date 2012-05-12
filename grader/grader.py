@@ -47,9 +47,12 @@ motivation: {motivation} [{motivation_scores}]
 rank: {p.rank} {p.score}
 '''
 
-RANK_FMT = ('{: 2} {p.rank: 2} {p.score:2.1f}'
-            ' {p.fullname:{fullname_width}} {email:{email_width}}'
-            ' {p.institute:{institute_width}} / {p.group:{group_width}}')
+RANK_FMT_LONG = ('{: 4} {p.rank: 4} {p.score:6.3f}'
+                 ' {p.fullname:{fullname_width}} {email:{email_width}}'
+                 ' {p.institute:{institute_width}} / {p.group:{group_width}}')
+RANK_FMT_SHORT = ('{: 4} {p.rank: 4} {p.score:6.3f}'
+                 ' {p.fullname:{fullname_width}} {email:{email_width}}')
+
 
 SCORE_RANGE = (-1, 0, 1)
 
@@ -428,11 +431,14 @@ class Grader(cmd_completer.Cmd_Completer):
                 return key
         return variant.strip()
 
+    rank_options = cmd_completer.ModArgumentParser('rank')\
+        .add_argument('-s', '--short', action='store_const',
+                      dest='format', const='short', default='long',
+                      help='show only names and emails')
+
     def do_rank(self, args):
         "Print list of people sorted by ranking"
-        if args != '':
-            raise ValueError('no args please')
-
+        opts = self.rank_options.parse_args(args.split())
         self._assign_rankings()
         ranked = self._ranked()
         fullname_width = max(len(field) for field in ranked.fullname)
@@ -442,9 +448,15 @@ class Grader(cmd_completer.Cmd_Completer):
         for pos, person in enumerate(ranked):
             if person.rank == self.accept_count:
                 print('-' * 70)
-            printf(RANK_FMT, pos, p=person, email='<{}>'.format(person.email),
-                   fullname_width=fullname_width, email_width=email_width,
-                   institute_width=institute_width, group_width=group_width)
+            if opts.format == 'short':
+                printf(RANK_FMT_SHORT, pos, p=person,
+                       email='<{}>'.format(person.email),
+                       fullname_width=fullname_width, email_width=email_width)
+            else:
+                printf(RANK_FMT_LONG, pos, p=person,
+                       email='<{}>'.format(person.email),
+                       fullname_width=fullname_width, email_width=email_width,
+                       institute_width=institute_width, group_width=group_width)
 
     def do_equiv(self, args):
         "Specify institutions'/labs' names as equivalent"
