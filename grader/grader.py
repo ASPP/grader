@@ -75,13 +75,21 @@ class Grader(cmd_completer.Cmd_Completer):
 
         self.identity = identity
         self.config = config
-        if not applications:
+        self._init_applications(applications)
+        self.modified = False
+
+    def _init_applications(self, applications):
+        section = self.config['application_lists']
+        if applications:
+            section.clear()
+            for i,file in zip('abcdefghijkl', applications):
+                section[i] = file.name
+        else:
             applications = [open_no_newlines(filename) for filename
                             in self.config['application_lists'].values()]
         self.applications = self.csv_file(applications[0])
         self.applications_old = [self.csv_file(list)
                                  for list in applications[1:]]
-        self.modified = False
 
     @classmethod
     def Person(cls, names):

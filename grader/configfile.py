@@ -36,8 +36,9 @@ class _Section:
             self.__setitem__(item, value)
             return value
 
-    def clear(self, key):
-        self.cp.remove_option(self.section, key)
+    def clear(self, *keys):
+        for key in keys or self.keys():
+            self.cp.remove_option(self.section, key)
 
     def keys(self):
         for name, value in self.cp.items(self.section):
