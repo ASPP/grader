@@ -497,31 +497,22 @@ class Grader(cmd_completer.Cmd_Completer):
             pool = [person for person in ranked if person.rank <= self.accept_count]
         else:
             pool = self.applications
-        nation = collections.defaultdict(lambda: 0)
-        country = collections.defaultdict(lambda: 0)
-        gender = collections.defaultdict(lambda: 0)
-        position = collections.defaultdict(lambda: 0)
-        position_other = collections.defaultdict(lambda: 0) 
-        for p in pool:
-            nation[p.nation] += 1
-            country[p.country] += 1
-            gender[p.gender] += 1
-            position[p.position] += 1
-            if p.position_other:
-                position_other[p.position_other] += 1
-            
+        nation = collections.Counter(p.nation for p in pool)
+        country = collections.Counter(p.country for p in pool)
+        gender = collections.Counter(p.gender for p in pool)
+        position = collections.Counter(p.position for p in pool)
+
         applicants = len(pool)
         nations = len(nation)
         affiliations = len(country)
         female = gender['Female']
-        positions = sorted(position.items(), key=operator.itemgetter(1), reverse=True)
         FMT_STAT = '{:24} = {:>3d}'
         FMT_STAP = FMT_STAT + ' ({:4.1f}%)'
-        printf(FMT_STAT,'Applicants', applicants) 
+        printf(FMT_STAT, 'Applicants', applicants)
         printf(FMT_STAT, 'Nationalities', nations)
         printf(FMT_STAT, 'Countries of affiliation', affiliations)
         printf(FMT_STAP, 'Females', female, female/applicants*100)
-        for pos in positions:
+        for pos in position.most_common():
             printf(FMT_STAP, pos[0], pos[1], pos[1]/applicants*100)
         if not opts.detailed:
             return
