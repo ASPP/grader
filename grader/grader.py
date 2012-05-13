@@ -160,6 +160,10 @@ class Grader(cmd_completer.Cmd_Completer):
             return ans
         raise KeyError(description)
 
+    def _applied(self, person):
+        "Return the number of times a person applied"
+        return (person.applied[0] not in 'nN')
+
     @vector.vectorize
     def csv_file(self, file):
         printf("loading '{}'", file.name)
@@ -317,7 +321,7 @@ class Grader(cmd_completer.Cmd_Completer):
           cv: float,
           programming: float,
           open_source: float,
-          applied: 0 or 1,
+          applied: 0 or 1 or 2 or ...,
           python: float,
           labels: list of str.
         """
@@ -484,7 +488,8 @@ class Grader(cmd_completer.Cmd_Completer):
                                        self._gradings(person, 'motivation'),
                                        self._gradings(person, 'cv'),
                                        minsc, maxsc,
-                                       self._labels(person.fullname))
+                                       self._labels(person.fullname),
+                                       self._applied(person))
         ranked = sorted(self.applications, key=lambda p: p.score, reverse=True)
 
         labs = {}
@@ -713,7 +718,8 @@ class list_of_str(list):
 
 def rank_person(person, formula,
                 programming_rating, open_source_rating, python_rating,
-                motivation_scores, cv_scores, minsc, maxsc, labels):
+                motivation_scores, cv_scores, minsc, maxsc, labels,
+                applied):
     "Apply formula to person and return score"
     vars = {}
     for attr, dict in zip(('programming', 'open_source', 'python'),
@@ -725,7 +731,7 @@ def rank_person(person, formula,
                 gender=person.gender, # if we decide, ...
                                       # oh we already did
                 female=person.female,
-                applied=(person.applied[0] not in 'nN'),
+                applied=applied,
                 nation=person.nation,
                 affiliation=person.affiliation,
                 motivation=motivation_scores.mean(),
