@@ -598,7 +598,7 @@ class Grader(cmd_completer.Cmd_Completer):
         if opts.accepted:
             self._assign_rankings()
             ranked = self._ranked()
-            pool = [person for person in ranked if person.rank <= self.accept_count]
+            pool = [person for person in ranked if person.rank < self.accept_count]
         else:
             pool = self.applications
         nationality = collections.Counter(p.nationality for p in pool)
