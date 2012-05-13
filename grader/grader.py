@@ -32,7 +32,7 @@ def Umask(umask):
 
 
 DUMP_FMT = '''\
-name: {p.name} {p.lastname} <{p.email}>
+name: {p.name} {p.lastname} {labels}<{p.email}>
 born: {p.nation} {p.born}
 gender: {p.gender}
 institute: {p.institute}
@@ -48,10 +48,10 @@ motivation: {motivation} [{motivation_scores}]
 rank: {p.rank} {p.score}
 '''
 
-RANK_FMT_LONG = ('{: 4} {p.rank: 4} {p.score:6.3f}'
+RANK_FMT_LONG = ('{: 4} {p.rank: 4} {labels:{labels_width}}{p.score:6.3f}'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}'
                  ' {p.institute:{institute_width}} / {p.group:{group_width}}')
-RANK_FMT_SHORT = ('{: 4} {p.rank: 4} {p.score:6.3f}'
+RANK_FMT_SHORT = ('{: 4} {p.rank: 4} {labels:{labels_width}}{p.score:6.3f}'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}')
 
 
@@ -197,6 +197,9 @@ class Grader(cmd_completer.Cmd_Completer):
                                    if p.programming_description else '')
         open_source_description = ('\nopen source: {}'.format(osd)
                                    if p.open_source_description else '')
+        labels = self._labels(p.fullname)
+        if labels:
+            labels = '[{}] '.format(labels)
         printf(DUMP_FMT,
                p=p,
                position_other=position_other,
@@ -214,6 +217,7 @@ class Grader(cmd_completer.Cmd_Completer):
                motivation=motivation,
                cv_scores=self._gradings(p, 'cv'),
                motivation_scores=self._gradings(p, 'motivation'),
+               labels=labels,
                )
 
     def do_grep(self, args):
@@ -253,7 +257,8 @@ class Grader(cmd_completer.Cmd_Completer):
           programming: float,
           open_source: float,
           applied: 0 or 1,
-          python: float.
+          python: float,
+          labels: list of str.
         """
         if self.identity is None:
             raise ValueError('cannot do grading because identity was not set')
@@ -417,7 +422,8 @@ class Grader(cmd_completer.Cmd_Completer):
                                        self.python_rating,
                                        self._gradings(person, 'motivation'),
                                        self._gradings(person, 'cv'),
-                                       minsc, maxsc)
+                                       minsc, maxsc,
+                                       self._labels(person.fullname))
         ranked = sorted(self.applications, key=lambda p: p.score, reverse=True)
 
         labs = {}
@@ -461,18 +467,18 @@ class Grader(cmd_completer.Cmd_Completer):
         email_width = max(len(field) for field in ranked.email)
         institute_width = min(max(len(field) for field in ranked.institute), 20)
         group_width = min(max(len(field) for field in ranked.group), 20)
+        labels_width = max(len(str(self._labels(field)))
+                           for field in ranked.fullname)
+        fmt = RANK_FMT_SHORT if opts.format == 'short' else RANK_FMT_LONG
         for pos, person in enumerate(ranked):
             if person.rank == self.accept_count:
                 print('-' * 70)
-            if opts.format == 'short':
-                printf(RANK_FMT_SHORT, pos, p=person,
-                       email='<{}>'.format(person.email),
-                       fullname_width=fullname_width, email_width=email_width)
-            else:
-                printf(RANK_FMT_LONG, pos, p=person,
-                       email='<{}>'.format(person.email),
-                       fullname_width=fullname_width, email_width=email_width,
-                       institute_width=institute_width, group_width=group_width)
+            printf(fmt, pos, p=person,
+                   email='<{}>'.format(person.email),
+                   fullname_width=fullname_width, email_width=email_width,
+                   institute_width=institute_width, group_width=group_width,
+                   labels=self._labels(person.fullname),
+                   labels_width=labels_width)
 
     stat_options = cmd_completer.ModArgumentParser('stat')\
                    .add_argument('-d', '--detailed', action='store_const',
@@ -538,6 +544,29 @@ class Grader(cmd_completer.Cmd_Completer):
         saved.extend(equivs)
         self.config['equivs'][variant] = saved
         self.modified = True
+
+    def _labels(self, fullname):
+        return self.config['labels'].get(fullname, list_of_str())
+
+    def do_label(self, args):
+        "Mark persons with string labels"
+        if args == '':
+            for key, value in self.config['labels'].items():
+                printf('{} = {}', key, value)
+            return
+
+        fullname, *labels = [item.strip() for item in args.split('=')
+                             if item is not '']
+        print(labels)
+        if labels:
+            saved = self._labels(fullname)
+            saved.extend(labels)
+            self.config['labels'][fullname] = saved
+        else:
+            self.config['labels'].clear(fullname)
+        self.modified = True
+
+    do_label.completions = _complete_name
 
     save_options = cmd_completer.ModArgumentParser('save')\
         .add_argument('filename', nargs='?')
@@ -621,9 +650,18 @@ class list_of_float(list):
             return float_nan
         return sum(valid) / len(valid)
 
+class list_of_str(list):
+    def __init__(self, arg=None):
+        equivs = ((item.strip() for item in arg.split(','))
+                  if arg is not None else ())
+        super().__init__(equivs)
+
+    def __str__(self):
+        return ', '.join(self)
+
 def rank_person(person, formula,
                 programming_rating, open_source_rating, python_rating,
-                motivation_scores, cv_scores, minsc, maxsc):
+                motivation_scores, cv_scores, minsc, maxsc, labels):
     "Apply formula to person and return score"
     vars = {}
     for attr, dict in zip(('programming', 'open_source', 'python'),
@@ -642,9 +680,13 @@ def rank_person(person, formula,
                 motivation=motivation_scores.mean(),
                 cv=cv_scores.mean(),
                 email=person.email, # should we discriminate against gmail?
+                labels=labels,
                 )
     score = eval_formula(formula, vars)
-    assert math.isnan(score) or minsc <= score <= maxsc, (minsc, score, maxsc)
+    assert (math.isnan(score) or minsc <= score <= maxsc or labels), \
+        (minsc, score, maxsc)
+    # labels can cause the score to exceed normal range
+
     # XXX: Remove scaling until we find a better solution to compare
     #      different formulas
     # scale linearly to SCORE_RANGE/min/max
@@ -659,7 +701,9 @@ def _yield_values(var, *values):
 
 def find_min_max(formula,
                  programming_rating, open_source_rating, python_rating):
-    # coordinate with rank_person!
+    # Coordinate with rank_person!
+    # Labels are excluded from this list, they add "extra" points.
+    # And we would have to test all combinations of labels, which can be slow.
     options = tuple(itertools.product(
         _yield_values('born', 1900, 2012),
         _yield_values('gender', 'M', 'F'),
@@ -672,6 +716,7 @@ def find_min_max(formula,
         _yield_values('open_source', *open_source_rating.values()),
         _yield_values('applied', 0, 1),
         _yield_values('python', *python_rating.values()),
+        _yield_values('labels', list_of_str()),
         ))
     values = [eval_formula(formula, dict(vars)) for vars in options]
     if not values:
@@ -720,6 +765,7 @@ def our_configfile(filename):
                                  python_rating=float,
                                  formula=str,
                                  equivs=list_of_equivs,
+                                 labels=list_of_str,
                                  **kw)
 
 def open_no_newlines(filename):

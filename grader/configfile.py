@@ -26,13 +26,18 @@ class _Section:
         except KeyError:
             return fallback
 
-    def create(self, item, fallback):
+    def create(self, item, fallback=None):
+        if fallback is None:
+            fallback = self.type
         try:
             return self.__getitem__(item)
         except KeyError:
             value = fallback()
             self.__setitem__(item, value)
             return value
+
+    def clear(self, key):
+        self.cp.remove_option(self.section, key)
 
     def keys(self):
         for name, value in self.cp.items(self.section):
