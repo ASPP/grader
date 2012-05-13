@@ -75,9 +75,12 @@ class Grader(cmd_completer.Cmd_Completer):
 
         self.identity = identity
         self.config = config
-        assert len(applications) == 1
+        if not applications:
+            applications = [open_no_newlines(filename) for filename
+                            in self.config['application_lists'].values()]
         self.applications = self.csv_file(applications[0])
-
+        self.applications_old = [self.csv_file(list)
+                                 for list in applications[1:]]
         self.modified = False
 
     @classmethod
@@ -159,6 +162,7 @@ class Grader(cmd_completer.Cmd_Completer):
 
     @vector.vectorize
     def csv_file(self, file):
+        printf("loading '{}'", file.name)
         reader = csv.reader(file)
         header = next(reader)
         fields = self._fields(header)
@@ -799,6 +803,7 @@ def our_configfile(filename):
           for what in ('motivation', 'cv')
           for ident in IDENTITIES}
     return configfile.ConfigFile(filename,
+                                 application_lists=str,
                                  programming_rating=float,
                                  open_source_rating=float,
                                  python_rating=float,
@@ -817,7 +822,9 @@ grader_options = cmd_completer.ModArgumentParser('grader')\
                   help='Index of person grading applications')\
     .add_argument('config', type=our_configfile)\
     .add_argument('applications', type=open_no_newlines, nargs='*',
-                  help='CSV file with application data')
+                  help='''CSV files with application data.
+                          The first is current, subsequent are from previous years.
+                       ''')
 
 def main(argv0, *args):
     logging.basicConfig(level=logging.INFO)
