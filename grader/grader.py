@@ -39,7 +39,7 @@ institute: {p.institute}
 group: {p.group}
 affiliation: {p.affiliation}
 position: {p.position}{position_other}
-appl.prev.: {p.applied}
+appl.prev.: {applied}
 programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
 open source: {p.open_source}{open_source_description} [{open_source_score}]
@@ -168,9 +168,23 @@ class Grader(cmd_completer.Cmd_Completer):
             return ans
         raise KeyError(description)
 
-    def _applied(self, person):
+    def _applied(self, person, warn=True):
         "Return the number of times a person applied"
-        return (person.applied[0] not in 'nN')
+        declared = int(person.applied[0] not in 'nN')
+        found = 0
+        for old in self.applications_old:
+            found += person.fullname in old.fullname
+        if warn and found and not declared:
+            printf('warning: person found in list says not applied prev.: {}',
+                   person.fullname)
+        if warn and declared and not found:
+            printf('warning: person applied prev. not found on lists: {}',
+                   person.fullname)
+        return max(declared, found)
+
+    def _applied_range(self):
+        s = set(self._applied(p, warn=False) for p in self.applications)
+        return sorted(s)
 
     @vector.vectorize
     def csv_file(self, file):
@@ -275,6 +289,7 @@ class Grader(cmd_completer.Cmd_Completer):
             labels = '[{}] '.format(labels)
         printf(DUMP_FMT,
                p=p,
+               applied=self._applied(p),
                position_other=position_other,
                programming_description=programming_description,
                open_source_description=open_source_description,
@@ -347,11 +362,13 @@ class Grader(cmd_completer.Cmd_Completer):
             minsc, maxsc, contr = find_min_max(self.formula,
                                                self.programming_rating,
                                                self.open_source_rating,
-                                               self.python_rating)
+                                               self.python_rating,
+                                               self._applied_range())
 
 
             printf('formula = {}', self.formula)
             printf('score ∈ [{:6.3f},{:6.3f}]', minsc, maxsc)
+            printf('applied ∈ {}', self._applied_range())
             print('contributions:')
             # print single contributions
             field_width = max(len(item[0].strip()) for item in contr.items())
@@ -765,7 +782,8 @@ def _yield_values(var, *values):
         yield var, value
 
 def find_min_max(formula,
-                 programming_rating, open_source_rating, python_rating):
+                 programming_rating, open_source_rating, python_rating,
+                 applied):
     # Coordinate with rank_person!
     # Labels are excluded from this list, they add "extra" points.
     # And we would have to test all combinations of labels, which can be slow.
@@ -779,7 +797,7 @@ def find_min_max(formula,
         _yield_values('cv', *SCORE_RANGE),
         _yield_values('programming', *programming_rating.values()),
         _yield_values('open_source', *open_source_rating.values()),
-        _yield_values('applied', 0, 1),
+        _yield_values('applied', 0, max(applied)),
         _yield_values('python', *python_rating.values()),
         _yield_values('labels', list_of_str()),
         ))
