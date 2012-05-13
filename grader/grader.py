@@ -526,6 +526,8 @@ class Grader(cmd_completer.Cmd_Completer):
         labs = {}
         rank = 0
         for person in ranked:
+            if rank == self.accept_count:
+                labs = {}
             group = self._equiv_master(person.group)
             institute = self._equiv_master(person.institute)
             lab = institute + ' | ' + group
