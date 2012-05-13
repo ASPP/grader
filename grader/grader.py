@@ -33,11 +33,11 @@ def Umask(umask):
 
 DUMP_FMT = '''\
 name: {p.name} {p.lastname} {labels}<{p.email}>
-born: {p.nation} {p.born}
+born: {p.nationality} {p.born}
 gender: {p.gender}
 institute: {p.institute}
 group: {p.group}
-country: {p.country}
+affiliation: {p.affiliation}
 position: {p.position}{position_other}
 appl.prev.: {p.applied}
 programming: {p.programming}{programming_description} [{programming_score}]
@@ -75,8 +75,8 @@ class Grader(cmd_completer.Cmd_Completer):
 
         self.identity = identity
         self.config = config
-        self.applications = csv_file(applications,
-                                     self.Person(self.application_fields))
+        assert len(applications) == 1
+        self.applications = self.csv_file(applications[0])
 
         self.modified = False
 
@@ -97,18 +97,75 @@ class Grader(cmd_completer.Cmd_Completer):
 
     @property
     def application_fields(self):
-        return """id completed last_page_seen start_language
-                  date_last_action date_started
-                  ip_address referrer
-                  nation born gender
-                  institute group country
-                  position position_other
-                  applied
-                  programming python programming_description
-                  open_source open_source_description
-                  motivation cv
-                  name lastname email
-                  token""".split()
+        section = self.config['fields']
+        if len(list(section.keys())) == 0:
+            def add(k, v):
+                section[k] = list_of_equivs(v)
+            for f in """id completed last_page_seen start_language
+                        date_last_action date_started
+                        ip_address referrer_url
+                        gender
+                        position institute group nationality
+                        python
+                        name email
+                        token""".split():
+                add(f, f.replace('_', ' '))
+            add('affiliation', "Country of Affiliation")
+            add('position_other', "[Other] Position")
+            add('applied', "Did you already apply")
+            add('programming', "estimate your programming skills")
+            add('programming_description', "programming experience")
+            add('open_source', "exposure to open-source")
+            add('open_source_description', "description of your contrib")
+            add('motivation', "appropriate course for your skill profile")
+            add('cv', "curriculum vitae")
+            add('lastname', "Last name")
+            add('born', "Year of birth")
+        return section
+
+    @vector.vectorize
+    def _fields(self, header):
+        failed = None
+        for name in header:
+            try:
+                yield self._field_master(name)
+            except KeyError as e:
+                printf("unknown field: '{}'".format(name))
+                failed = e
+        if failed:
+            pprint.pprint(list(self.application_fields.items()))
+            raise failed
+
+    def _field_master(self, description):
+        """Return the name of a field for this description. Must be defined.
+
+        The double dance is because we want to map:
+        - position <=> position,
+        - [other] position <=> position_other,
+        - curriculum vitae <=> Please type in a short curriculum vitae...
+        """
+        for key, values in self.application_fields.items():
+            if description.lower() == key.lower():
+                return key
+        candidates = {}
+        for key, values in self.application_fields.items():
+            for spelling in values:
+                if spelling.lower() in description.lower():
+                    candidates[spelling] = key
+        if candidates:
+            ans = candidates[sorted(candidates.keys(), key=len)[-1]]
+            return ans
+        raise KeyError(description)
+
+    @vector.vectorize
+    def csv_file(self, file):
+        reader = csv.reader(file)
+        header = next(reader)
+        fields = self._fields(header)
+        tuple_factory = self.Person(fields)
+        assert len(header) == len(tuple_factory._fields)
+        while True:
+            yield tuple_factory(*next(reader))
 
     @property
     def formula(self):
@@ -250,8 +307,8 @@ class Grader(cmd_completer.Cmd_Completer):
           born: int,
           gender: 'M' or 'F',
           female: 0 or 1,
-          nation: str,
-          country: str,
+          nationality: str,
+          affiliation: str,
           motivation: float,
           cv: float,
           programming: float,
@@ -497,19 +554,19 @@ class Grader(cmd_completer.Cmd_Completer):
             pool = [person for person in ranked if person.rank <= self.accept_count]
         else:
             pool = self.applications
-        nation = collections.Counter(p.nation for p in pool)
-        country = collections.Counter(p.country for p in pool)
+        nationality = collections.Counter(p.nationality for p in pool)
+        affiliation = collections.Counter(p.affiliation for p in pool)
         gender = collections.Counter(p.gender for p in pool)
         position = collections.Counter(p.position for p in pool)
 
         applicants = len(pool)
-        nations = len(nation)
-        affiliations = len(country)
+        nationalities = len(nationality)
+        affiliations = len(affiliation)
         female = gender['Female']
         FMT_STAT = '{:24} = {:>3d}'
         FMT_STAP = FMT_STAT + ' ({:4.1f}%)'
         printf(FMT_STAT, 'Applicants', applicants)
-        printf(FMT_STAT, 'Nationalities', nations)
+        printf(FMT_STAT, 'Nationalities', nationalities)
         printf(FMT_STAT, 'Countries of affiliation', affiliations)
         printf(FMT_STAP, 'Females', female, female/applicants*100)
         for pos in position.most_common():
@@ -517,10 +574,10 @@ class Grader(cmd_completer.Cmd_Completer):
         if not opts.detailed:
             return
         print('---\nNationalities: ')
-        for n in sorted(nation.items(), key=operator.itemgetter(1), reverse=True):
+        for n in sorted(nationality.items(), key=operator.itemgetter(1), reverse=True):
             printf(FMT_STAP, n[0], n[1], n[1]/applicants*100)
         print('---\nAffiliations:') 
-        for c in sorted(country.items(), key=operator.itemgetter(1), reverse=True):
+        for c in sorted(affiliation.items(), key=operator.itemgetter(1), reverse=True):
             printf(FMT_STAP, c[0], c[1], c[1]/applicants*100)
        
     def do_equiv(self, args):
@@ -660,14 +717,13 @@ def rank_person(person, formula,
         key = getattr(person, attr)
         value = get_rating(attr, dict, key)
         vars[attr] = value
-    fullname = person.fullname
     vars.update(born=int(person.born), # if we decide to implement ageism
                 gender=person.gender, # if we decide, ...
                                       # oh we already did
                 female=person.female,
                 applied=(person.applied[0] not in 'nN'),
                 nation=person.nation,
-                country=person.country,
+                affiliation=person.affiliation,
                 motivation=motivation_scores.mean(),
                 cv=cv_scores.mean(),
                 email=person.email, # should we discriminate against gmail?
@@ -699,8 +755,8 @@ def find_min_max(formula,
         _yield_values('born', 1900, 2012),
         _yield_values('gender', 'M', 'F'),
         _yield_values('female', 0, 1),
-        _yield_values('nation', 'Nicaragua', HOST_COUNTRY),
-        _yield_values('country', 'Nicaragua', HOST_COUNTRY),
+        _yield_values('nationality', 'Nicaragua', HOST_COUNTRY),
+        _yield_values('affiliation', 'Nicaragua', HOST_COUNTRY),
         _yield_values('motivation', *SCORE_RANGE),
         _yield_values('cv', *SCORE_RANGE),
         _yield_values('programming', *programming_rating.values()),
@@ -729,14 +785,6 @@ def wrap_paragraphs(text):
     wrapped = ('\n'.join(textwrap.wrap(para)) for para in paras)
     return '\n\n'.join(wrapped)
 
-@vector.vectorize
-def csv_file(file, tuple_factory):
-    reader = csv.reader(file)
-    header = next(reader)
-    assert len(header) == len(tuple_factory._fields)
-    while True:
-        yield tuple_factory(*next(reader))
-
 class list_of_equivs(list):
     def __init__(self, arg=None):
         equivs = ((item.strip() for item in arg.split('='))
@@ -757,18 +805,19 @@ def our_configfile(filename):
                                  formula=str,
                                  equivs=list_of_equivs,
                                  labels=list_of_str,
+                                 fields=list_of_equivs,
                                  **kw)
 
 def open_no_newlines(filename):
     return open(filename, newline='')
 
 grader_options = cmd_completer.ModArgumentParser('grader')\
-    .add_argument('applications', type=open_no_newlines,
-                  help='CSV file with application data')\
-    .add_argument('config', type=our_configfile)\
     .add_argument('-i', '--identity', type=int,
                   choices=IDENTITIES,
-                  help='Index of person grading applications')
+                  help='Index of person grading applications')\
+    .add_argument('config', type=our_configfile)\
+    .add_argument('applications', type=open_no_newlines, nargs='*',
+                  help='CSV file with application data')
 
 def main(argv0, *args):
     logging.basicConfig(level=logging.INFO)
