@@ -173,7 +173,8 @@ class Grader(cmd_completer.Cmd_Completer):
         declared = int(person.applied[0] not in 'nN')
         found = 0
         for old in self.applications_old:
-            found += person.fullname in old.fullname
+            found += (person.fullname in old.fullname or
+                      person.email in old.email)
         if warn and found and not declared:
             printf('warning: person found in list says not applied prev.: {}',
                    person.fullname)
