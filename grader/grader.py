@@ -90,6 +90,9 @@ class Grader(cmd_completer.Cmd_Completer):
             @property
             def fullname(self):
                 return '{p.name} {p.lastname}'.format(p=self)
+            @property
+            def female(self):
+                return self.gender == 'Female'
         return Person
 
     @property
@@ -632,7 +635,7 @@ def rank_person(person, formula,
     vars.update(born=int(person.born), # if we decide to implement ageism
                 gender=person.gender, # if we decide, ...
                                       # oh we already did
-                female=(person.gender == 'Female'),
+                female=person.female,
                 applied=(person.applied[0] not in 'nN'),
                 nation=person.nation,
                 country=person.country,
