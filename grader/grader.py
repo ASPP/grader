@@ -245,6 +245,8 @@ class Grader(cmd_completer.Cmd_Completer):
                       help='do not truncate free texts')\
         .add_argument('-r', '--ranked', action='store_true',
                       help='print applications sorted by rank')\
+        .add_argument('-a', '--accepted', action='store_true',
+                      help='print only applications above the water line')\
         .add_argument('persons', nargs='*',
                       help='name fragments of people do display')
 
@@ -256,8 +258,10 @@ class Grader(cmd_completer.Cmd_Completer):
                        if any(arg in p.fullname for arg in opts.persons))
         else:
             persons = self.applications
-        if opts.ranked:
+        if opts.ranked or opts.accepted:
             persons = self._ranked(persons)
+        if opts.accepted:
+            persons = (p for p in persons if p.rank < self.accept_count)
         self._dump(persons, format=opts.format)
 
     do_dump.completions = _complete_name
