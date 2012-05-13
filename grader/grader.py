@@ -243,12 +243,15 @@ class Grader(cmd_completer.Cmd_Completer):
         .add_argument('-l', '--long', action='store_const',
                       dest='format', const='long', default='short',
                       help='do not truncate free texts')\
-        .add_argument('-r', '--ranked', action='store_true',
+        .add_argument('-s', '--sorted', action='store_true',
                       help='print applications sorted by rank')\
-        .add_argument('-a', '--accepted', action='store_true',
-                      help='print only applications above the water line')\
         .add_argument('persons', nargs='*',
                       help='name fragments of people do display')
+    dump_options_cat = dump_options.add_mutually_exclusive_group()
+    dump_options_cat.add_argument('-a', '--accepted', action='store_true',
+                      help='print only applications above the water line')
+    dump_options_cat.add_argument('-r', '--rejected', action='store_true',
+                      help='print only applications below the water line')
 
     def do_dump(self, args):
         "Print information about applications"
@@ -258,10 +261,12 @@ class Grader(cmd_completer.Cmd_Completer):
                        if any(arg in p.fullname for arg in opts.persons))
         else:
             persons = self.applications
-        if opts.ranked or opts.accepted:
+        if opts.sorted or opts.accepted or opts.rejected:
             persons = self._ranked(persons)
         if opts.accepted:
             persons = (p for p in persons if p.rank < self.accept_count)
+        if opts.rejected:
+            persons = (p for p in persons if p.rank >= self.accept_count)
         self._dump(persons, format=opts.format)
 
     do_dump.completions = _complete_name
