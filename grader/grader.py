@@ -503,7 +503,8 @@ class Grader(cmd_completer.Cmd_Completer):
         minsc, maxsc, contr = find_min_max(self.formula,
                                            self.programming_rating,
                                            self.open_source_rating,
-                                           self.python_rating)
+                                           self.python_rating,
+                                           self._applied_range())
 
         for person in self.applications:
             person.score = rank_person(person, self.formula,
@@ -757,7 +758,7 @@ def rank_person(person, formula,
                                       # oh we already did
                 female=person.female,
                 applied=applied,
-                nation=person.nation,
+                nationality=person.nationality,
                 affiliation=person.affiliation,
                 motivation=motivation_scores.mean(),
                 cv=cv_scores.mean(),
