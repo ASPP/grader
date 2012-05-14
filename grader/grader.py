@@ -49,10 +49,10 @@ motivation: {motivation} [{motivation_scores}]
 rank: {p.rank} {p.score}
 '''
 
-RANK_FMT_LONG = ('{: 4} {p.rank: 4} {labels:{labels_width}}{p.score:6.3f}'
+RANK_FMT_LONG = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}'
                  ' {p.institute:{institute_width}} / {p.group:{group_width}}')
-RANK_FMT_SHORT = ('{: 4} {p.rank: 4} {labels:{labels_width}}{p.score:6.3f}'
+RANK_FMT_SHORT = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}')
 
 
@@ -524,19 +524,44 @@ class Grader(cmd_completer.Cmd_Completer):
                                        self._applied(person))
         ranked = sorted(self.applications, key=lambda p: p.score, reverse=True)
 
-        labs = {}
-        rank = 0
+        sort = []
+        # put VIPS at the beginning of the list, and set the rank already
         for person in ranked:
-            if rank == self.accept_count:
-                labs = {}
-            group = self._equiv_master(person.group)
-            institute = self._equiv_master(person.institute)
-            lab = institute + ' | ' + group
-            if lab not in labs:
-                labs[lab] = rank
-                rank += 1
-            person.rank = labs[lab]
-        #pprint.pprint(labs)
+            if 'VIP' in self._labels(person.fullname):
+                person.rank = 0
+                sort.insert(0, person)
+            else:
+                sort.append(person)
+        # rank fairly now
+        labs = {}
+        for idx, person in enumerate(sort):
+            if person.rank is not None:
+                continue
+            # this is in case we have no VIPs
+            if idx == 0:
+                person.rank = 1
+                continue
+            # main logic
+            prev_rank = sort[idx-1].rank
+            if person.score == sort[idx-1].score:
+                person.rank = prev_rank
+            else:
+                person.rank = prev_rank + 1
+
+        ## for person in ranked:
+        ##     # VIPs get in front of the list
+        ##     if 'VIP' in self._labels(person.fullname):
+        ##         person.rank = 1
+        ##         continue
+        ##     if rank == self.accept_count:
+        ##         labs = {}
+        ##     group = self._equiv_master(person.group)
+        ##     institute = self._equiv_master(person.institute)
+        ##     lab = institute + ' | ' + group
+        ##     if lab not in labs:
+        ##         labs[lab] = rank
+        ##         rank += 1
+        ##     person.rank = labs[lab]
 
     def _ranked(self, applications=None):
         if applications is None:
@@ -569,11 +594,12 @@ class Grader(cmd_completer.Cmd_Completer):
         group_width = min(max(len(field) for field in ranked.group), 20)
         labels_width = max(len(str(self._labels(field)))
                            for field in ranked.fullname)
+
         fmt = RANK_FMT_SHORT if opts.format == 'short' else RANK_FMT_LONG
         for pos, person in enumerate(ranked):
-            if person.rank == self.accept_count:
+            if pos == self.accept_count:
                 print('-' * 70)
-            printf(fmt, pos, p=person,
+            printf(fmt, pos+1, p=person,
                    email='<{}>'.format(person.email),
                    fullname_width=fullname_width, email_width=email_width,
                    institute_width=institute_width, group_width=group_width,
