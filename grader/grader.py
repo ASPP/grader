@@ -46,7 +46,7 @@ python: {p.python} [{python_score}]
 open source: {p.open_source}{open_source_description} [{open_source_score}]
 cv: {cv} [{cv_scores}]
 motivation: {motivation} [{motivation_scores}]
-rank: {p.rank} {p.score}
+rank: {p.rank} {p.score} {p.highlander}
 '''
 
 RANK_FMT_LONG = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
@@ -99,6 +99,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 super().__init__(*args, **kwargs)
                 self.score = None
                 self.rank = None
+                self.highlander = None
             @property
             def fullname(self):
                 return '{p.name} {p.lastname}'.format(p=self)
@@ -247,7 +248,7 @@ class Grader(cmd_completer.Cmd_Completer):
         .add_argument('-r', '--ranked', action='store_true',
                       help='print applications sorted by rank')\
         .add_argument('-a', '--accepted', action='store_true',
-                      help='print only applications above the water line')\
+                      help='print only highlander applications')\
         .add_argument('persons', nargs='*',
                       help='name fragments of people do display')
 
@@ -262,7 +263,7 @@ class Grader(cmd_completer.Cmd_Completer):
         if opts.ranked or opts.accepted:
             persons = self._ranked(persons)
         if opts.accepted:
-            persons = (p for p in persons if p.rank < self.accept_count)
+            persons = (p for p in persons if p.highlander)
         self._dump(persons, format=opts.format)
 
     do_dump.completions = _complete_name
@@ -533,7 +534,6 @@ class Grader(cmd_completer.Cmd_Completer):
             else:
                 sort.append(person)
         # rank fairly now
-        labs = {}
         for idx, person in enumerate(sort):
             if person.rank is not None:
                 continue
@@ -547,6 +547,15 @@ class Grader(cmd_completer.Cmd_Completer):
                 person.rank = prev_rank
             else:
                 person.rank = prev_rank + 1
+
+        # now choose the highlanders:
+        for i, p in enumerate(sort):
+            p.highlander = i < self.accept_count
+            # check if we have other people with the same ranking
+            if not p.highlander:
+                prev = sort[i-1]
+                if prev.highlander and (prev.rank == p.rank):
+                    p.highlander = True
 
         ## for person in ranked:
         ##     # VIPs get in front of the list
@@ -596,9 +605,11 @@ class Grader(cmd_completer.Cmd_Completer):
                            for field in ranked.fullname)
 
         fmt = RANK_FMT_SHORT if opts.format == 'short' else RANK_FMT_LONG
+        prev_highlander = True
         for pos, person in enumerate(ranked):
-            if pos == self.accept_count:
+            if prev_highlander and not person.highlander:
                 print('-' * 70)
+            prev_highlander = person.highlander
             printf(fmt, pos+1, p=person,
                    email='<{}>'.format(person.email),
                    fullname_width=fullname_width, email_width=email_width,
@@ -620,7 +631,7 @@ class Grader(cmd_completer.Cmd_Completer):
         if opts.accepted:
             self._assign_rankings()
             ranked = self._ranked()
-            pool = [person for person in ranked if person.rank <= self.accept_count]
+            pool = [person for person in ranked if person.highlander]
         else:
             pool = self.applications
         nationality = collections.Counter(p.nationality for p in pool)
@@ -702,15 +713,13 @@ class Grader(cmd_completer.Cmd_Completer):
         printf('accepting {}', self.accept_count)
         count = collections.Counter(ranked.rank)
 
-        _write_file('applications_accepted.csv',
-                    (person for person in ranked if
-                     person.rank < self.accept_count and count[person.rank] == 1))
+        _write_file('applications_invited.csv',
+                    (person for person in ranked if person.highlander))
         _write_file('applications_same_lab.csv',
-                    (person for person in ranked if
-                     person.rank < self.accept_count and count[person.rank] != 1))
+                    (person for person in ranked if person.highlander and
+                     count[person.rank] != 1))
         _write_file('applications_rejected.csv',
-                    (person for person in ranked if
-                     person.rank >= self.accept_count))
+                    (person for person in ranked if not person.highlander))
 
 
 def _write_file(filename, persons):
