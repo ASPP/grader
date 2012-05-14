@@ -644,22 +644,42 @@ class Grader(cmd_completer.Cmd_Completer):
         return self.config['labels'].get(fullname, list_of_str())
 
     def do_label(self, args):
-        "Mark persons with string labels"
+        """Mark persons with string labels
+
+        label First Last = LABEL   # add label
+        label First Last =         # delete labels
+        label First Last           # display labels
+        label                      # display all labels
+        label LABEL                # display people thus labelled
+        """
+        section = self.config['labels']
         if args == '':
-            for key, value in self.config['labels'].items():
+            for key, value in section.items():
                 printf('{} = {}', key, value)
             return
 
-        fullname, *labels = [item.strip() for item in args.split('=')
-                             if item is not '']
-        print(labels)
-        if labels:
-            saved = self._labels(fullname)
-            saved.extend(labels)
-            self.config['labels'][fullname] = saved
+        if '=' in args:
+            fullname, *labels = [item.strip() for item in args.split('=')
+                                 if item is not '']
+            if labels:
+                saved = self._labels(fullname)
+                saved.extend(labels)
+                section[fullname] = saved
+            else:
+                section.clear(fullname)
+            self.modified = True
         else:
-            self.config['labels'].clear(fullname)
-        self.modified = True
+            display_by_label = any(label in set(args.split())
+                                   for group in section.values()
+                                   for label in group)
+            if display_by_label:
+                for label in args.split():
+                    printf('== {} ==', label)
+                    for key, value in section.items():
+                        if label in value:
+                            print(key)
+            else:
+                printf('{} = {}', args, section[args])
 
     do_label.completions = _complete_name
 
