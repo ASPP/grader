@@ -40,7 +40,7 @@ institute: {p.institute}
 group: {p.group}
 affiliation: {p.affiliation}
 position: {p.position}{position_other}
-appl.prev.: {applied}
+appl.prev.: {p.applied} {p.napplied}
 programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
 open source: {p.open_source}{open_source_description} [{open_source_score}]
@@ -78,6 +78,7 @@ class Grader(cmd_completer.Cmd_Completer):
         self.config = config
         self._init_applications(applications)
         self.modified = False
+        self.ranking_done = False
 
     def _init_applications(self, applications):
         section = self.config['application_lists']
@@ -100,6 +101,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 self.score = None
                 self.rank = None
                 self.highlander = None
+                self.napplied = 0
             @property
             def fullname(self):
                 return '{p.name} {p.lastname}'.format(p=self)
@@ -183,7 +185,8 @@ class Grader(cmd_completer.Cmd_Completer):
         if warn and declared and not found:
             printf('warning: person applied prev. not found on lists: {}',
                    person.fullname)
-        return max(declared, found)
+        person.napplied = max(declared, found)
+        return person.napplied
 
     def _applied_range(self):
         s = set(self._applied(p, warn=False) for p in self.applications)
@@ -211,6 +214,8 @@ class Grader(cmd_completer.Cmd_Completer):
         # check syntax
         compile(value, '--formula--', 'eval')
         self.config['formula']['formula'] = value
+        # invalidate rankings
+        self.ranking_done = False
 
     @property
     def accept_count(self):
@@ -301,7 +306,6 @@ class Grader(cmd_completer.Cmd_Completer):
             labels = '[{}] '.format(labels)
         printf(DUMP_FMT,
                p=p,
-               applied=self._applied(p),
                position_other=position_other,
                programming_description=programming_description,
                open_source_description=open_source_description,
@@ -512,6 +516,10 @@ class Grader(cmd_completer.Cmd_Completer):
         if self.formula is None:
             raise ValueError('formula not set yet')
 
+        if self.ranking_done:
+            return
+        else:
+            self.ranking_done = True
         minsc, maxsc, contr = find_min_max(self.formula,
                                            self.programming_rating,
                                            self.open_source_rating,
@@ -626,44 +634,50 @@ class Grader(cmd_completer.Cmd_Completer):
                    .add_argument('-d', '--detailed', action='store_const',
                                  dest='detailed', const=True, default=False,
                                  help='display detailed statistics')\
-                   .add_argument('-a', '--accepted', action='store_const',
-                                 dest='accepted', const=True, default=False,
-                                 help='display statistics only for accepted')
+                   .add_argument('-l', '--highlanders', action='store_const',
+                                 dest='highlanders', const=True, default=False,
+                                 help='display statistics only for highlanders')\
+                   .add_argument('-i', '--invited', action='store_const',
+                                 dest='invited', const=True, default=False,
+                                 help='display statistics only for invited')
 
     def do_stat(self, args):
         "Display statistics"
         opts = self.stat_options.parse_args(args.split())
-        if opts.accepted:
-            self._assign_rankings()
+        if opts.highlanders:
             ranked = self._ranked()
+            self._assign_rankings()
             pool = [person for person in ranked if person.highlander]
         else:
             pool = self.applications
-        nationality = collections.Counter(p.nationality for p in pool)
-        affiliation = collections.Counter(p.affiliation for p in pool)
-        gender = collections.Counter(p.gender for p in pool)
-        position = collections.Counter(p.position for p in pool)
+        if opts.invited:
+            pool = [p for p in pool if 'INVITE' in self._labels(p.fullname)]
+            
+        observables = ['born', 'female', 'nationality', 'affiliation',
+                       'position', 'applied', 'napplied', 'open_source',
+                       'programming', 'python']
+        counter = {}
+        for var in observables:
+            counter[var] = collections.Counter(getattr(p, var) for p in pool)
 
+        length = {var:len(counter[var]) for var in observables}
         applicants = len(pool)
-        nationalities = len(nationality)
-        affiliations = len(affiliation)
-        female = gender['Female']
-        FMT_STAT = '{:24} = {:>3d}'
+        FMT_STAT = '{:<24.24} = {:>3d}'
         FMT_STAP = FMT_STAT + ' ({:4.1f}%)'
-        printf(FMT_STAT, 'Applicants', applicants)
-        printf(FMT_STAT, 'Nationalities', nationalities)
-        printf(FMT_STAT, 'Countries of affiliation', affiliations)
-        printf(FMT_STAP, 'Females', female, female/applicants*100)
-        for pos in position.most_common():
-            printf(FMT_STAP, pos[0], pos[1], pos[1]/applicants*100)
         if not opts.detailed:
-            return
-        print('---\nNationalities: ')
-        for n in sorted(nationality.items(), key=operator.itemgetter(1), reverse=True):
-            printf(FMT_STAP, n[0], n[1], n[1]/applicants*100)
-        print('---\nAffiliations:') 
-        for c in sorted(affiliation.items(), key=operator.itemgetter(1), reverse=True):
-            printf(FMT_STAP, c[0], c[1], c[1]/applicants*100)
+            printf(FMT_STAT, 'Applicants', applicants)
+            printf(FMT_STAT, 'Nationalities', length['nationality'])
+            printf(FMT_STAT, 'Countries of affiliation', length['affiliation'])
+            printf(FMT_STAP, 'Females', counter['female'][True],
+                   counter['female'][True]/applicants*100)
+            for pos in counter['position'].most_common():
+                printf(FMT_STAP, pos[0], pos[1], pos[1]/applicants*100)
+        else:
+            for var in observables:
+                print('--\n'+var.upper())
+                for n in sorted(counter[var].items(),
+                                key=operator.itemgetter(1), reverse=True):
+                    printf(FMT_STAP, str(n[0]), n[1], n[1]/applicants*100)
        
     def do_equiv(self, args):
         "Specify institutions'/labs' names as equivalent"
