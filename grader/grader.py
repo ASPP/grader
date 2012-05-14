@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import sys
 import os
 import math
@@ -45,13 +46,13 @@ python: {p.python} [{python_score}]
 open source: {p.open_source}{open_source_description} [{open_source_score}]
 cv: {cv} [{cv_scores}]
 motivation: {motivation} [{motivation_scores}]
-rank: {p.rank} {p.score}
+rank: {p.rank} {p.score} {p.highlander}
 '''
 
-RANK_FMT_LONG = ('{: 4} {p.rank: 4} {labels:{labels_width}}{p.score:6.3f}'
+RANK_FMT_LONG = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}'
                  ' {p.institute:{institute_width}} / {p.group:{group_width}}')
-RANK_FMT_SHORT = ('{: 4} {p.rank: 4} {labels:{labels_width}}{p.score:6.3f}'
+RANK_FMT_SHORT = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}')
 
 
@@ -66,7 +67,7 @@ DEFAULT_ACCEPT_COUNT = 30
 section_name = '{}_score-{}'.format
 
 class Grader(cmd_completer.Cmd_Completer):
-    prompt = 'grader> '
+    prompt = '\x1b[1;32mgrader\x1b[33m>\x1b[0m '
     set_completions = cmd_completer.Cmd_Completer.set_completions
     HISTFILE = '~/.grader_history'
 
@@ -98,6 +99,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 super().__init__(*args, **kwargs)
                 self.score = None
                 self.rank = None
+                self.highlander = None
             @property
             def fullname(self):
                 return '{p.name} {p.lastname}'.format(p=self)
@@ -249,7 +251,7 @@ class Grader(cmd_completer.Cmd_Completer):
                       help='name fragments of people do display')
     dump_options_cat = dump_options.add_mutually_exclusive_group()
     dump_options_cat.add_argument('-a', '--accepted', action='store_true',
-                      help='print only applications above the water line')
+                      help='print only highlander applications')
     dump_options_cat.add_argument('-r', '--rejected', action='store_true',
                       help='print only applications below the water line')
 
@@ -264,9 +266,9 @@ class Grader(cmd_completer.Cmd_Completer):
         if opts.sorted or opts.accepted or opts.rejected:
             persons = self._ranked(persons)
         if opts.accepted:
-            persons = (p for p in persons if p.rank < self.accept_count)
+            persons = (p for p in persons if p.highlander)
         if opts.rejected:
-            persons = (p for p in persons if p.rank >= self.accept_count)
+            persons = (p for p in persons if not p.highlander)
         self._dump(persons, format=opts.format)
 
     do_dump.completions = _complete_name
@@ -528,19 +530,52 @@ class Grader(cmd_completer.Cmd_Completer):
                                        self._applied(person))
         ranked = sorted(self.applications, key=lambda p: p.score, reverse=True)
 
-        labs = {}
-        rank = 0
+        sort = []
+        # put VIPS at the beginning of the list, and set the rank already
         for person in ranked:
-            if rank == self.accept_count:
-                labs = {}
-            group = self._equiv_master(person.group)
-            institute = self._equiv_master(person.institute)
-            lab = institute + ' | ' + group
-            if lab not in labs:
-                labs[lab] = rank
-                rank += 1
-            person.rank = labs[lab]
-        #pprint.pprint(labs)
+            if 'VIP' in self._labels(person.fullname):
+                person.rank = 0
+                sort.insert(0, person)
+            else:
+                sort.append(person)
+        # rank fairly now
+        for idx, person in enumerate(sort):
+            if person.rank is not None:
+                continue
+            # this is in case we have no VIPs
+            if idx == 0:
+                person.rank = 1
+                continue
+            # main logic
+            prev_rank = sort[idx-1].rank
+            if person.score == sort[idx-1].score:
+                person.rank = prev_rank
+            else:
+                person.rank = prev_rank + 1
+
+        # now choose the highlanders:
+        for i, p in enumerate(sort):
+            p.highlander = i < self.accept_count
+            # check if we have other people with the same ranking
+            if not p.highlander:
+                prev = sort[i-1]
+                if prev.highlander and (prev.rank == p.rank):
+                    p.highlander = True
+
+        ## for person in ranked:
+        ##     # VIPs get in front of the list
+        ##     if 'VIP' in self._labels(person.fullname):
+        ##         person.rank = 1
+        ##         continue
+        ##     if rank == self.accept_count:
+        ##         labs = {}
+        ##     group = self._equiv_master(person.group)
+        ##     institute = self._equiv_master(person.institute)
+        ##     lab = institute + ' | ' + group
+        ##     if lab not in labs:
+        ##         labs[lab] = rank
+        ##         rank += 1
+        ##     person.rank = labs[lab]
 
     def _ranked(self, applications=None):
         if applications is None:
@@ -573,11 +608,14 @@ class Grader(cmd_completer.Cmd_Completer):
         group_width = min(max(len(field) for field in ranked.group), 20)
         labels_width = max(len(str(self._labels(field)))
                            for field in ranked.fullname)
+
         fmt = RANK_FMT_SHORT if opts.format == 'short' else RANK_FMT_LONG
+        prev_highlander = True
         for pos, person in enumerate(ranked):
-            if person.rank == self.accept_count:
+            if prev_highlander and not person.highlander:
                 print('-' * 70)
-            printf(fmt, pos, p=person,
+            prev_highlander = person.highlander
+            printf(fmt, pos+1, p=person,
                    email='<{}>'.format(person.email),
                    fullname_width=fullname_width, email_width=email_width,
                    institute_width=institute_width, group_width=group_width,
@@ -598,7 +636,7 @@ class Grader(cmd_completer.Cmd_Completer):
         if opts.accepted:
             self._assign_rankings()
             ranked = self._ranked()
-            pool = [person for person in ranked if person.rank < self.accept_count]
+            pool = [person for person in ranked if person.highlander]
         else:
             pool = self.applications
         nationality = collections.Counter(p.nationality for p in pool)
@@ -700,15 +738,13 @@ class Grader(cmd_completer.Cmd_Completer):
         printf('accepting {}', self.accept_count)
         count = collections.Counter(ranked.rank)
 
-        _write_file('applications_accepted.csv',
-                    (person for person in ranked if
-                     person.rank < self.accept_count and count[person.rank] == 1))
+        _write_file('applications_invited.csv',
+                    (person for person in ranked if person.highlander))
         _write_file('applications_same_lab.csv',
-                    (person for person in ranked if
-                     person.rank < self.accept_count and count[person.rank] != 1))
+                    (person for person in ranked if person.highlander and
+                     count[person.rank] != 1))
         _write_file('applications_rejected.csv',
-                    (person for person in ranked if
-                     person.rank >= self.accept_count))
+                    (person for person in ranked if not person.highlander))
 
 
 def _write_file(filename, persons):
@@ -885,7 +921,8 @@ grader_options = cmd_completer.ModArgumentParser('grader')\
     .add_argument('-i', '--identity', type=int,
                   choices=IDENTITIES,
                   help='Index of person grading applications')\
-    .add_argument('config', type=our_configfile)\
+    .add_argument('config', type=our_configfile, nargs='?',
+                  default=os.path.join(os.getcwd(), 'grader.conf'))\
     .add_argument('applications', type=open_no_newlines, nargs='*',
                   help='''CSV files with application data.
                           The first is current, subsequent are from previous years.

@@ -5,13 +5,53 @@ import readline
 import cmd
 import argparse
 import re
+import io
+import struct
+import fcntl
+import termios
+import pydoc
 
 import logging
 log = logging.getLogger('cmd_completer')
 
+__sys_stdout__ = sys.stdout
+pager = pydoc.getpager()
+
+class PagedStdOut(io.StringIO):
+    "Page stdout if needed"
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.buffer = []
+
+    def write(self, s):
+        # do not really write, just cumulates input
+        self.buffer.append(s)
+
+    def set_buffer(self):
+        self.buffer = []
+        sys.stdout = self
+
+    def flush_buffer(self):
+        # until http://bugs.python.org/issue13609 is fixed,
+        # we used our own brain dead implementation of
+        # get_terminal_size
+        height, width = struct.unpack("hhhh",
+                                      fcntl.ioctl(0,termios.TIOCGWINSZ,
+                                                  "\000"*8))[0:2]
+        buffer = ''.join(self.buffer)
+
+        sys.stdout = __sys_stdout__
+        if buffer.count('\n') >= height:
+            pydoc.pager(buffer)
+        else:
+            sys.stdout.write(buffer)
+
+
+
 class Cmd_Completer(cmd.Cmd):
     def __init__(self, histfile=None):
         cmd.Cmd.__init__(self)
+        self.paged_stdout = PagedStdOut()
 
         if histfile is None:
             return
@@ -86,7 +126,12 @@ class Cmd_Completer(cmd.Cmd):
         cmd, _, rest = line.partition(';')
         if rest:
             self.cmdqueue.insert(0, rest)
+        self.paged_stdout.set_buffer()
         return cmd
+
+    def postcmd(self, stop, line):
+        self.paged_stdout.flush_buffer()
+        return stop
 
     def do_EOF(self, arg):
         "Quit"
