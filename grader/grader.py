@@ -664,15 +664,14 @@ class Grader(cmd_completer.Cmd_Completer):
         applicants = len(pool)
         FMT_STAT = '{:<24.24} = {:>3d}'
         FMT_STAP = FMT_STAT + ' ({:4.1f}%)'
-        if not opts.detailed:
-            printf(FMT_STAT, 'Applicants', applicants)
-            printf(FMT_STAT, 'Nationalities', length['nationality'])
-            printf(FMT_STAT, 'Countries of affiliation', length['affiliation'])
-            printf(FMT_STAP, 'Females', counter['female'][True],
-                   counter['female'][True]/applicants*100)
-            for pos in counter['position'].most_common():
-                printf(FMT_STAP, pos[0], pos[1], pos[1]/applicants*100)
-        else:
+        printf(FMT_STAT, 'Pool', applicants)
+        printf(FMT_STAT, 'Nationalities', length['nationality'])
+        printf(FMT_STAT, 'Countries of affiliation', length['affiliation'])
+        printf(FMT_STAP, 'Females', counter['female'][True],
+               counter['female'][True]/applicants*100)
+        for pos in counter['position'].most_common():
+            printf(FMT_STAP, pos[0], pos[1], pos[1]/applicants*100)
+        if opts.detailed:
             for var in observables:
                 print('--\n'+var.upper())
                 for n in sorted(counter[var].items(),
