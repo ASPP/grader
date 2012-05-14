@@ -67,7 +67,7 @@ DEFAULT_ACCEPT_COUNT = 30
 section_name = '{}_score-{}'.format
 
 class Grader(cmd_completer.Cmd_Completer):
-    prompt = 'grader> '
+    prompt = '\x1b[1;32mgrader\x1b[33m>\x1b[0m '
     set_completions = cmd_completer.Cmd_Completer.set_completions
     HISTFILE = '~/.grader_history'
 
