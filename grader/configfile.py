@@ -1,5 +1,6 @@
 import configparser
 import operator
+import collections
 
 class _Section:
     def __init__(self, configparser, section, type=str):
@@ -60,11 +61,14 @@ class ConfigFile:
     def __init__(self, filename, **sections):
         self.filename = filename
         cp = configparser.ConfigParser(comment_prefixes='#', inline_comment_prefixes='#')
-        self.sections = {}
-        for section, type in sections.items():
-            cp.add_section(section)
-            self.sections[section] = _Section(cp, section, type)
         cp.read(filename)
+
+        self.sections = collections.OrderedDict()
+        for section, type in sections.items():
+            if not cp.has_section(section):
+                cp.add_section(section)
+            self.sections[section] = _Section(cp, section, type)
+
         self.cp = cp
 
     def __getitem__(self, section):
