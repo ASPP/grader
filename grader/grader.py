@@ -747,17 +747,17 @@ class Grader(cmd_completer.Cmd_Completer):
         "Write lists of mailing ricipients"
         if args != '':
             raise ValueError('no args please')
-        ranked = self._ranking()
-        printf('accepting {}', self.accept_count)
-        count = collections.Counter(ranked.rank)
-
+        #ranked = self._ranking()
+        #printf('accepting {}', self.accept_count)
+        #count = collections.Counter(ranked.rank)
+        pool = self.applications
         _write_file('applications_invited.csv',
-                    (person for person in ranked if person.highlander))
-        _write_file('applications_same_lab.csv',
-                    (person for person in ranked if person.highlander and
-                     count[person.rank] != 1))
+                    (p for p in pool if 'INVITE' in self._labels(p.fullname)))
+        #_write_file('applications_same_lab.csv',
+        #            (person for person in ranked if person.highlander and
+        #             count[person.rank] != 1))
         _write_file('applications_rejected.csv',
-                    (person for person in ranked if not person.highlander))
+                    (p for p in pool if 'INVITE' not in self._labels(p.fullname)))
 
 
 def _write_file(filename, persons):
