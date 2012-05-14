@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 import sys
 import os
 import math
@@ -860,7 +861,8 @@ grader_options = cmd_completer.ModArgumentParser('grader')\
     .add_argument('-i', '--identity', type=int,
                   choices=IDENTITIES,
                   help='Index of person grading applications')\
-    .add_argument('config', type=our_configfile)\
+    .add_argument('config', type=our_configfile, nargs='?',
+                  default=os.path.join(os.getcwd(), 'grader.conf'))\
     .add_argument('applications', type=open_no_newlines, nargs='*',
                   help='''CSV files with application data.
                           The first is current, subsequent are from previous years.
