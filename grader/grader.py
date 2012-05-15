@@ -49,12 +49,20 @@ motivation: {motivation} [{motivation_scores}]
 rank: {p.rank} {p.score} {p.highlander}
 '''
 
-RANK_FMT_LONG = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
+_RANK_FMT_LONG = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}'
                  ' {p.institute:{institute_width}} / {p.group:{group_width}}')
-RANK_FMT_SHORT = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
+_RANK_FMT_SHORT = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}')
-
+_RANK_FMT_DETAILED = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
+                 ' [{motivation_scores}] [appl: {p.applied} {p.napplied}]'
+                 ' [prog: {programming_score}] [python: {python_score}]'
+                 ' [os: {open_source_score}]'
+                 ' {p.fullname:{fullname_width}} {email:{email_width}}')
+RANK_FORMATS = {'short': _RANK_FMT_SHORT,
+                'long': _RANK_FMT_LONG,
+                'detailed': _RANK_FMT_DETAILED,
+                }
 
 SCORE_RANGE = (-1, 0, 1)
 
@@ -603,6 +611,9 @@ class Grader(cmd_completer.Cmd_Completer):
     rank_options = cmd_completer.ModArgumentParser('rank')\
         .add_argument('-s', '--short', action='store_const',
                       dest='format', const='short', default='long',
+                      help='show only names and emails')\
+        .add_argument('--format',
+                      dest='format', choices=('long', 'short', 'detailed'),
                       help='show only names and emails')
 
     def do_rank(self, args):
@@ -617,7 +628,7 @@ class Grader(cmd_completer.Cmd_Completer):
         labels_width = max(len(str(self._labels(field)))
                            for field in ranked.fullname)
 
-        fmt = RANK_FMT_SHORT if opts.format == 'short' else RANK_FMT_LONG
+        fmt = RANK_FORMATS[opts.format]
         prev_highlander = True
         for pos, person in enumerate(ranked):
             if prev_highlander and not person.highlander:
@@ -628,7 +639,18 @@ class Grader(cmd_completer.Cmd_Completer):
                    fullname_width=fullname_width, email_width=email_width,
                    institute_width=institute_width, group_width=group_width,
                    labels=self._labels(person.fullname),
-                   labels_width=labels_width)
+                   labels_width=labels_width,
+                   motivation_scores=self._gradings(person, 'motivation'),
+                   programming_score=\
+                       get_rating('programming', self.programming_rating,
+                                  person.programming, '-'),
+                   open_source_score=\
+                       get_rating('open_source', self.open_source_rating,
+                                  person.open_source, '-'),
+                   python_score=\
+                       get_rating('python', self.python_rating,
+                                  person.python, '-'),
+                   )
 
     stat_options = cmd_completer.ModArgumentParser('stat')\
                    .add_argument('-d', '--detailed', action='store_const',
