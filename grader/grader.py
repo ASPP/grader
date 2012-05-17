@@ -23,6 +23,14 @@ float_nan = float("nan")
 def printf(fmt, *args, **kwargs):
     print(fmt.format(*args, **kwargs))
 
+# like printf above, but this time with explicit flush.
+# it should be used everytime you want the strings
+# to be print immediately and not only at the end of
+# the command
+def printff(fmt, *args, **kwargs):
+    print(fmt.format(*args, **kwargs))
+    cmd_completer.PAGER.flush()
+
 @contextlib.contextmanager
 def Umask(umask):
     old = os.umask(umask)
@@ -254,6 +262,15 @@ class Grader(cmd_completer.Cmd_Completer):
                 completions[p.name].add(p.lastname)
         return completions
 
+    exception_options = cmd_completer.ModArgumentParser('exception')\
+                        .add_argument('exception', nargs=1,
+                                      help='the exception type to be raised')
+
+    def do_exception(self, args):
+        "Fake command to test exception capturing"
+        opts = self.exception_options.parse_args(args.split())
+        raise getattr(__builtins__, opts.exception[0])
+
     dump_options = cmd_completer.ModArgumentParser('dump')\
         .add_argument('-l', '--long', action='store_const',
                       dest='format', const='long', default='short',
@@ -401,8 +418,8 @@ class Grader(cmd_completer.Cmd_Completer):
                 printf('{:{w}} : {:4.1f}%', item[0].strip(), item[1], w=field_width)
             return
 
-        printf('Doing grading for identity {}', self.identity)
-        print('Press ^C or ^D to stop')
+        printff('Doing grading for identity {}', self.identity)
+        printff('Press ^C or ^D to stop')
         fullname = ' '.join(opts.person)
 
         todo = [p for p in self.applications
@@ -412,7 +429,7 @@ class Grader(cmd_completer.Cmd_Completer):
                     self._get_grading(p, opts.what) is None)]
         done_already = len(self.applications) - len(todo)
         for num, person in enumerate(todo):
-            printf('{:.2f}% done, {} left to go',
+            printff('{:.2f}% done, {} left to go',
                    100*(num+done_already)/len(self.applications),
                    len(todo)-num)
             if not self._grade(person, opts.what):
@@ -477,7 +494,7 @@ class Grader(cmd_completer.Cmd_Completer):
         assert isinstance(score, numbers.Number), score
         section = self.config[section_name(what, self.identity)]
         section[person.fullname] = score
-        printf('{} score set to {}', what, score)
+        printff('{} score set to {}', what, score)
         self.modified = True
 
     def _grade(self, person, what):
@@ -485,8 +502,8 @@ class Grader(cmd_completer.Cmd_Completer):
         text = getattr(person, what)
         old_score = self._get_grading(person, what)
         default = old_score if old_score is not None else ''
-        printf('{line}\n{}\n{line}', wrap_paragraphs(text), line='-'*70)
-        printf('Old score was {}', old_score)
+        printff('{line}\n{}\n{line}', wrap_paragraphs(text), line='-'*70)
+        printff('Old score was {}', old_score)
         while True:
             prompt = 'Your choice {} [{}]? '.format(SCORE_RANGE, default)
             try:
@@ -495,10 +512,10 @@ class Grader(cmd_completer.Cmd_Completer):
                 print()
                 return False
             if choice == 's':
-                print('person skipped')
+                printff('person skipped')
                 return True
             elif choice == 'd':
-                print('showing person on request')
+                printff('showing person on request')
                 self._dumpone(person, format='long')
                 continue
             elif choice == '':
@@ -512,7 +529,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 if choice not in SCORE_RANGE:
                     raise ValueError('illegal value: {}'.format(choice))
             except ValueError as e:
-                print(e)
+                printff(str(e))
             else:
                 break
         if choice != default:
@@ -977,12 +994,12 @@ def main(argv0, *args):
             except KeyboardInterrupt:
                 print()
             except SyntaxError as e:
-                printf('bad command: {}', e)
+                printff('bad command: {}', e)
             except ValueError as e:
-                printf('bad value: {}', e)
+                printff('bad value: {}', e)
                 traceback.print_exc()
             except Exception as e:
-                printf('programming error: {}', e)
+                printff('programming error: {}', e)
                 traceback.print_exc()
     else:
         input = cmd_completer.InputFile(sys.stdin)
@@ -990,10 +1007,10 @@ def main(argv0, *args):
             cmd.onecmd(line)
 
     if cmd.modified:
-        print("It seems thy labours' fruits may be going into oblivion...")
+        printff("It seems thy labours' fruits may be going into oblivion...")
         with Umask(0o077):
             tmpfile = tempfile.mkstemp(prefix='grader-', suffix='.conf')[1]
-            printf("Saving them to {} instead", tmpfile)
+            printff("Saving them to {} instead", tmpfile)
             cmd.do_save(tmpfile)
 
 if __name__ == '__main__':
