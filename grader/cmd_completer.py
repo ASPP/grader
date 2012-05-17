@@ -144,6 +144,8 @@ class Cmd_Completer(cmd.Cmd):
         log.info('***bye***')
         return True
 
+    do_exit = do_EOF
+
     def do_py(self, arg):
         "Execute python statements"
         try:
