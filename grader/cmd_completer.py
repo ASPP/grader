@@ -14,24 +14,32 @@ import pydoc
 import logging
 log = logging.getLogger('cmd_completer')
 
-__sys_stdout__ = sys.stdout
-pager = pydoc.getpager()
-
 class PagedStdOut(io.StringIO):
     "Page stdout if needed"
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.buffer = []
+        self.pager = pydoc.getpager()
+        self.stdout_write = sys.stdout.write
+        self.stderr_write = sys.stderr.write
+        sys.stdout.write = self.write
+        sys.stderr.write = self.direct_write
+        global PAGER
+        PAGER = self
 
     def write(self, s):
         # do not really write, just cumulates input
         self.buffer.append(s)
 
-    def set_buffer(self):
-        self.buffer = []
-        sys.stdout = self
+    def direct_write(self, s):
+        # write directly, for example for stderr stream,
+        self.write(s)
+        # add a newline if not there
+        if s[-1] != '\n':
+            self.write('\n')
+        self.flush()
 
-    def flush_buffer(self):
+    def flush(self):
         # until http://bugs.python.org/issue13609 is fixed,
         # we used our own brain dead implementation of
         # get_terminal_size
@@ -39,20 +47,18 @@ class PagedStdOut(io.StringIO):
                                       fcntl.ioctl(0,termios.TIOCGWINSZ,
                                                   "\000"*8))[0:2]
         buffer = ''.join(self.buffer)
-
-        sys.stdout = __sys_stdout__
+        sys.stdout.write = self.stdout_write
+        sys.stderr.write = self.stderr_write
         if buffer.count('\n') >= height:
-            pydoc.pager(buffer)
+            self.pager(buffer)
         else:
             sys.stdout.write(buffer)
-
+        self.buffer = []
 
 
 class Cmd_Completer(cmd.Cmd):
     def __init__(self, histfile=None):
         cmd.Cmd.__init__(self)
-        self.paged_stdout = PagedStdOut()
-
         if histfile is None:
             return
         histfile = os.path.expanduser(histfile)
@@ -126,11 +132,11 @@ class Cmd_Completer(cmd.Cmd):
         cmd, _, rest = line.partition(';')
         if rest:
             self.cmdqueue.insert(0, rest)
-        self.paged_stdout.set_buffer()
+        self.page_stdout = PagedStdOut()
         return cmd
 
     def postcmd(self, stop, line):
-        self.paged_stdout.flush_buffer()
+        self.page_stdout.flush()
         return stop
 
     def do_EOF(self, arg):
@@ -168,6 +174,9 @@ class ModArgumentParser(argparse.ArgumentParser):
     def add_argument(self, *args, **kwargs):
         super(ModArgumentParser, self).add_argument(*args, **kwargs)
         return self
+
+    def _print_message(self, message, file=None):
+        PAGER.direct_write(message)
 
 class InputFile:
     COMMENT_OR_EMPTY_RE = re.compile('\s* (?: [#] | $ )', re.X)
