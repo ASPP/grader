@@ -764,10 +764,13 @@ class Grader(cmd_completer.Cmd_Completer):
                                    for label in group)
             if display_by_label:
                 for label in args.split():
+                    count = 0
                     printf('== {} ==', label)
                     for key, value in section.items():
                         if label in value:
-                            print(key)
+                            printf('{}. {}', count, key)
+                            count += 1
+                    printf('== {} labelled ==', count)
             else:
                 printf('{} = {}', args, section[args])
 
