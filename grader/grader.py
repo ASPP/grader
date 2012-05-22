@@ -82,8 +82,20 @@ DEFAULT_ACCEPT_COUNT = 30
 
 section_name = '{}_score-{}'.format
 
+COLOR = {
+    'default': '\x1b[0m',
+    'grey'   : '\x1b[1;30m',
+    'red'    : '\x1b[1;31m',
+    'green'  : '\x1b[1;32m',
+    'yellow' : '\x1b[1;33m',
+    'blue'   : '\x1b[1;34m',
+    'violet' : '\x1b[1;35m',
+    'cyan'   : '\x1b[1;36m',
+    'white'  : '\x1b[1;37m',
+    }
+
 class Grader(cmd_completer.Cmd_Completer):
-    prompt = '\x1b[1;32mgrader\x1b[33m>\x1b[0m '
+    prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
     set_completions = cmd_completer.Cmd_Completer.set_completions
     HISTFILE = '~/.grader_history'
 
@@ -656,15 +668,25 @@ class Grader(cmd_completer.Cmd_Completer):
 
         fmt = RANK_FORMATS[opts.format]
         prev_highlander = True
+        print(COLOR['grey']+'-' * 70+COLOR['default'])
         for pos, person in enumerate(ranked):
             if prev_highlander and not person.highlander:
-                print('-' * 70)
+                print(COLOR['grey']+'-' * 70+COLOR['default'])
             prev_highlander = person.highlander
-            printf(fmt, pos+1, p=person,
+            labels = self._labels(person.fullname)
+            if 'CONFIRMED' in labels:
+                line_color = COLOR['default']
+            elif 'DECLINED' in labels:
+                line_color = COLOR['red']
+            elif 'INVITE' in labels and 'CONFIRMED' not in labels:
+                line_color = COLOR['yellow']
+            else:
+                line_color = COLOR['grey']
+            printf(line_color+fmt+COLOR['default'], pos+1, p=person,
                    email='<{}>'.format(person.email),
                    fullname_width=fullname_width, email_width=email_width,
                    institute_width=institute_width, group_width=group_width,
-                   labels=self._labels(person.fullname),
+                   labels=labels,
                    labels_width=labels_width,
                    motivation_scores=self._gradings(person, 'motivation'),
                    programming_score=\
