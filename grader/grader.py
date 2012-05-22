@@ -262,9 +262,18 @@ class Grader(cmd_completer.Cmd_Completer):
                 completions[p.name].add(p.lastname)
         return completions
 
+    identity_options = cmd_completer.ModArgumentParser('identity')\
+        .add_argument('identity', type=int, choices=IDENTITIES,
+                      help='become this identity')
+
+    def do_identity(self, args):
+        "Switch identity"
+        opts = self.identity_options.parse_args(args.split())
+        self.identity = opts.identity
+
     exception_options = cmd_completer.ModArgumentParser('exception')\
-                        .add_argument('exception', nargs=1,
-                                      help='the exception type to be raised')
+        .add_argument('exception',
+                      help='the exception type to be raised')
 
     def do_exception(self, args):
         "Fake command to test exception capturing"
