@@ -293,18 +293,19 @@ class Grader(cmd_completer.Cmd_Completer):
         raise getattr(__builtins__, opts.exception[0])
 
     dump_options = cmd_completer.ModArgumentParser('dump')\
-        .add_argument('-l', '--long', action='store_const',
+        .add_argument('-d', '--detailed', action='store_const',
                       dest='format', const='long', default='short',
                       help='do not truncate free texts')\
         .add_argument('-s', '--sorted', action='store_true',
                       help='print applications sorted by rank')\
+        .add_argument('-L', '--highlanders', action='store_const',
+                      dest='highlanders', const=True, default=False,
+                      help='print applications only for highlanders')\
+        .add_argument('-l', '--label', type=str,
+                      dest='label', nargs=1,
+                      help='print applications only for people with label')\
         .add_argument('persons', nargs='*',
                       help='name fragments of people do display')
-    dump_options_cat = dump_options.add_mutually_exclusive_group()
-    dump_options_cat.add_argument('-a', '--accepted', action='store_true',
-                      help='print only highlander applications')
-    dump_options_cat.add_argument('-r', '--rejected', action='store_true',
-                      help='print only applications below the water line')
 
     def do_dump(self, args):
         "Print information about applications"
@@ -312,14 +313,12 @@ class Grader(cmd_completer.Cmd_Completer):
         if opts.persons:
             persons = (p for p in self.applications
                        if any(arg in p.fullname for arg in opts.persons))
+        elif opts.label:
+            persons = tuple(self._filter(opts.label[0]))
         else:
             persons = self.applications
-        if opts.sorted or opts.accepted or opts.rejected:
-            persons = self._ranked(persons)
-        if opts.accepted:
+        if opts.highlanders:
             persons = (p for p in persons if p.highlander)
-        if opts.rejected:
-            persons = (p for p in persons if not p.highlander)
         self._dump(persons, format=opts.format)
 
     do_dump.completions = _complete_name
@@ -704,12 +703,12 @@ class Grader(cmd_completer.Cmd_Completer):
                    .add_argument('-d', '--detailed', action='store_const',
                                  dest='detailed', const=True, default=False,
                                  help='display detailed statistics')\
-                   .add_argument('-l', '--highlanders', action='store_const',
+                   .add_argument('-L', '--highlanders', action='store_const',
                                  dest='highlanders', const=True, default=False,
                                  help='display statistics only for highlanders')\
-                   .add_argument('-i', '--invited', action='store_const',
-                                 dest='invited', const=True, default=False,
-                                 help='display statistics only for invited')
+                   .add_argument('-l', '--label', type=str,
+                                 dest='label', nargs=1,
+                                 help='display statistics only for people with label')
 
     def do_stat(self, args):
         "Display statistics"
@@ -720,8 +719,8 @@ class Grader(cmd_completer.Cmd_Completer):
             pool = [person for person in ranked if person.highlander]
         else:
             pool = self.applications
-        if opts.invited:
-            pool = [p for p in pool if 'INVITE' in self._labels(p.fullname)]
+        if opts.label:
+            pool = tuple(self._filter(opts.label[0]))
             
         observables = ['born', 'female', 'nationality', 'affiliation',
                        'position', 'applied', 'napplied', 'open_source',
@@ -763,6 +762,12 @@ class Grader(cmd_completer.Cmd_Completer):
 
     def _labels(self, fullname):
         return self.config['labels'].get(fullname, list_of_str())
+
+    def _get_all_labels(self):
+        labels = set()
+        for l in self.config['labels'].values():
+            labels.update(l)
+        return labels
 
     def do_label(self, args):
         """Mark persons with string labels
