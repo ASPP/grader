@@ -854,6 +854,8 @@ class Grader(cmd_completer.Cmd_Completer):
                     self._filter('SHORTLIST', '-', 'DECLINED', 'CONFIRMED', 'INVITE'))
         _write_file('applications_rejected.csv',
                     self._filter('-', 'DECLINED', 'CONFIRMED', 'INVITE', 'SHORTLIST'))
+        _write_file('applications_declined.csv',
+                    self._filter('DECLINED'))
 
 def _write_file(filename, persons):
     header = '$NAME$;$SURNAME$;$EMAIL$'
