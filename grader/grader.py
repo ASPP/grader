@@ -827,21 +827,33 @@ class Grader(cmd_completer.Cmd_Completer):
                 yield p
 
     def do_write(self, args):
-        "Write lists of mailing ricipients"
+        """Write lists of mailing ricipients
+
+        Labels have the following precedence:
+        - DECLINE - person cancelled, let's forget about them
+        - CONFIRMED - person is coming, let's forget about them for now
+        - INVITE - person to invite
+        - SHORTLIST - person to potentially invite
+        - REJECTED - the rest
+        """
         if args != '':
             raise ValueError('no args please')
         #ranked = self._ranking()
         #printf('accepting {}', self.accept_count)
         #count = collections.Counter(ranked.rank)
-        _write_file('applications_invited.csv',
-                    self._filter('INVITE', '-', 'DECLINED'))
+
+        _write_file('applications_confirmed.csv',
+                    self._filter('CONFIRMED', '-', 'DECLINED'))
+
+        _write_file('applications_invite.csv',
+                    self._filter('INVITE', '-', 'DECLINED', 'CONFIRMED'))
         #_write_file('applications_same_lab.csv',
         #            (person for person in ranked if person.highlander and
         #             count[person.rank] != 1))
         _write_file('applications_shortlist.csv',
-                    self._filter('SHORTLIST', '-', 'DECLINED', 'INVITE'))
+                    self._filter('SHORTLIST', '-', 'DECLINED', 'CONFIRMED', 'INVITE'))
         _write_file('applications_rejected.csv',
-                    self._filter('-', 'INVITE', 'SHORTLIST', 'DECLINED'))
+                    self._filter('-', 'DECLINED', 'CONFIRMED', 'INVITE', 'SHORTLIST'))
 
 def _write_file(filename, persons):
     header = '$NAME$;$SURNAME$;$EMAIL$'
