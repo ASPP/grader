@@ -837,7 +837,7 @@ def _write_file(filename, persons):
     header = '$NAME$;$SURNAME$;$EMAIL$'
     with open(filename, 'w') as f:
         f.write(header + '\n')
-        i = 0
+        i = -1
         for i, person in enumerate(persons):
             row = ';'.join((person.name, person.lastname, person.email))
             f.write(row + '\n')
