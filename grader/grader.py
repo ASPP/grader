@@ -816,6 +816,16 @@ class Grader(cmd_completer.Cmd_Completer):
         self.config.save(opts.filename)
         self.modified = False
 
+    def _filter(self, *accept_dash_deny):
+        "Find people who have all labels in accept and none from deny."
+        labels = iter(accept_dash_deny)
+        accept = frozenset(itertools.takewhile(lambda x: x!='-', labels))
+        deny = frozenset(labels)
+        for p in self.applications:
+            labels = set(self._labels(p.fullname))
+            if not (accept - labels) and not (labels & deny):
+                yield p
+
     def do_write(self, args):
         "Write lists of mailing ricipients"
         if args != '':
@@ -823,15 +833,15 @@ class Grader(cmd_completer.Cmd_Completer):
         #ranked = self._ranking()
         #printf('accepting {}', self.accept_count)
         #count = collections.Counter(ranked.rank)
-        pool = self.applications
         _write_file('applications_invited.csv',
-                    (p for p in pool if 'INVITE' in self._labels(p.fullname)))
+                    self._filter('INVITE', '-', 'DECLINED'))
         #_write_file('applications_same_lab.csv',
         #            (person for person in ranked if person.highlander and
         #             count[person.rank] != 1))
+        _write_file('applications_shortlist.csv',
+                    self._filter('SHORTLIST', '-', 'DECLINED', 'INVITE'))
         _write_file('applications_rejected.csv',
-                    (p for p in pool if 'INVITE' not in self._labels(p.fullname)))
-
+                    self._filter('-', 'INVITE', 'SHORTLIST', 'DECLINED'))
 
 def _write_file(filename, persons):
     header = '$NAME$;$SURNAME$;$EMAIL$'
