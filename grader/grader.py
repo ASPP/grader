@@ -1058,7 +1058,7 @@ grader_options = cmd_completer.ModArgumentParser('grader')\
 def main(argv0, *args):
     logging.basicConfig(level=logging.INFO)
 
-    opts = grader_options.parse_args(args)
+    opts = grader_options.parse_args()
     cmd = Grader(opts.identity, opts.config, opts.applications)
 
     if sys.stdin.isatty():
