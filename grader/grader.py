@@ -663,7 +663,7 @@ class Grader(cmd_completer.Cmd_Completer):
         institute_width = min(max(len(field) for field in ranked.institute), 20)
         group_width = min(max(len(field) for field in ranked.group), 20)
         labels_width = max(len(str(self._labels(field)))
-                           for field in ranked.fullname)
+                           for field in ranked.fullname) or 1
 
         fmt = RANK_FORMATS[opts.format]
         prev_highlander = True
