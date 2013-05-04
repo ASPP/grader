@@ -274,7 +274,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 completions[p.name].add(p.lastname)
         return completions
 
-    identity_options = cmd_completer.ModArgumentParser('identity')\
+    identity_options = cmd_completer.PagedArgumentParser('identity')\
         .add_argument('identity', type=int, choices=IDENTITIES,
                       help='become this identity')
 
@@ -283,7 +283,7 @@ class Grader(cmd_completer.Cmd_Completer):
         opts = self.identity_options.parse_args(args.split())
         self.identity = opts.identity
 
-    exception_options = cmd_completer.ModArgumentParser('exception')\
+    exception_options = cmd_completer.PagedArgumentParser('exception')\
         .add_argument('exception',
                       help='the exception type to be raised')
 
@@ -292,7 +292,7 @@ class Grader(cmd_completer.Cmd_Completer):
         opts = self.exception_options.parse_args(args.split())
         raise getattr(__builtins__, opts.exception[0])
 
-    dump_options = cmd_completer.ModArgumentParser('dump')\
+    dump_options = cmd_completer.PagedArgumentParser('dump')\
         .add_argument('-d', '--detailed', action='store_const',
                       dest='format', const='long', default='short',
                       help='do not truncate free texts')\
@@ -380,7 +380,7 @@ class Grader(cmd_completer.Cmd_Completer):
         self._dump((p for p in self.applications
                     if args in str(p)), format=format)
 
-    grade_options = cmd_completer.ModArgumentParser('grade')\
+    grade_options = cmd_completer.PagedArgumentParser('grade')\
         .add_argument('what', choices=['motivation', 'cv', 'formula'],
                       help='what to grade | set formula')\
         .add_argument('-g', '--graded', action='store_true',
@@ -457,7 +457,7 @@ class Grader(cmd_completer.Cmd_Completer):
 
     RATING_CATEGORIES = ['programming', 'open_source', 'python']
 
-    rate_options = cmd_completer.ModArgumentParser('rate')\
+    rate_options = cmd_completer.PagedArgumentParser('rate')\
         .add_argument('-m', '--missing', action='store_true',
                       help='rate all missing fields')\
         .add_argument('what', nargs='?',
@@ -645,7 +645,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 return key
         return variant.strip()
 
-    rank_options = cmd_completer.ModArgumentParser('rank')\
+    rank_options = cmd_completer.PagedArgumentParser('rank')\
         .add_argument('-s', '--short', action='store_const',
                       dest='format', const='short', default='long',
                       help='show only names and emails')\
@@ -699,7 +699,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                   person.python, '-'),
                    )
 
-    stat_options = cmd_completer.ModArgumentParser('stat')\
+    stat_options = cmd_completer.PagedArgumentParser('stat')\
                    .add_argument('-d', '--detailed', action='store_const',
                                  dest='detailed', const=True, default=False,
                                  help='display detailed statistics')\
@@ -812,7 +812,7 @@ class Grader(cmd_completer.Cmd_Completer):
 
     do_label.completions = _complete_name
 
-    save_options = cmd_completer.ModArgumentParser('save')\
+    save_options = cmd_completer.PagedArgumentParser('save')\
         .add_argument('filename', nargs='?')
 
     def do_save(self, args):

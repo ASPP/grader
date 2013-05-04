@@ -168,14 +168,15 @@ class Cmd_Completer(cmd.Cmd):
                 for a in self.get_names() if a.startswith(dotext)]
 
 class ModArgumentParser(argparse.ArgumentParser):
+    def add_argument(self, *args, **kwargs):
+        super(ModArgumentParser, self).add_argument(*args, **kwargs)
+        return self
+
+class PagedArgumentParser(ModArgumentParser):
     def exit(self, status=0, message=None):
         if message:
             print(message)
         raise KeyboardInterrupt
-
-    def add_argument(self, *args, **kwargs):
-        super(ModArgumentParser, self).add_argument(*args, **kwargs)
-        return self
 
     def _print_message(self, message, file=None):
         PAGER.direct_write(message)
