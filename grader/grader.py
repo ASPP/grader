@@ -14,6 +14,7 @@ import logging
 import tempfile
 import contextlib
 import operator
+import re
 
 import cmd_completer
 import vector
@@ -385,16 +386,30 @@ class Grader(cmd_completer.Cmd_Completer):
                labels=labels,
                )
 
+    grep_options = cmd_completer.PagedArgumentParser('grep')\
+        .add_argument('-n', '--fullname', dest='what', action='store_const',
+                      const=operator.attrgetter('fullname'), default=str,
+                      help='grep institutes')\
+        .add_argument('-a', '--affiliation', dest='what', action='store_const',
+                      const=operator.attrgetter('affiliation'), default=str,
+                      help='grep institutes')\
+        .add_argument('-i', '--institute', dest='what', action='store_const',
+                      const=operator.attrgetter('institute'),
+                      help='grep institutes')\
+        .add_argument('-g', '--group', dest='what', action='store_const',
+                      const=operator.attrgetter('group'),
+                      help='grep groups')\
+        .add_argument('-l', '--long', dest='format',
+                      action='store_const', const='long', default='short',
+                      help='grep affiliations')\
+        .add_argument('pattern',
+                      help='pattern to look for')
+
     def do_grep(self, args):
         "Look for string in applications"
-        if args.split()[0] == '-l':
-            format = 'long'
-            args = args[args.index('-l')+2:].lstrip()
-        else:
-            format='short'
-
-        self._dump((p for p in self.applications
-                    if args in str(p)), format=format)
+        opts = self.grep_options.parse_args(args.split())
+        which = (p for p in self.applications if re.search(opts.pattern, opts.what(p)))
+        self._dump(which, format=opts.format)
 
     grade_options = cmd_completer.PagedArgumentParser('grade')\
         .add_argument('what', choices=['motivation', 'cv', 'formula'],
