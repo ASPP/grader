@@ -138,6 +138,8 @@ class Grader(cmd_completer.Cmd_Completer):
         self.applications = self.csv_file(applications[0])
         self.applications_old = [self.csv_file(list)
                                  for list in applications[1:]]
+        for p in self.applications:
+            self._set_applied(p)
 
     @classmethod
     def Person(cls, names):
@@ -147,7 +149,6 @@ class Grader(cmd_completer.Cmd_Completer):
                 self.score = None
                 self.rank = None
                 self.highlander = None
-                self.napplied = 0
             @property
             def fullname(self):
                 return '{p.name} {p.lastname}'.format(p=self)
@@ -218,24 +219,23 @@ class Grader(cmd_completer.Cmd_Completer):
             return ans
         raise KeyError(description)
 
-    def _applied(self, person, warn=True):
+    def _set_applied(self, person):
         "Return the number of times a person applied"
         declared = int(person.applied[0] not in 'nN')
         found = 0
         for old in self.applications_old:
             found += (person.fullname in old.fullname or
                       person.email in old.email)
-        if warn and found and not declared:
+        if found and not declared:
             printf('warning: person found in list says not applied prev.: {}',
                    person.fullname)
-        if warn and declared and not found:
+        if declared and not found:
             printf('warning: person applied prev. not found on lists: {}',
                    person.fullname)
         person.napplied = max(declared, found)
-        return person.napplied
 
     def _applied_range(self):
-        s = set(self._applied(p, warn=False) for p in self.applications)
+        s = set(p.napplied for p in self.applications)
         return sorted(s)
 
     @vector.vectorize
@@ -595,7 +595,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                        self._gradings(person, 'cv'),
                                        minsc, maxsc,
                                        self._labels(person.fullname),
-                                       self._applied(person))
+                                       person.napplied)
         ranked = sorted(self.applications, key=lambda p: p.score, reverse=True)
 
         sort = []
