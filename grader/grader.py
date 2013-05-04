@@ -125,7 +125,7 @@ class Grader(cmd_completer.Cmd_Completer):
     def Person(cls, names):
         class Person(collections.namedtuple('Person', names)):
             def __init__(self, *args, **kwargs):
-                super().__init__()#*args, **kwargs)
+                # tuple fields are already set in __new__
                 self.score = None
                 self.rank = None
                 self.highlander = None
