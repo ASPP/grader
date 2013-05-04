@@ -66,7 +66,7 @@ open source: {p.open_source}{open_source_description} [{open_source_score}]
 DUMP_FMT = '''\
 name: %(white)s{p.name} {p.lastname} {labels}<{p.email}>%(default)s
 born: %(white)s{p.nationality} {p.born}%(default)s
-''' + ALMOST_DUMP_FMT + '''\
+''' % COLOR + ALMOST_DUMP_FMT + '''\
 cv: {cv} [{cv_scores}]
 motivation: {motivation} [{motivation_scores}]
 rank: {p.rank} {p.score} {p.highlander}
@@ -354,10 +354,10 @@ class Grader(cmd_completer.Cmd_Completer):
             cv = p.cv.replace('\n', ' ')[:72]
             motivation = p.motivation.replace('\n', ' ')[:72]
         else:
-            pd = wrap_paragraphs(p.programming_description) + '\n'
-            osd = wrap_paragraphs(p.open_source_description) + '\n'
-            cv = wrap_paragraphs(p.cv) + '\n'
-            motivation = wrap_paragraphs(p.motivation) + '\n'
+            pd = wrap_paragraphs(p.programming_description, 'programming: ') + '\n'
+            osd = wrap_paragraphs(p.open_source_description, 'open source: ') + '\n'
+            cv = wrap_paragraphs(p.cv, 'cv: ') + '\n'
+            motivation = wrap_paragraphs(p.motivation, 'motivation: ') + '\n'
         programming_description = ('\nprogramming: {}'.format(pd)
                                    if p.programming_description else '')
         open_source_description = ('\nopen source: {}'.format(osd)
@@ -1027,10 +1027,11 @@ def find_min_max(formula,
         items[item] = (max_-min_)/(maxsc-minsc)*100
     return minsc, maxsc, items
 
-def wrap_paragraphs(text):
+def wrap_paragraphs(text, prefix=''):
+    prefix = ' ' * len(prefix)
     paras = text.strip().split('\n\n')
-    wrapped = ('\n'.join(textwrap.wrap(para)) for para in paras)
-    return '\n\n'.join(wrapped)
+    wrapped = (('\n' + prefix).join(textwrap.wrap(para)) for para in paras)
+    return ('\n\n'+prefix).join(wrapped)
 
 class list_of_equivs(list):
     def __init__(self, arg=None):
