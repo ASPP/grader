@@ -24,6 +24,8 @@ class PagedStdOut(io.StringIO):
         self.stderr_write = sys.stderr.write
         sys.stdout.write = self.write
         sys.stderr.write = self.direct_write
+        if 'LESS' not in os.environ:
+            os.environ['LESS'] = '-FSRX'
         global PAGER
         PAGER = self
 
