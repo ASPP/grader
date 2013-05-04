@@ -39,10 +39,19 @@ def Umask(umask):
     finally:
         os.umask(old)
 
+COLOR = {
+    'default': '\x1b[0m',
+    'grey'   : '\x1b[1;30m',
+    'red'    : '\x1b[1;31m',
+    'green'  : '\x1b[1;32m',
+    'yellow' : '\x1b[1;33m',
+    'blue'   : '\x1b[1;34m',
+    'violet' : '\x1b[1;35m',
+    'cyan'   : '\x1b[1;36m',
+    'white'  : '\x1b[1;37m',
+    }
 
-DUMP_FMT = '''\
-name: {p.name} {p.lastname} {labels}<{p.email}>
-born: {p.nationality} {p.born}
+ALMOST_DUMP_FMT = '''\
 gender: {p.gender}
 institute: {p.institute}
 group: {p.group}
@@ -52,10 +61,31 @@ appl.prev.: {p.applied} {p.napplied}
 programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
 open source: {p.open_source}{open_source_description} [{open_source_score}]
+'''
+
+DUMP_FMT = '''\
+name: %(white)s{p.name} {p.lastname} {labels}<{p.email}>%(default)s
+born: %(white)s{p.nationality} {p.born}%(default)s
+''' + ALMOST_DUMP_FMT + '''\
 cv: {cv} [{cv_scores}]
 motivation: {motivation} [{motivation_scores}]
 rank: {p.rank} {p.score} {p.highlander}
-'''
+''' % COLOR
+
+MOTIVATION_DUMP_FMT = ALMOST_DUMP_FMT + '''\
+cv: {cv} [{cv_scores}]
+motivation: %(white)s{motivation}%(default)s
+''' % COLOR
+
+CV_DUMP_FMT = ALMOST_DUMP_FMT + '''\
+motivation: {motivation}
+cv: %(white)s{cv}%(default)s
+''' % COLOR
+
+DUMP_FMTS = dict(short=DUMP_FMT,
+                 long=DUMP_FMT,
+                 motivation=MOTIVATION_DUMP_FMT,
+                 cv=CV_DUMP_FMT)
 
 _RANK_FMT_LONG = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}'
@@ -81,18 +111,6 @@ HOST_COUNTRY = 'Germany'
 DEFAULT_ACCEPT_COUNT = 30
 
 section_name = '{}_score-{}'.format
-
-COLOR = {
-    'default': '\x1b[0m',
-    'grey'   : '\x1b[1;30m',
-    'red'    : '\x1b[1;31m',
-    'green'  : '\x1b[1;32m',
-    'yellow' : '\x1b[1;33m',
-    'blue'   : '\x1b[1;34m',
-    'violet' : '\x1b[1;35m',
-    'cyan'   : '\x1b[1;36m',
-    'white'  : '\x1b[1;37m',
-    }
 
 class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
@@ -335,13 +353,11 @@ class Grader(cmd_completer.Cmd_Completer):
             osd = p.open_source_description.replace('\n', ' ')[:72]
             cv = p.cv.replace('\n', ' ')[:72]
             motivation = p.motivation.replace('\n', ' ')[:72]
-        elif format == 'long':
+        else:
             pd = wrap_paragraphs(p.programming_description) + '\n'
             osd = wrap_paragraphs(p.open_source_description) + '\n'
             cv = wrap_paragraphs(p.cv) + '\n'
             motivation = wrap_paragraphs(p.motivation) + '\n'
-        else:
-            raise KeyError("unknown format '{}'".format(format))
         programming_description = ('\nprogramming: {}'.format(pd)
                                    if p.programming_description else '')
         open_source_description = ('\nopen source: {}'.format(osd)
@@ -349,7 +365,7 @@ class Grader(cmd_completer.Cmd_Completer):
         labels = self._labels(p.fullname)
         if labels:
             labels = '[{}] '.format(labels)
-        printf(DUMP_FMT,
+        printf(DUMP_FMTS[format],
                p=p,
                position_other=position_other,
                programming_description=programming_description,
@@ -519,10 +535,9 @@ class Grader(cmd_completer.Cmd_Completer):
 
     def _grade(self, person, what):
         assert what in {'motivation', 'cv'}, what
-        text = getattr(person, what)
         old_score = self._get_grading(person, what)
         default = old_score if old_score is not None else ''
-        printff('{line}\n{}\n{line}', wrap_paragraphs(text), line='-'*70)
+        self._dumpone(person, format=what)
         printff('Old score was {}', old_score)
         while True:
             prompt = 'Your choice {} [{}]? '.format(SCORE_RANGE, default)
