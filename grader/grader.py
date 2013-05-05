@@ -483,6 +483,7 @@ class Grader(cmd_completer.Cmd_Completer):
             printff('{:.2f}% done, {} left to go',
                    100*(num+done_already)/len(self.applications),
                    len(todo)-num)
+            print()
             if not self._grade(person, opts.what):
                 break
 
