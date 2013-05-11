@@ -1047,10 +1047,12 @@ def find_min_max(formula,
     return minsc, maxsc, items
 
 def wrap_paragraphs(text, prefix=''):
-    prefix = ' ' * len(prefix)
+    prefix = '\n' + ' ' * len(prefix)
     paras = text.strip().split('\n\n')
-    wrapped = (('\n' + prefix).join(textwrap.wrap(para)) for para in paras)
-    return ('\n\n'+prefix).join(wrapped)
+    wrapped = (prefix.join(prefix.join(textwrap.wrap(line.strip()))
+                           for line in para.split('\n'))
+               for para in paras)
+    return ('\n'+prefix).join(wrapped)
 
 class list_of_equivs(list):
     def __init__(self, arg=None):
