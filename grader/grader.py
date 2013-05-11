@@ -414,8 +414,9 @@ class Grader(cmd_completer.Cmd_Completer):
     grade_options = cmd_completer.PagedArgumentParser('grade')\
         .add_argument('what', choices=['motivation', 'cv', 'formula'],
                       help='what to grade | set formula')\
-        .add_argument('-g', '--graded', action='store_true',
-                      help='grade already graded too')\
+        .add_argument('-g', '--graded', type=int,
+                      nargs='?', const=all, metavar='SCORE',
+                      help='grade already graded too, optionally with specified core')\
         .add_argument('person', nargs='*')
 
     @set_completions('formula',
@@ -444,7 +445,7 @@ class Grader(cmd_completer.Cmd_Completer):
             raise ValueError('cannot do grading because identity was not set')
 
         opts = self.grade_options.parse_args(arg.split())
-        if opts.graded and opts.person:
+        if opts.graded is not None and opts.person:
             raise ValueError('cannot use --graded option with explicit name')
 
         if opts.what == 'formula':
@@ -476,8 +477,10 @@ class Grader(cmd_completer.Cmd_Completer):
         todo = [p for p in self.applications
                 if (p.fullname == fullname if fullname
                     else
-                    opts.graded or
-                    self._get_grading(p, opts.what) is None)]
+                    opts.graded is not None and (
+                        opts.graded is all
+                        or self._get_grading(p, opts.what) == opts.graded)
+                    or self._get_grading(p, opts.what) is None)]
         done_already = len(self.applications) - len(todo)
         for num, person in enumerate(todo):
             printff('{:.2f}% done, {} left to go',
