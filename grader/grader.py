@@ -42,7 +42,7 @@ def Umask(umask):
         os.umask(old)
 
 def ellipsize(s, width):
-    return s if len(s) < width else s[:width-1] + '…'
+    return s if len(s) <= width else s[:width-1] + '…'
 
 COLOR = {
     'default': '\x1b[0m',
