@@ -41,6 +41,9 @@ def Umask(umask):
     finally:
         os.umask(old)
 
+def ellipsize(s, width):
+    return s if len(s) < width else s[:width-1] + '…'
+
 COLOR = {
     'default': '\x1b[0m',
     'grey'   : '\x1b[1;30m',
@@ -157,6 +160,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 self.score = None
                 self.rank = None
                 self.highlander = None
+                self.samelab = False
             @property
             def fullname(self):
                 return '{p.name} {p.lastname}'.format(p=self)
@@ -361,8 +365,7 @@ class Grader(cmd_completer.Cmd_Completer):
         if opts.highlanders:
             persons = (p for p in persons if p.highlander)
         if opts.sorted:
-            self._assign_rankings()
-            persons = sorted(persons, key=lambda p: p.score, reverse=True)
+            persons = self._ranked(persons)
         self._dump(persons, format=opts.format)
 
     do_dump.completions = _complete_name
@@ -653,56 +656,44 @@ class Grader(cmd_completer.Cmd_Completer):
                                        minsc, maxsc,
                                        self._labels(person.fullname),
                                        person.napplied)
-        ranked = sorted(self.applications, key=lambda p: p.score, reverse=True)
+        ordered = sorted(self.applications, key=lambda p:
+            p.score + 1000 * ('VIP' in self._labels(p.fullname)), reverse=True)
 
-        sort = []
-        # put VIPS at the beginning of the list, and set the rank already
-        for person in ranked:
-            if 'VIP' in self._labels(person.fullname):
-                person.rank = 0
-                sort.insert(0, person)
-            else:
-                sort.append(person)
+        rank, prevscore = 0, 1000
+        highlander = True
+        labs = {}
         # rank fairly now
-        for idx, person in enumerate(sort):
-            if person.rank is not None:
+        for idx, person in enumerate(ordered):
+            group = self._equiv_master(person.group)
+            institute = self._equiv_master(person.institute)
+            lab = institute + ' | ' + group
+            person.samelab = lab in labs
+
+            if 'VIP' in self._labels(person.fullname):
+                assert rank == 0, (rank, idx, person.fullname, person.score)
+                person.rank = 0
+                person.highlander = True
                 continue
-            # this is in case we have no VIPs
-            if idx == 0:
-                person.rank = 1
-                continue
-            # main logic
-            prev_rank = sort[idx-1].rank
-            if person.score == sort[idx-1].score:
-                person.rank = prev_rank
+
+            if person.samelab:
+                finalrank = labs[lab]
             else:
-                person.rank = prev_rank + 1
+                if person.score != prevscore:
+                    rank += 1
+                finalrank = labs[lab] = rank
 
-        # now choose the highlanders:
-        for i, p in enumerate(sort):
-            p.highlander = i < self.accept_count
-            # check if we have other people with the same ranking
-            if not p.highlander:
-                prev = sort[i-1]
-                if prev.highlander and (prev.rank == p.rank):
-                    p.highlander = True
+            person.rank = finalrank
+            person.highlander = highlander
 
-        ## for person in ranked:
-        ##     # VIPs get in front of the list
-        ##     if 'VIP' in self._labels(person.fullname):
-        ##         person.rank = 1
-        ##         continue
-        ##     if rank == self.accept_count:
-        ##         labs = {}
-        ##     group = self._equiv_master(person.group)
-        ##     institute = self._equiv_master(person.institute)
-        ##     lab = institute + ' | ' + group
-        ##     if lab not in labs:
-        ##         labs[lab] = rank
-        ##         rank += 1
-        ##     person.rank = labs[lab]
+            if highlander and person.score != prevscore and idx >= self.accept_count:
+                highlander = False
+                labs.clear()
+
+            prevscore = person.score
 
     def _ranked(self, applications=None):
+        self._assign_rankings()
+
         if applications is None:
             applications = self.applications
 
@@ -729,7 +720,6 @@ class Grader(cmd_completer.Cmd_Completer):
         "Print list of people sorted by ranking"
         max_field = 20
         opts = self.rank_options.parse_args(args.split())
-        self._assign_rankings()
         ranked = self._ranked()
         fullname_width = max(len(field) for field in ranked.fullname)
         email_width = max(len(field) for field in ranked.email) + 2
@@ -757,9 +747,10 @@ class Grader(cmd_completer.Cmd_Completer):
             printf(line_color+fmt+COLOR['default'], pos+1, p=person,
                    email='<{}>'.format(person.email),
                    fullname_width=fullname_width, email_width=email_width,
-                   institute=person.institute if len(person.institute) <= max_field else person.institute[:max_field-1]+'…',
+                   institute='—' if person.samelab else
+                             ellipsize(person.institute, max_field),
                    institute_width=institute_width,
-                   group=person.group if len(person.group) <= max_field else person.group[:max_field-1]+'…',
+                   group=ellipsize(person.group, max_field),
                    group_width=group_width,
                    labels=labels,
                    labels_width=labels_width,
@@ -791,7 +782,6 @@ class Grader(cmd_completer.Cmd_Completer):
         opts = self.stat_options.parse_args(args.split())
         if opts.highlanders:
             ranked = self._ranked()
-            self._assign_rankings()
             pool = [person for person in ranked if person.highlander]
         else:
             pool = self.applications
