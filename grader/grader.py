@@ -15,6 +15,8 @@ import tempfile
 import contextlib
 import operator
 import re
+import token, tokenize
+import io
 
 import cmd_completer
 import vector
@@ -1011,26 +1013,32 @@ def _yield_values(var, *values):
     for value in values:
         yield var, value
 
+def find_names(formula):
+    g = tokenize.tokenize(io.BytesIO(formula.encode('utf-8')).readline)
+    return set(tokval for toknum, tokval, _, _, _  in g
+                      if toknum == token.NAME)
+
 def find_min_max(formula,
                  programming_rating, open_source_rating, python_rating,
                  applied):
     # Coordinate with rank_person!
     # Labels are excluded from this list, they add "extra" points.
     # And we would have to test all combinations of labels, which can be slow.
-    options = tuple(itertools.product(
-        _yield_values('born', 1900, 2012),
-        _yield_values('gender', 'M', 'F'),
-        _yield_values('female', 0, 1),
-        _yield_values('nationality', 'Nicaragua', HOST_COUNTRY),
-        _yield_values('affiliation', 'Nicaragua', HOST_COUNTRY),
-        _yield_values('motivation', *SCORE_RANGE),
-        _yield_values('cv', *SCORE_RANGE),
-        _yield_values('programming', *programming_rating.values()),
-        _yield_values('open_source', *open_source_rating.values()),
-        _yield_values('applied', 0, max(applied)),
-        _yield_values('python', *python_rating.values()),
-        _yield_values('labels', list_of_str()),
-        ))
+    choices = dict(
+        born=(1900, 2012),
+        gender=('M', 'F'),
+        female=(0, 1),
+        nationality=('Nicaragua', HOST_COUNTRY),
+        affiliation=('Nicaragua', HOST_COUNTRY),
+        motivation=SCORE_RANGE,
+        cv=SCORE_RANGE,
+        programming=programming_rating.values(),
+        open_source=open_source_rating.values(),
+        applied=(0, max(applied)),
+        python=python_rating.values(),
+        labels=(()))
+    needed = list(_yield_values(n, *choices[n]) for n in find_names(formula))
+    options = tuple(itertools.product(*needed))
     values = [eval_formula(formula, dict(vars)) for vars in options]
     if not values:
         return float_nan, float_nan, {}
