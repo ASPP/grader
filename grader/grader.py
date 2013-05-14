@@ -17,6 +17,7 @@ import operator
 import re
 import token, tokenize
 import io
+import keyword
 
 import cmd_completer
 import vector
@@ -1041,7 +1042,7 @@ def _yield_values(var, *values):
 def find_names(formula):
     g = tokenize.tokenize(io.BytesIO(formula.encode('utf-8')).readline)
     return set(tokval for toknum, tokval, _, _, _  in g
-                      if toknum == token.NAME)
+                      if toknum == token.NAME and not keyword.iskeyword(tokval))
 
 def find_min_max(formula, location,
                  programming_rating, open_source_rating, python_rating,
