@@ -348,6 +348,9 @@ class Grader(cmd_completer.Cmd_Completer):
             persons = self.applications
         if opts.highlanders:
             persons = (p for p in persons if p.highlander)
+        if opts.sorted:
+            self._assign_rankings()
+            persons = sorted(persons, key=lambda p: p.score, reverse=True)
         self._dump(persons, format=opts.format)
 
     do_dump.completions = _complete_name
