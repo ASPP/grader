@@ -662,17 +662,19 @@ class Grader(cmd_completer.Cmd_Completer):
         rank, prevscore = 0, 1000
         highlander = True
         labs = {}
+        count = 0
         # rank fairly now
-        for idx, person in enumerate(ordered):
+        for person in ordered:
             group = self._equiv_master(person.group)
             institute = self._equiv_master(person.institute)
             lab = institute + ' | ' + group
             person.samelab = highlander and lab in labs
 
             if 'VIP' in self._labels(person.fullname):
-                assert rank == 0, (rank, idx, person.fullname, person.score)
+                assert rank == 0, (rank, count, person.fullname, person.score)
                 person.rank = 0
                 person.highlander = True
+                count += 1
                 continue
 
             if person.samelab:
@@ -681,8 +683,9 @@ class Grader(cmd_completer.Cmd_Completer):
                 if person.score != prevscore:
                     rank += 1
                 finalrank = labs[lab] = rank
+                count += 1
 
-            if highlander and person.score != prevscore and idx >= self.accept_count:
+            if highlander and person.score != prevscore and count >= self.accept_count:
                 highlander = False
 
             person.rank = finalrank
