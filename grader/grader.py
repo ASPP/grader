@@ -823,6 +823,7 @@ class Grader(cmd_completer.Cmd_Completer):
         saved.extend(equivs)
         self.config['equivs'][variant] = saved
         self.modified = True
+        self.ranking_done = False
 
     def _labels(self, fullname):
         return self.config['labels'].get(fullname, list_of_str())
