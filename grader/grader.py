@@ -74,6 +74,13 @@ motivation: {motivation} [{motivation_scores}]
 rank: {p.rank} {p.score} {p.highlander}
 ''' % COLOR
 
+AFFILIATION_FMT = '''\
+name: %(yellow)s{p.name} {p.lastname} {labels}<{p.email}>%(default)s
+institute: %(white)s{p.institute}%(default)s
+group: %(white)s{p.group}%(default)s
+rank: {p.rank} {p.score} {p.highlander}
+''' % COLOR
+
 MOTIVATION_DUMP_FMT = ALMOST_DUMP_FMT + '''\
 cv: {cv} [{cv_scores}]
 motivation: %(white)s{motivation}%(default)s
@@ -86,6 +93,7 @@ cv: %(white)s{cv}%(default)s
 
 DUMP_FMTS = dict(short=DUMP_FMT,
                  long=DUMP_FMT,
+                 group=AFFILIATION_FMT,
                  motivation=MOTIVATION_DUMP_FMT,
                  cv=CV_DUMP_FMT)
 
@@ -326,6 +334,9 @@ class Grader(cmd_completer.Cmd_Completer):
         .add_argument('-d', '--detailed', action='store_const',
                       dest='format', const='long', default='short',
                       help='do not truncate free texts')\
+        .add_argument('-f', '--format',
+                      dest='format', choices=DUMP_FMTS.keys(),
+                      help='use this format')\
         .add_argument('-s', '--sorted', action='store_true',
                       help='print applications sorted by rank')\
         .add_argument('-L', '--highlanders', action='store_const',
