@@ -99,7 +99,7 @@ DUMP_FMTS = dict(short=DUMP_FMT,
 
 _RANK_FMT_LONG = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}'
-                 ' {p.institute:{institute_width}} / {p.group:{group_width}}')
+                 ' {institute:{institute_width}} / {group:{group_width}}')
 _RANK_FMT_SHORT = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}')
 _RANK_FMT_DETAILED = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
@@ -727,13 +727,14 @@ class Grader(cmd_completer.Cmd_Completer):
 
     def do_rank(self, args):
         "Print list of people sorted by ranking"
+        max_field = 20
         opts = self.rank_options.parse_args(args.split())
         self._assign_rankings()
         ranked = self._ranked()
         fullname_width = max(len(field) for field in ranked.fullname)
-        email_width = max(len(field) for field in ranked.email)
-        institute_width = min(max(len(field) for field in ranked.institute), 20)
-        group_width = min(max(len(field) for field in ranked.group), 20)
+        email_width = max(len(field) for field in ranked.email) + 2
+        institute_width = min(max(len(field) for field in ranked.institute), max_field)
+        group_width = min(max(len(field) for field in ranked.group), max_field)
         labels_width = max(len(str(self._labels(field)))
                            for field in ranked.fullname) or 1
 
@@ -756,7 +757,10 @@ class Grader(cmd_completer.Cmd_Completer):
             printf(line_color+fmt+COLOR['default'], pos+1, p=person,
                    email='<{}>'.format(person.email),
                    fullname_width=fullname_width, email_width=email_width,
-                   institute_width=institute_width, group_width=group_width,
+                   institute=person.institute if len(person.institute) <= max_field else person.institute[:max_field-1]+'…',
+                   institute_width=institute_width,
+                   group=person.group if len(person.group) <= max_field else person.group[:max_field-1]+'…',
+                   group_width=group_width,
                    labels=labels,
                    labels_width=labels_width,
                    motivation_scores=self._gradings(person, 'motivation'),
