@@ -21,8 +21,6 @@ import io
 import cmd_completer
 import vector
 
-float_nan = float("nan")
-
 def printf(fmt, *args, **kwargs):
     print(fmt.format(*args, **kwargs))
 
@@ -108,8 +106,6 @@ RANK_FORMATS = {'short': _RANK_FMT_SHORT,
 SCORE_RANGE = (-1, 0, 1)
 
 IDENTITIES = (0, 1)
-
-HOST_COUNTRY = 'Germany'
 
 DEFAULT_ACCEPT_COUNT = 30
 
@@ -267,6 +263,18 @@ class Grader(cmd_completer.Cmd_Completer):
         self.ranking_done = False
 
     @property
+    def location(self):
+        try:
+            return self.config['formula']['location']
+        except KeyError:
+            return None
+    @location.setter
+    def location(self, value):
+        self.config['formula']['location'] = value
+        # invalidate rankings
+        self.ranking_done = False
+
+    @property
     def accept_count(self):
         return int(self.config['formula'].create('accept_count',
                                                  lambda:DEFAULT_ACCEPT_COUNT))
@@ -392,10 +400,13 @@ class Grader(cmd_completer.Cmd_Completer):
         .add_argument('-n', '--fullname', dest='what', action='store_const',
                       const=operator.attrgetter('fullname'), default=str,
                       help='grep institutes')\
-        .add_argument('-a', '--affiliation', dest='what', action='store_const',
+        .add_argument('--affiliation', dest='what', action='store_const',
                       const=operator.attrgetter('affiliation'), default=str,
-                      help='grep institutes')\
-        .add_argument('-i', '--institute', dest='what', action='store_const',
+                      help='grep affiliation')\
+        .add_argument('--nationality', dest='what', action='store_const',
+                      const=operator.attrgetter('nationality'), default=str,
+                      help='grep nationality')\
+        .add_argument('--institute', dest='what', action='store_const',
                       const=operator.attrgetter('institute'),
                       help='grep institutes')\
         .add_argument('-g', '--group', dest='what', action='store_const',
@@ -403,7 +414,7 @@ class Grader(cmd_completer.Cmd_Completer):
                       help='grep groups')\
         .add_argument('-l', '--long', dest='format',
                       action='store_const', const='long', default='short',
-                      help='grep affiliations')\
+                      help='provide full listing')\
         .add_argument('pattern',
                       help='pattern to look for')
 
@@ -414,8 +425,8 @@ class Grader(cmd_completer.Cmd_Completer):
         self._dump(which, format=opts.format)
 
     grade_options = cmd_completer.PagedArgumentParser('grade')\
-        .add_argument('what', choices=['motivation', 'cv', 'formula'],
-                      help='what to grade | set formula')\
+        .add_argument('what', choices=['motivation', 'cv', 'formula', 'location'],
+                      help='what to grade | set formula | set location')\
         .add_argument('-g', '--graded', type=int,
                       nargs='?', const=all, metavar='SCORE',
                       help='grade already graded too, optionally with specified core')\
@@ -425,7 +436,7 @@ class Grader(cmd_completer.Cmd_Completer):
                      motivation=_complete_name,
                      cv=_complete_name)
     def do_grade(self, arg):
-        """Assign points to motivation or CV statements or set formula
+        """Assign points to motivation or CV statements or set formula/location
 
         Formula is set with:
           grade formula ...
@@ -442,6 +453,9 @@ class Grader(cmd_completer.Cmd_Completer):
           applied: 0 or 1 or 2 or ...,
           python: float,
           labels: list of str.
+
+        Location is set with:
+           set location
         """
         if self.identity is None:
             raise ValueError('cannot do grading because identity was not set')
@@ -454,7 +468,7 @@ class Grader(cmd_completer.Cmd_Completer):
             if opts.person:
                 self.formula = ' '.join(opts.person)
                 self.modified = True
-            minsc, maxsc, contr = find_min_max(self.formula,
+            minsc, maxsc, contr = find_min_max(self.formula, self.location,
                                                self.programming_rating,
                                                self.open_source_rating,
                                                self.python_rating,
@@ -470,6 +484,12 @@ class Grader(cmd_completer.Cmd_Completer):
             items = sorted(contr.items(), key=operator.itemgetter(1), reverse=True)
             for item in items:
                 printf('{:{w}} : {:4.1f}%', item[0].strip(), item[1], w=field_width)
+            return
+        elif opts.what == 'location':
+            if opts.person:
+                self.location = ' '.join(opts.person)
+                self.modified = True
+            printf('location = {}', self.location)
             return
 
         printff('Doing grading for identity {}', self.identity)
@@ -601,14 +621,15 @@ class Grader(cmd_completer.Cmd_Completer):
             return
         else:
             self.ranking_done = True
-        minsc, maxsc, contr = find_min_max(self.formula,
+        minsc, maxsc, contr = find_min_max(self.formula, self.location,
                                            self.programming_rating,
                                            self.open_source_rating,
                                            self.python_rating,
                                            self._applied_range())
 
         for person in self.applications:
-            person.score = rank_person(person, self.formula,
+            person.score = rank_person(person,
+                                       self.formula, self.location,
                                        self.programming_rating,
                                        self.open_source_rating,
                                        self.python_rating,
@@ -961,7 +982,7 @@ class list_of_float(list):
     def mean(self):
         valid = [arg for arg in self if arg is not None]
         if not valid:
-            return float_nan
+            return float('nan')
         return sum(valid) / len(valid)
 
 class list_of_str(list):
@@ -973,7 +994,7 @@ class list_of_str(list):
     def __str__(self):
         return ', '.join(self)
 
-def rank_person(person, formula,
+def rank_person(person, formula, location,
                 programming_rating, open_source_rating, python_rating,
                 motivation_scores, cv_scores, minsc, maxsc, labels,
                 applied):
@@ -991,6 +1012,7 @@ def rank_person(person, formula,
                 applied=applied,
                 nationality=person.nationality,
                 affiliation=person.affiliation,
+                location=location,
                 motivation=motivation_scores.mean(),
                 cv=cv_scores.mean(),
                 email=person.email, # should we discriminate against gmail?
@@ -1018,7 +1040,7 @@ def find_names(formula):
     return set(tokval for toknum, tokval, _, _, _  in g
                       if toknum == token.NAME)
 
-def find_min_max(formula,
+def find_min_max(formula, location,
                  programming_rating, open_source_rating, python_rating,
                  applied):
     # Coordinate with rank_person!
@@ -1028,8 +1050,9 @@ def find_min_max(formula,
         born=(1900, 2012),
         gender=('M', 'F'),
         female=(0, 1),
-        nationality=('Nicaragua', HOST_COUNTRY),
-        affiliation=('Nicaragua', HOST_COUNTRY),
+        nationality=('Nicaragua', location),
+        affiliation=('Československo', location),
+        location=(location,),
         motivation=SCORE_RANGE,
         cv=SCORE_RANGE,
         programming=programming_rating.values(),
@@ -1041,7 +1064,7 @@ def find_min_max(formula,
     options = tuple(itertools.product(*needed))
     values = [eval_formula(formula, dict(vars)) for vars in options]
     if not values:
-        return float_nan, float_nan, {}
+        return float('nan'), float('nan'), {}
 
     minsc = min(values)
     maxsc = max(values)
