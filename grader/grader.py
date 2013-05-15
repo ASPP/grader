@@ -927,26 +927,29 @@ class Grader(cmd_completer.Cmd_Completer):
         #printf('accepting {}', self.accept_count)
         #count = collections.Counter(ranked.rank)
 
-        _write_file('applications_confirmed.csv',
+        _write_file('list_confirmed.csv',
                     self._filter('CONFIRMED', '-', 'DECLINED'))
 
-        _write_file('applications_invite.csv',
+        _write_file('list_invite.csv',
                     self._filter('INVITE', '-', 'DECLINED', 'CONFIRMED'))
         # get all INVITESL? labels
         all_labels = set(sum((self._labels(person.fullname) for person in self._ranked()), []))
         invitesl = [label for label in all_labels if label.startswith('INVITESL')]
         for i, sl_label in enumerate(invitesl):
-            _write_file('applications_same_lab%d.csv'%(i+1),
+            _write_file('list_same_lab%d.csv'%(i+1),
                         self._filter(sl_label,'-', 'DECLINED', 'CONFIRMED'))
-        _write_file('applications_shortlist.csv',
+        _write_file('list_shortlist.csv',
                     self._filter('SHORTLIST', '-', 'DECLINED', 'CONFIRMED', 'INVITE', *invitesl))
-        _write_file('applications_rejected.csv',
+        _write_file('list_rejected.csv',
                     self._filter('-', 'DECLINED', 'CONFIRMED', 'INVITE', 'SHORTLIST', *invitesl))
-        _write_file('applications_declined.csv',
+        _write_file('list_declined.csv',
                     self._filter('DECLINED'))
 
 def _write_file(filename, persons):
     header = '$NAME$;$SURNAME$;$EMAIL$'
+    if os.path.exists(filename):
+        printf("'{}' already exists. We can not overwrite it!", filename)
+        return
     with open(filename, 'w') as f:
         f.write(header + '\n')
         i = -1
