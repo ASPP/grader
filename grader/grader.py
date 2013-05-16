@@ -738,11 +738,15 @@ class Grader(cmd_completer.Cmd_Completer):
             prev_highlander = person.highlander
             labels = self._labels(person.fullname)
             if 'CONFIRMED' in labels:
-                line_color = COLOR['default']
+                line_color = COLOR['white']
             elif 'DECLINED' in labels:
                 line_color = COLOR['red']
             elif 'INVITE' in labels and 'CONFIRMED' not in labels:
                 line_color = COLOR['yellow']
+            elif any('INVITESL' in label for label in labels) and not 'INVITE' in labels:
+                line_color = COLOR['green']
+            elif 'SHORTLIST' in labels and 'INVITE' not in labels:
+                line_color = COLOR['cyan']
             else:
                 line_color = COLOR['grey']
             printf(line_color+fmt+COLOR['default'], pos+1, p=person,
