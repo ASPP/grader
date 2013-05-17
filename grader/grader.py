@@ -10,6 +10,7 @@ import textwrap
 import pprint
 import configfile
 import itertools
+import functools
 import logging
 import tempfile
 import contextlib
@@ -630,15 +631,34 @@ class Grader(cmd_completer.Cmd_Completer):
             self._set_grading(person, what, choice)
         return True
 
-    def _assign_rankings(self):
+    def _score_with_labels(self, p, use_labels=False):
+        if not use_labels:
+            return p.score
+        labels = self._labels(p.fullname)
+        lb_val = {'VIP': 1000,
+                  'CONFIRMED': 2000,
+                  'INVITE': 600,
+                  'INVITESL': 200,
+                  'SHORTLIST': 100,
+                  'DECLINED': -650,
+                  }
+        add_score = 0
+        for label in lb_val:
+            if label in labels:
+                add_score += lb_val[label]
+            elif label=='INVITESL' and any('INVITESL' in l for l in labels):
+                add_score += lb_val[label]
+        return p.score + add_score
+
+    def _assign_rankings(self, use_labels=False):
         "Order applications by rank"
         if self.formula is None:
             raise ValueError('formula not set yet')
 
-        if self.ranking_done:
-            return
-        else:
-            self.ranking_done = True
+        #if self.ranking_done:
+        #    return
+        #else:
+        #    self.ranking_done = True
         minsc, maxsc, contr = find_min_max(self.formula, self.location,
                                            self.programming_rating,
                                            self.open_source_rating,
@@ -656,8 +676,9 @@ class Grader(cmd_completer.Cmd_Completer):
                                        minsc, maxsc,
                                        self._labels(person.fullname),
                                        person.napplied)
-        ordered = sorted(self.applications, key=lambda p:
-            p.score + 1000 * ('VIP' in self._labels(p.fullname)), reverse=True)
+        ordered = sorted(self.applications, key=lambda x: \
+                         self._score_with_labels(x, use_labels=use_labels),
+                         reverse=True)
 
         rank, prevscore = 0, 1000
         highlander = True
@@ -670,12 +691,12 @@ class Grader(cmd_completer.Cmd_Completer):
             lab = institute + ' | ' + group
             person.samelab = highlander and lab in labs
 
-            if 'VIP' in self._labels(person.fullname):
-                assert rank == 0, (rank, count, person.fullname, person.score)
-                person.rank = 0
-                person.highlander = True
-                count += 1
-                continue
+            #if 'VIP' in self._labels(person.fullname):
+            #    assert rank == 0, (rank, count, person.fullname, person.score)
+            #    person.rank = 0
+            #    person.highlander = True
+            #    count += 1
+            #    continue
 
             if person.samelab:
                 finalrank = labs[lab]
@@ -692,8 +713,8 @@ class Grader(cmd_completer.Cmd_Completer):
             person.highlander = highlander
             prevscore = person.score
 
-    def _ranked(self, applications=None):
-        self._assign_rankings()
+    def _ranked(self, applications=None, use_labels=False):
+        self._assign_rankings(use_labels=use_labels)
 
         if applications is None:
             applications = self.applications
@@ -713,6 +734,9 @@ class Grader(cmd_completer.Cmd_Completer):
         .add_argument('-s', '--short', action='store_const',
                       dest='format', const='short', default='long',
                       help='show only names and emails')\
+        .add_argument('-l', '--labels', action='store_true',
+                      dest='use_labels',
+                      help='show only names and emails')\
         .add_argument('--format',
                       dest='format', choices=('long', 'short', 'detailed'),
                       help='show only names and emails')
@@ -721,7 +745,7 @@ class Grader(cmd_completer.Cmd_Completer):
         "Print list of people sorted by ranking"
         max_field = 20
         opts = self.rank_options.parse_args(args.split())
-        ranked = self._ranked()
+        ranked = self._ranked(use_labels=opts.use_labels)
         fullname_width = max(len(field) for field in ranked.fullname)
         email_width = max(len(field) for field in ranked.email) + 2
         institute_width = min(max(len(field) for field in ranked.institute), max_field)
