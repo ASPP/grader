@@ -680,7 +680,7 @@ class Grader(cmd_completer.Cmd_Completer):
                          self._score_with_labels(x, use_labels=use_labels),
                          reverse=True)
 
-        rank, prevscore = 0, 1000
+        rank, prevscore = 0, 10000
         highlander = True
         labs = {}
         count = 0
@@ -704,9 +704,9 @@ class Grader(cmd_completer.Cmd_Completer):
                 if person.score != prevscore:
                     rank += 1
                 finalrank = labs[lab] = rank
-                count += 1
 
-            if highlander and person.score != prevscore and count >= self.accept_count:
+            count += 1
+            if highlander and person.score != prevscore and count > self.accept_count:
                 highlander = False
 
             person.rank = finalrank
