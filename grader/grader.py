@@ -964,13 +964,13 @@ class Grader(cmd_completer.Cmd_Completer):
         all_labels = set(sum((self._labels(person.fullname) for person in self._ranked()), []))
         invitesl = [label for label in all_labels if label.startswith('INVITESL')]
         for i, sl_label in enumerate(invitesl):
-            _write_file('list_same_lab%d.csv'%(i+1),
-                        self._filter(sl_label,'-', 'DECLINED', 'CONFIRMED'))
+            _write_file_samelab('list_same_lab%d.csv'%(i+1),
+                        self._filter(sl_label,'-', 'CONFIRMED', 'DECLINED'))
         _write_file('list_shortlist.csv',
                     self._filter('SHORTLIST', '-', 'DECLINED', 'CONFIRMED', 'INVITE', *invitesl))
         _write_file('list_rejected.csv',
                     self._filter('-', 'DECLINED', 'CONFIRMED', 'INVITE', 'SHORTLIST', *invitesl))
-        _write_file('list_declined.csv',
+        _write_file('list_declined_invite_nextyear.csv',
                     self._filter('DECLINED'))
 
 def _write_file(filename, persons):
@@ -985,6 +985,27 @@ def _write_file(filename, persons):
             row = ';'.join((person.name, person.lastname, person.email))
             f.write(row + '\n')
     printf("'{}' written with header + {} rows", filename, i+1)
+
+def _write_file_samelab(filename, persons):
+    persons = list(persons)
+    if len(persons) == 0:
+        printf("No matching persons for '{}'. Check labels!", filename)
+    if os.path.exists(filename):
+        printf("'{}' already exists. We can not overwrite it!", filename)
+        return
+    header = ';'.join('$%dNAME$;$%dSURNAME$'%(d+1,d+1) for d in range(len(persons))) + ';$EMAIL$'
+    with open(filename, 'w') as f:
+        f.write(header + '\n')
+        names = []
+        emails = []
+        i = -1
+        for i, person in enumerate(persons):
+            names.extend([person.name, person.lastname])
+            emails.append(person.email)
+        names = ';'.join(names)
+        emails = ','.join(emails)
+        f.write(names+';'+emails+'\n')
+    printf("'{}' written with header + {} entries", filename, i+1)
 
 def eval_formula(formula, vars):
     try:
