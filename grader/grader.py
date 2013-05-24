@@ -865,7 +865,9 @@ class Grader(cmd_completer.Cmd_Completer):
         for person in confirmed:
             natflag = '{{:flags:%s'%FLAGS[person.nationality].lower()+'.png}}'
             affflag = '{{:flags:%s'%FLAGS[person.affiliation].lower()+'.png}}'
-            self._wiki_tb_row((person.name, person.lastname, natflag, affflag))
+            self._wiki_tb_row((person.name, person.lastname,
+                               natflag+' '+person.nationality,
+                               affflag+' '+person.affiliation))
 
         print('\n\n===== Statistics =====')
         self._wiki_tb_head(('','Applicants', 'Participants'))
