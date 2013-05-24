@@ -21,6 +21,7 @@ import io
 import keyword
 
 import cmd_completer
+from flags import flags as FLAGS
 import vector
 
 def printf(fmt, *args, **kwargs):
@@ -816,7 +817,7 @@ class Grader(cmd_completer.Cmd_Completer):
             pool = self.applications
         if opts.label:
             pool = tuple(self._filter(opts.label[0]))
-            
+
         observables = ['born', 'female', 'nationality', 'affiliation',
                        'position', 'applied', 'napplied', 'open_source',
                        'programming', 'python']
@@ -841,7 +842,73 @@ class Grader(cmd_completer.Cmd_Completer):
                 for n in sorted(counter[var].items(),
                                 key=operator.itemgetter(1), reverse=True):
                     printf(FMT_STAP, str(n[0]), n[1], n[1]/applicants*100)
-       
+
+    def _wiki_tb_head(self, items):
+        strs = (str(x) for x in items)
+        print('^ '+' ^ '.join(strs)+' ^')
+
+    def _wiki_tb_row(self, items):
+        strs = (str(x) for x in items)
+        print('| '+' | '.join(strs)+' |')
+    
+    def _wiki_pc(self, num, tot):
+        pc = ' (%.1f%%)'
+        return str(num)+pc%(num/tot*100)
+        
+    def do_wiki(self, args):
+        "Dump statistics of CONFIRMED people for the Wiki."
+        confirmed = tuple(self._filter('CONFIRMED'))
+        applicants = self.applications
+        print('====== Students ======')
+        # we want first a list of confirmed with names/nationality/affiliations
+        self._wiki_tb_head(('Firstname', 'Lastname', 'Nationality', 'Affiliation'))
+        for person in confirmed:
+            natflag = '{{:flags:%s'%FLAGS[person.nationality].lower()+'.png}}'
+            affflag = '{{:flags:%s'%FLAGS[person.affiliation].lower()+'.png}}'
+            self._wiki_tb_row((person.name, person.lastname, natflag, affflag))
+
+        print('\n\n===== Statistics =====')
+        self._wiki_tb_head(('','Applicants', 'Participants'))
+
+        # first collect statistics like we do in the do_stat method (DRY ;))))    
+        observables = ['born', 'female', 'nationality', 'affiliation',
+                       'position', 'applied', 'napplied', 'open_source',
+                       'programming', 'python']
+        c_confirmed = {}
+        c_applicants = {}
+        for var in observables:
+            c_confirmed[var] = collections.Counter(getattr(p, var) for p in confirmed)
+            c_applicants[var] = collections.Counter(getattr(p, var) for p in applicants)
+
+        Na = len(applicants)
+        Nc = len(confirmed)
+
+        
+        self._wiki_tb_row(('Pool', Na, Nc))
+        self._wiki_tb_row(('Nationalities',
+                           len(c_applicants['nationality']),
+                           len(c_confirmed['nationality'])))
+        self._wiki_tb_row(('Countries of affiliation',
+                           len(c_applicants['affiliation']),
+                           len(c_confirmed['affiliation'])))
+        self._wiki_tb_row(('Females',
+                           self._wiki_pc(c_applicants['female'][True], Na),
+                           self._wiki_pc(c_confirmed['female'][True], Nc)))
+
+        for pos, count in c_applicants['position'].most_common():
+            self._wiki_tb_row((pos,
+                               self._wiki_pc(count, Na),
+                               self._wiki_pc(c_confirmed['position'].get(pos, 0), Nc)))
+
+        print('\n\n===Details for Participants===')
+        for var in observables:
+            self._wiki_tb_head((var.upper(), 'Count'))
+            for n in sorted(c_confirmed[var].items(),
+                            key=operator.itemgetter(1), reverse=True):
+                self._wiki_tb_row((n[0],
+                                   self._wiki_pc(n[1], Nc)))
+            print()
+
     def do_equiv(self, args):
         "Specify institutions'/labs' names as equivalent"
         if args == '':
