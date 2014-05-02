@@ -197,6 +197,7 @@ class Grader(cmd_completer.Cmd_Completer):
             add('cv', "curriculum vitae")
             add('lastname', "Last name")
             add('born', "Year of birth")
+            add('vcs', "Do you habitually use a Version Control System for your software projects? If yes, which one?")
         return section
 
     @vector.vectorize
