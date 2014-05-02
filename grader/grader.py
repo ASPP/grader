@@ -56,7 +56,7 @@ COLOR = {
     'blue'   : '\x1b[1;34m',
     'violet' : '\x1b[1;35m',
     'cyan'   : '\x1b[1;36m',
-    'white'  : '\x1b[1;37m',
+    'bold'   : '\x1b[1m',
     }
 
 ALMOST_DUMP_FMT = '''\
@@ -69,11 +69,12 @@ appl.prev.: {p.applied} {p.napplied}
 programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
 open source: {p.open_source}{open_source_description} [{open_source_score}]
+vcs: {p.vcs}
 '''
 
 DUMP_FMT = '''\
-name: %(white)s{p.name} {p.lastname} {labels}<{p.email}>%(default)s
-born: %(white)s{p.nationality} {p.born}%(default)s
+name: %(bold)s{p.name} {p.lastname} {labels}<{p.email}>%(default)s
+born: %(bold)s{p.nationality} {p.born}%(default)s
 ''' % COLOR + ALMOST_DUMP_FMT + '''\
 cv: {cv} [{cv_scores}]
 motivation: {motivation} [{motivation_scores}]
@@ -82,19 +83,25 @@ rank: {p.rank} {p.score} {p.highlander}
 
 AFFILIATION_FMT = '''\
 name: %(yellow)s{p.name} {p.lastname} {labels}<{p.email}>%(default)s
-institute: %(white)s{p.institute}%(default)s
-group: %(white)s{p.group}%(default)s
+institute: %(bold)s{p.institute}%(default)s
+group: %(bold)s{p.group}%(default)s
 rank: {p.rank} {p.score} {p.highlander}
 ''' % COLOR
 
-MOTIVATION_DUMP_FMT = ALMOST_DUMP_FMT + '''\
+MOTIVATION_DUMP_FMT = '''\
+position: {p.position}{position_other}
+appl.prev.: {p.applied} {p.napplied}
+programming: {p.programming}{programming_description} [{programming_score}]
+python: {p.python} [{python_score}]
+open source: {p.open_source}{open_source_description} [{open_source_score}]
+vcs: {p.vcs}
 cv: {cv} [{cv_scores}]
-motivation: %(white)s{motivation}%(default)s
+motivation: %(bold)s{motivation}%(default)s
 ''' % COLOR
 
 CV_DUMP_FMT = ALMOST_DUMP_FMT + '''\
 motivation: {motivation}
-cv: %(white)s{cv}%(default)s
+cv: %(bold)s{cv}%(default)s
 ''' % COLOR
 
 DUMP_FMTS = dict(short=DUMP_FMT,
@@ -766,7 +773,7 @@ class Grader(cmd_completer.Cmd_Completer):
             prev_highlander = person.highlander
             labels = self._labels(person.fullname)
             if 'CONFIRMED' in labels:
-                line_color = COLOR['white']
+                line_color = COLOR['bold']
             elif 'DECLINED' in labels:
                 line_color = COLOR['red']
             elif 'INVITE' in labels and 'CONFIRMED' not in labels:
