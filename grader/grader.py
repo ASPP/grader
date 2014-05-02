@@ -19,6 +19,7 @@ import re
 import token, tokenize
 import io
 import keyword
+import random
 
 import cmd_completer
 from flags import flags as FLAGS
@@ -524,6 +525,7 @@ class Grader(cmd_completer.Cmd_Completer):
                         opts.graded is all
                         or self._get_grading(p, opts.what) == opts.graded)
                     or self._get_grading(p, opts.what) is None)]
+        random.shuffle(todo)
         done_already = len(self.applications) - len(todo)
         for num, person in enumerate(todo):
             printff('{:.2f}% done, {} left to go',
@@ -821,7 +823,7 @@ class Grader(cmd_completer.Cmd_Completer):
 
         observables = ['born', 'female', 'nationality', 'affiliation',
                        'position', 'applied', 'napplied', 'open_source',
-                       'programming', 'python']
+                       'programming', 'python', 'vcs']
         counter = {}
         for var in observables:
             counter[var] = collections.Counter(getattr(p, var) for p in pool)
