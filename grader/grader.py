@@ -611,18 +611,24 @@ class Grader(cmd_completer.Cmd_Completer):
         self._dumpone(person, format=what)
         printff('Old score was {}', old_score)
         while True:
-            prompt = 'Your choice {} [{}]? '.format(SCORE_RANGE, default)
+            prompt = 'Your choice {}/s/d/l [{}]? '.format(SCORE_RANGE, default)
             try:
                 choice = input(prompt)
             except EOFError:
                 print()
                 return False
-            if choice == 's':
+            if choice == 's' or choice == '' and default == '':
                 printff('person skipped')
                 return True
             elif choice == 'd':
                 printff('showing person on request')
                 self._dumpone(person, format='long')
+                continue
+            elif choice.startswith('l '):
+                labels = choice.split()[1:]
+                printff('labelling {} as {}',
+                        person.fullname, ', '.join(labels))
+                self._add_labels(person.fullname, *labels)
                 continue
             elif choice == '':
                 choice = default
@@ -944,6 +950,12 @@ class Grader(cmd_completer.Cmd_Completer):
             labels.update(l)
         return labels
 
+    def _add_labels(self, fullname, *labels):
+        section = self.config['labels']
+        saved = self._labels(fullname)
+        saved.extend(labels)
+        section[fullname] = saved
+
     def do_label(self, args):
         """Mark persons with string labels
 
@@ -963,9 +975,7 @@ class Grader(cmd_completer.Cmd_Completer):
             fullname, *labels = [item.strip() for item in args.split('=')
                                  if item is not '']
             if labels:
-                saved = self._labels(fullname)
-                saved.extend(labels)
-                section[fullname] = saved
+                self._add_labels(fullname, *labels)
             else:
                 section.clear(fullname)
             self.modified = True
