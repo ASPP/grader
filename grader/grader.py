@@ -535,8 +535,8 @@ class Grader(cmd_completer.Cmd_Completer):
         random.shuffle(todo)
         done_already = len(self.applications) - len(todo)
         for num, person in enumerate(todo):
-            printff('{:.2f}% done, {} left to go',
-                   100*(num+done_already)/len(self.applications),
+            printff('{:.1%} done, {} left to go',
+                   (num+done_already)/len(self.applications),
                    len(todo)-num)
             print()
             if not self._grade(person, opts.what):
