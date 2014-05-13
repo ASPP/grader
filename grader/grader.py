@@ -798,7 +798,7 @@ class Grader(cmd_completer.Cmd_Completer):
                    institute_width=institute_width,
                    group=ellipsize(person.group, max_field),
                    group_width=group_width,
-                   labels=labels,
+                   labels=', '.join(labels),
                    labels_width=labels_width,
                    motivation_scores=self._gradings(person, 'motivation'),
                    programming_score=\
