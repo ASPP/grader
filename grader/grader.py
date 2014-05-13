@@ -487,7 +487,7 @@ class Grader(cmd_completer.Cmd_Completer):
            set location
         """
         if self.identity is None:
-            raise ValueError('cannot do grading because identity was not set')
+            raise ValueError('cannot do grading because identity was not set (use -i param or identity verb)')
 
         opts = self.grade_options.parse_args(arg.split())
         if opts.graded is not None and opts.person:
@@ -525,19 +525,26 @@ class Grader(cmd_completer.Cmd_Completer):
         printff('Press ^C or ^D to stop')
         fullname = ' '.join(opts.person)
 
-        todo = [p for p in self.applications
-                if (p.fullname == fullname if fullname
-                    else
-                    opts.graded is not None and (
-                        opts.graded is all
-                        or self._get_grading(p, opts.what) == opts.graded)
-                    or self._get_grading(p, opts.what) is None)]
+        if fullname:
+            todo = [p for p in self.applications if p.fullname == fullname]
+            total = len(todo)
+            done_already = 0
+        elif opts.graded is not None:
+            todo = [p for p in self.applications
+                    if opts.graded is all or self._get_grading(p, opts.what) == opts.graded]
+            total = len(todo)
+            done_already = 0
+        else:
+            todo = [p for p in self.applications
+                    if self._get_grading(p, opts.what) is None]
+            total = len(self.applications)
+            done_already = total - len(todo)
+
         random.shuffle(todo)
-        done_already = len(self.applications) - len(todo)
         for num, person in enumerate(todo):
             printff('{:.1%} done, {} left to go',
-                   (num+done_already)/len(self.applications),
-                   len(todo)-num)
+                   (num + done_already) / total,
+                   len(todo) - num)
             print()
             if not self._grade(person, opts.what):
                 break
