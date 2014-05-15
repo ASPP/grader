@@ -157,6 +157,16 @@ class Cmd_Completer(cmd.Cmd):
         except Exception as e:
             log.error(e)
 
+    def do_loadpy(self, arg):
+        "Load code snippet from file"
+        with open(arg,'rt') as fh:
+            try:
+                ans = exec(fh.read(), self.__dict__)
+                if ans is not None:
+                    print(ans)
+            except Exception as e:
+                log.error(e)
+
     def do_shell(self, arg):
         "Execute shell statements"
         os.system(arg)
