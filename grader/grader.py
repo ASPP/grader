@@ -458,7 +458,10 @@ class Grader(cmd_completer.Cmd_Completer):
                       help='what to grade | set formula | set location')\
         .add_argument('-g', '--graded', type=int,
                       nargs='?', const=all, metavar='SCORE',
-                      help='grade already graded too, optionally with specified core')\
+                      help='grade already graded too, optionally with specified score')\
+        .add_argument('-d', '--disagreement', type=int,
+                      metavar='WHO',
+                      help='grade people who have a 2 pt difference')\
         .add_argument('person', nargs='*')
 
     @set_completions('formula',
@@ -534,6 +537,14 @@ class Grader(cmd_completer.Cmd_Completer):
                     if opts.graded is all or self._get_grading(p, opts.what) == opts.graded]
             total = len(todo)
             done_already = 0
+        elif opts.disagreement is not None:
+            todo = [p for p in self.applications
+                    if (self._get_grading(p, opts.what) is not None and
+                        self._get_grading(p, opts.what, opts.disagreement) is not None and
+                        abs(self._get_grading(p, opts.what) -
+                            self._get_grading(p, opts.what, opts.disagreement)) == 2)]
+            total = len(todo)
+            done_already = 0
         else:
             todo = [p for p in self.applications
                     if self._get_grading(p, opts.what) is None]
@@ -594,8 +605,10 @@ class Grader(cmd_completer.Cmd_Completer):
                             current[e.key] = value
                             self.modified = True
 
-    def _get_grading(self, person, what):
-        section = self.config[section_name(what, self.identity)]
+    def _get_grading(self, person, what, identity=None):
+        if identity is None:
+            identity = self.identity
+        section = self.config[section_name(what, identity)]
         return section.get(person.fullname, None)
 
     def _gradings(self, person, what):
