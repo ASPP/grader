@@ -872,6 +872,8 @@ class Grader(cmd_completer.Cmd_Completer):
         printf(FMT_STAT, 'Countries of affiliation', length['affiliation'])
         printf(FMT_STAP, 'Females', counter['female'][True],
                counter['female'][True]/applicants*100)
+        printf(FMT_STAP, 'Males', applicants-counter['female'][True],
+               100-(counter['female'][True]/applicants*100))        
         for pos in counter['position'].most_common():
             printf(FMT_STAP, pos[0], pos[1], pos[1]/applicants*100)
         if opts.detailed:
@@ -934,6 +936,10 @@ class Grader(cmd_completer.Cmd_Completer):
         self._wiki_tb_row(('Females',
                            self._wiki_pc(c_applicants['female'][True], Na),
                            self._wiki_pc(c_confirmed['female'][True], Nc)))
+
+        self._wiki_tb_row(('Males',
+                           self._wiki_pc(Na-c_applicants['female'][True], Na),
+                           self._wiki_pc(Nc-c_confirmed['female'][True], Nc)))
 
         for pos, count in c_applicants['position'].most_common():
             self._wiki_tb_row((pos,
