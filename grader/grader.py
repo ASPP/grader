@@ -678,6 +678,8 @@ class Grader(cmd_completer.Cmd_Completer):
                   'INVITESL': 200,
                   'SHORTLIST': 100,
                   'DECLINED': -650,
+                  'WITHDRAWN': -650,
+                  'OVERQUALIFIED': -650,
                   }
         add_score = 0
         for label in lb_val:
@@ -1234,7 +1236,7 @@ def find_min_max(formula, location,
         open_source=open_source_rating.values(),
         applied=(0, max(applied)),
         python=python_rating.values(),
-        labels=(()))
+        labels=())
     needed = list(_yield_values(n, *choices[n]) for n in find_names(formula))
     options = tuple(itertools.product(*needed))
     values = [eval_formula(formula, dict(vars)) for vars in options]
