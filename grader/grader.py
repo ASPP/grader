@@ -1058,6 +1058,7 @@ class Grader(cmd_completer.Cmd_Completer):
         - CONFIRMED - person is coming, let's forget about them for now
         - INVITE - person to invite
         - SHORTLIST - person to potentially invite
+        - OVERQUALIFIED - persons that are to good to be here
         - REJECTED - the rest
         """
         if args != '':
@@ -1071,6 +1072,8 @@ class Grader(cmd_completer.Cmd_Completer):
 
         _write_file('list_invite.csv',
                     self._filter('INVITE', '-', 'DECLINED', 'CONFIRMED'))
+        _write_file('list_overqualified.csv',
+                    self._filter('OVERQUALIFIED'))    
         # get all INVITESL? labels
         all_labels = set(sum((self._labels(person.fullname) for person in self._ranked()), []))
         invitesl = [label for label in all_labels if label.startswith('INVITESL')]
@@ -1080,7 +1083,8 @@ class Grader(cmd_completer.Cmd_Completer):
         _write_file('list_shortlist.csv',
                     self._filter('SHORTLIST', '-', 'DECLINED', 'CONFIRMED', 'INVITE', *invitesl))
         _write_file('list_rejected.csv',
-                    self._filter('-', 'DECLINED', 'CONFIRMED', 'INVITE', 'SHORTLIST', *invitesl))
+                    self._filter('-', 'DECLINED', 'CONFIRMED', 'INVITE', 'SHORTLIST',
+                                 'OVERQUALIFIED', *invitesl))
         _write_file('list_declined_invite_nextyear.csv',
                     self._filter('DECLINED'))
 
