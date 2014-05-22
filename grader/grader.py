@@ -1021,7 +1021,12 @@ class Grader(cmd_completer.Cmd_Completer):
                             count += 1
                     printf('== {} labelled ==', count)
             else:
-                printf('{} = {}', args, section[args])
+                try:
+                    labels = section[args]
+                except KeyError:
+                    printf('{} has no labels', args)
+                else:
+                    printf('{} = {}', args, labels)
 
     do_label.completions = _complete_name
 
