@@ -1069,7 +1069,7 @@ class Grader(cmd_completer.Cmd_Completer):
         - CONFIRMED - person is coming, let's forget about them for now
         - INVITE - person to invite
         - SHORTLIST - person to potentially invite
-        - OVERQUALIFIED - persons that are to good to be here
+        - OVERQUALIFIED - persons that are too good to be here
         - REJECTED - the rest
         """
         if args != '':
@@ -1082,6 +1082,8 @@ class Grader(cmd_completer.Cmd_Completer):
                     self._filter('CONFIRMED', '-', 'DECLINED'))
 
         _write_file('list_invite.csv',
+                    self._filter('INVITE', '-', 'DECLINED', 'CONFIRMED'))
+        _write_file('list_invite_reminder.csv',
                     self._filter('INVITE', '-', 'DECLINED', 'CONFIRMED'))
         _write_file('list_overqualified.csv',
                     self._filter('OVERQUALIFIED'))    
@@ -1102,7 +1104,7 @@ class Grader(cmd_completer.Cmd_Completer):
 def _write_file(filename, persons):
     header = '$NAME$;$SURNAME$;$EMAIL$'
     if os.path.exists(filename):
-        printf("'{}' already exists. We can not overwrite it!", filename)
+        printf("'{}' already exists. We cannot overwrite it!", filename)
         return
     with open(filename, 'w') as f:
         f.write(header + '\n')
@@ -1117,7 +1119,7 @@ def _write_file_samelab(filename, persons):
     if len(persons) == 0:
         printf("No matching persons for '{}'. Check labels!", filename)
     if os.path.exists(filename):
-        printf("'{}' already exists. We can not overwrite it!", filename)
+        printf("'{}' already exists. We cannot overwrite it!", filename)
         return
     header = ';'.join('$%dNAME$;$%dSURNAME$'%(d+1,d+1) for d in range(len(persons))) + ';$EMAIL$'
     with open(filename, 'w') as f:
