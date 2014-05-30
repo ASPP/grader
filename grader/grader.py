@@ -915,7 +915,7 @@ class Grader(cmd_completer.Cmd_Completer):
         # first collect statistics like we do in the do_stat method (DRY ;))))    
         observables = ['born', 'female', 'nationality', 'affiliation',
                        'position', 'applied', 'napplied', 'open_source',
-                       'programming', 'python']
+                       'programming', 'python', 'vcs']
         c_confirmed = {}
         c_applicants = {}
         for var in observables:
