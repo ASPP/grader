@@ -97,6 +97,7 @@ open source: {p.open_source}{open_source_description} [{open_source_score}]
 vcs: {p.vcs}
 cv: {cv}
 motivation: %(bold)s{motivation}%(default)s
+{labels}
 ''' % COLOR
 
 CV_DUMP_FMT = ALMOST_DUMP_FMT + '''\
