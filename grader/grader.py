@@ -89,13 +89,13 @@ rank: {p.rank} {p.score} {p.highlander}
 ''' % COLOR
 
 MOTIVATION_DUMP_FMT = '''\
-position: {p.position}{position_other}
+cv: {cv}
 appl.prev.: {p.applied} {p.napplied}
+position: {p.position}{position_other}
 programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
 open source: {p.open_source}{open_source_description} [{open_source_score}]
 vcs: {p.vcs}
-cv: {cv}
 motivation: %(bold)s{motivation}%(default)s\
 {labels_newline}''' % COLOR
 
