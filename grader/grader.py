@@ -96,9 +96,8 @@ python: {p.python} [{python_score}]
 open source: {p.open_source}{open_source_description} [{open_source_score}]
 vcs: {p.vcs}
 cv: {cv}
-motivation: %(bold)s{motivation}%(default)s
-{labels}
-''' % COLOR
+motivation: %(bold)s{motivation}%(default)s\
+{labels_newline}''' % COLOR
 
 CV_DUMP_FMT = ALMOST_DUMP_FMT + '''\
 motivation: {motivation}
@@ -423,6 +422,7 @@ class Grader(cmd_completer.Cmd_Completer):
                motivation=motivation,
                motivation_scores=self._gradings(p, 'motivation'),
                labels=labels,
+               labels_newline=labels + '\n' if labels else '',
                )
 
     grep_options = cmd_completer.PagedArgumentParser('grep')\
