@@ -398,9 +398,9 @@ class Grader(cmd_completer.Cmd_Completer):
             osd = wrap_paragraphs(p.open_source_description, 'open source: ') + '\n'
             cv = wrap_paragraphs(p.cv, 'cv: ') + '\n'
             motivation = wrap_paragraphs(p.motivation, 'motivation: ') + '\n'
-        programming_description = ('\nprogramming: {}'.format(pd)
+        programming_description = ('\n             {}'.format(pd)
                                    if p.programming_description else '')
-        open_source_description = ('\nopen source: {}'.format(osd)
+        open_source_description = ('\n             {}'.format(osd)
                                    if p.open_source_description else '')
         labels = self._labels(p.fullname)
         if labels:
