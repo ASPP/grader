@@ -76,7 +76,7 @@ DUMP_FMT = '''\
 name: %(bold)s{p.name} {p.lastname} {labels}<{p.email}>%(default)s
 born: %(bold)s{p.nationality} {p.born}%(default)s
 ''' % COLOR + ALMOST_DUMP_FMT + '''\
-cv: {cv} [{cv_scores}]
+cv: {cv}
 motivation: {motivation} [{motivation_scores}]
 rank: {p.rank} {p.score} {p.highlander}
 ''' % COLOR
@@ -95,7 +95,7 @@ programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
 open source: {p.open_source}{open_source_description} [{open_source_score}]
 vcs: {p.vcs}
-cv: {cv} [{cv_scores}]
+cv: {cv}
 motivation: %(bold)s{motivation}%(default)s
 ''' % COLOR
 
@@ -420,7 +420,6 @@ class Grader(cmd_completer.Cmd_Completer):
                    get_rating('python', self.python_rating, p.python, '-'),
                cv=cv,
                motivation=motivation,
-               cv_scores=self._gradings(p, 'cv'),
                motivation_scores=self._gradings(p, 'motivation'),
                labels=labels,
                )
@@ -465,10 +464,9 @@ class Grader(cmd_completer.Cmd_Completer):
         .add_argument('person', nargs='*')
 
     @set_completions('formula',
-                     motivation=_complete_name,
-                     cv=_complete_name)
+                     motivation=_complete_name)
     def do_grade(self, arg):
-        """Assign points to motivation or CV statements or set formula/location
+        """Assign points to motivation statements or set formula/location
 
         Formula is set with:
           grade formula ...
@@ -479,7 +477,6 @@ class Grader(cmd_completer.Cmd_Completer):
           nationality: str,
           affiliation: str,
           motivation: float,
-          cv: float,
           programming: float,
           open_source: float,
           applied: 0 or 1 or 2 or ...,
@@ -625,7 +622,7 @@ class Grader(cmd_completer.Cmd_Completer):
         self.modified = True
 
     def _grade(self, person, what):
-        assert what in {'motivation', 'cv'}, what
+        assert what in {'motivation'}, what
         old_score = self._get_grading(person, what)
         default = old_score if old_score is not None else ''
         self._dumpone(person, format=what)
@@ -711,7 +708,6 @@ class Grader(cmd_completer.Cmd_Completer):
                                        self.open_source_rating,
                                        self.python_rating,
                                        self._gradings(person, 'motivation'),
-                                       self._gradings(person, 'cv'),
                                        minsc, maxsc,
                                        self._labels(person.fullname),
                                        person.napplied)
@@ -1190,7 +1186,7 @@ class list_of_str(list):
 
 def rank_person(person, formula, location,
                 programming_rating, open_source_rating, python_rating,
-                motivation_scores, cv_scores, minsc, maxsc, labels,
+                motivation_scores, minsc, maxsc, labels,
                 applied):
     "Apply formula to person and return score"
     vars = {}
@@ -1208,7 +1204,6 @@ def rank_person(person, formula, location,
                 affiliation=person.affiliation,
                 location=location,
                 motivation=motivation_scores.mean(),
-                cv=cv_scores.mean(),
                 email=person.email, # should we discriminate against gmail?
                 labels=labels,
                 )
@@ -1248,7 +1243,6 @@ def find_min_max(formula, location,
         affiliation=('Československo', location),
         location=(location,),
         motivation=SCORE_RANGE,
-        cv=SCORE_RANGE,
         programming=programming_rating.values(),
         open_source=open_source_rating.values(),
         applied=(0, max(applied)),
@@ -1289,8 +1283,7 @@ class list_of_equivs(list):
         return ' = '.join(self)
 
 def our_configfile(filename):
-    kw = {section_name(what, ident):float
-          for what in ('motivation', 'cv')
+    kw = {section_name('motivation', ident):float
           for ident in IDENTITIES}
     return configfile.ConfigFile(filename,
                                  application_lists=str,
