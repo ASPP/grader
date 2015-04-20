@@ -687,6 +687,11 @@ class Grader(cmd_completer.Cmd_Completer):
                 add_score += lb_val[label]
         return p.score + add_score
 
+    def _group_institute(self, person):
+        group = self._equiv_master(person.group)
+        institute = self._equiv_master(person.institute)
+        return institute + ' | ' + group
+
     def _assign_rankings(self, use_labels=False):
         "Order applications by rank"
         if self.formula is None:
@@ -722,9 +727,7 @@ class Grader(cmd_completer.Cmd_Completer):
         count = 0
         # rank fairly now
         for person in ordered:
-            group = self._equiv_master(person.group)
-            institute = self._equiv_master(person.institute)
-            lab = institute + ' | ' + group
+            lab = self._group_institute(person)
             person.samelab = highlander and lab in labs
 
             #if 'VIP' in self._labels(person.fullname):
@@ -755,7 +758,7 @@ class Grader(cmd_completer.Cmd_Completer):
         if applications is None:
             applications = self.applications
 
-        ranked = sorted(applications, key=lambda p: p.rank)
+        ranked = sorted(applications, key=lambda p: (p.rank, self._group_institute(p)))
         return vector.vector(ranked)
 
     def _equiv_master(self, variant):
