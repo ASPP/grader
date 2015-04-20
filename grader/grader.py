@@ -1209,6 +1209,11 @@ def rank_person(person, formula, location,
                 labels=labels,
                 )
     score = eval_formula(formula, vars)
+    # we want to round the score, to avoid wrong rankings due to numerical
+    # noise. Example: 1.26 and 1.2600000000002 are the same score.
+    # Round to 5 digits. That should be above any numerical noise but still
+    # below what matters for us.
+    score = round(score, 5)
     assert (math.isnan(score) or minsc <= score <= maxsc or labels), \
         (minsc, score, maxsc)
     # labels can cause the score to exceed normal range
