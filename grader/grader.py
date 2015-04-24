@@ -778,12 +778,14 @@ class Grader(cmd_completer.Cmd_Completer):
                       help='show only names and emails')\
         .add_argument('--format',
                       dest='format', choices=('long', 'short', 'detailed'),
-                      help='show only names and emails')
+                      help='show only names and emails')\
+        .add_argument('-c', '--column-length',
+                      dest='max_field', type=int, default=20)
 
     def do_rank(self, args):
         "Print list of people sorted by ranking"
-        max_field = 20
         opts = self.rank_options.parse_args(args.split())
+        max_field = opts.max_field
         ranked = self._ranked(use_labels=opts.use_labels)
         fullname_width = max(len(field) for field in ranked.fullname)
         email_width = max(len(field) for field in ranked.email) + 2
