@@ -79,7 +79,7 @@ born: %(bold)s{p.nationality} {p.born}%(default)s
 cv: {cv}
 motivation: {motivation} [{motivation_scores}]
 rank: {p.rank} {p.score} {p.highlander}
-''' % COLOR
+{labels_newline}''' % COLOR
 
 AFFILIATION_FMT = '''\
 name: %(yellow)s{p.name} {p.lastname} {labels}<{p.email}>%(default)s
