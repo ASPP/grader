@@ -366,11 +366,11 @@ class Grader(cmd_completer.Cmd_Completer):
         "Print information about applications"
         opts = self.dump_options.parse_args(args.split())
         persons = tuple(self._filter(*opts.label))
+        if opts.highlanders:
+            persons = (p for p in persons if p.highlander)
         if opts.persons:
             persons = (p for p in persons
                        if all(arg in p.fullname for arg in opts.persons))
-        if opts.highlanders:
-            persons = (p for p in persons if p.highlander)
         if opts.sorted:
             persons = self._ranked(persons)
         self._dump(persons, format=opts.format)
