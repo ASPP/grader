@@ -459,6 +459,8 @@ class Grader(cmd_completer.Cmd_Completer):
         .add_argument('-g', '--graded', type=int,
                       nargs='?', const=all, metavar='SCORE',
                       help='grade already graded too, optionally with specified score')\
+        .add_argument('-l', '--labels', nargs='+',
+                      help='show only people with all of those labels')\
         .add_argument('-d', '--disagreement', type=int,
                       metavar='WHO',
                       help='grade people who have a 2 pt difference')\
@@ -533,6 +535,12 @@ class Grader(cmd_completer.Cmd_Completer):
         elif opts.graded is not None:
             todo = [p for p in self.applications
                     if opts.graded is all or self._get_grading(p, opts.what) == opts.graded]
+            total = len(todo)
+            done_already = 0
+        elif opts.labels is not None:
+            labels = set(opts.labels)
+            todo = [p for p in self.applications
+                    if not labels.difference(self._labels(p.fullname))]
             total = len(todo)
             done_already = 0
         elif opts.disagreement is not None:
