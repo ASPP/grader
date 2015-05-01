@@ -775,22 +775,22 @@ class Grader(cmd_completer.Cmd_Completer):
                       help='show only names and emails')\
         .add_argument('-l', '--labels', action='store_true',
                       dest='use_labels',
-                      help='show only names and emails')\
+                      help='use labels in ranking (DECLINED at the bottom, etc.)')\
         .add_argument('--format',
                       dest='format', choices=('long', 'short', 'detailed'),
-                      help='show only names and emails')\
-        .add_argument('-c', '--column-length',
-                      dest='max_field', type=int, default=20)
+                      help='use format')\
+        .add_argument('-c', '--column-width',
+                      dest='width', type=int, default=20,
+                      help='specify width of institute and group columns')
 
     def do_rank(self, args):
         "Print list of people sorted by ranking"
         opts = self.rank_options.parse_args(args.split())
-        max_field = opts.max_field
         ranked = self._ranked(use_labels=opts.use_labels)
         fullname_width = max(len(field) for field in ranked.fullname)
         email_width = max(len(field) for field in ranked.email) + 2
-        institute_width = min(max(len(field) for field in ranked.institute), max_field)
-        group_width = min(max(len(field) for field in ranked.group), max_field)
+        institute_width = min(max(len(field) for field in ranked.institute), opts.width)
+        group_width = min(max(len(field) for field in ranked.group), opts.width)
         labels_width = max(len(str(self._labels(field)))
                            for field in ranked.fullname) or 1
 
@@ -818,9 +818,9 @@ class Grader(cmd_completer.Cmd_Completer):
                    email='<{}>'.format(person.email),
                    fullname_width=fullname_width, email_width=email_width,
                    institute='—' if person.samelab else
-                             ellipsize(person.institute, max_field),
+                             ellipsize(person.institute, opts.width),
                    institute_width=institute_width,
-                   group=ellipsize(person.group, max_field),
+                   group=ellipsize(person.group, opts.width),
                    group_width=group_width,
                    labels=', '.join(labels),
                    labels_width=labels_width,
