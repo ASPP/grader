@@ -773,11 +773,12 @@ class Grader(cmd_completer.Cmd_Completer):
         .add_argument('-s', '--short', action='store_const',
                       dest='format', const='short', default='long',
                       help='show only names and emails')\
-        .add_argument('-l', '--labels', action='store_true',
-                      dest='use_labels',
+        .add_argument('--use-labels', action='store_true',
                       help='use labels in ranking (DECLINED at the bottom, etc.)')\
+        .add_argument('-l', '--labels', nargs='+',
+                      help='show only people with all of those labels')\
         .add_argument('--format',
-                      dest='format', choices=('long', 'short', 'detailed'),
+                      choices=('long', 'short', 'detailed'),
                       help='use format')\
         .add_argument('-c', '--column-width',
                       dest='width', type=int, default=20,
@@ -786,7 +787,12 @@ class Grader(cmd_completer.Cmd_Completer):
     def do_rank(self, args):
         "Print list of people sorted by ranking"
         opts = self.rank_options.parse_args(args.split())
-        ranked = self._ranked(use_labels=opts.use_labels)
+        if opts.labels:
+            people = [p for p in self.applications
+                      if not set(opts.labels).difference(self._labels(p.fullname))]
+        else:
+            people = None
+        ranked = self._ranked(people, use_labels=opts.use_labels)
         fullname_width = max(len(field) for field in ranked.fullname)
         email_width = max(len(field) for field in ranked.email) + 2
         institute_width = min(max(len(field) for field in ranked.institute), opts.width)
