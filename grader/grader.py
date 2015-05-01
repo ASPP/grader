@@ -355,10 +355,9 @@ class Grader(cmd_completer.Cmd_Completer):
         .add_argument('-s', '--sorted', action='store_true',
                       help='print applications sorted by rank')\
         .add_argument('-L', '--highlanders', action='store_const',
-                      dest='highlanders', const=True, default=False,
+                      const=True, default=False,
                       help='print applications only for highlanders')\
-        .add_argument('-l', '--label', type=str,
-                      dest='label', nargs=1,
+        .add_argument('-l', '--label', type=str, nargs='+', default=(),
                       help='print applications only for people with label')\
         .add_argument('persons', nargs='*',
                       help='name fragments of people do display')
@@ -366,13 +365,10 @@ class Grader(cmd_completer.Cmd_Completer):
     def do_dump(self, args):
         "Print information about applications"
         opts = self.dump_options.parse_args(args.split())
+        persons = tuple(self._filter(*opts.label))
         if opts.persons:
-            persons = (p for p in self.applications
-                       if any(arg in p.fullname for arg in opts.persons))
-        elif opts.label:
-            persons = tuple(self._filter(opts.label[0]))
-        else:
-            persons = self.applications
+            persons = (p for p in persons
+                       if all(arg in p.fullname for arg in opts.persons))
         if opts.highlanders:
             persons = (p for p in persons if p.highlander)
         if opts.sorted:
@@ -459,7 +455,7 @@ class Grader(cmd_completer.Cmd_Completer):
         .add_argument('-g', '--graded', type=int,
                       nargs='?', const=all, metavar='SCORE',
                       help='grade already graded too, optionally with specified score')\
-        .add_argument('-l', '--labels', nargs='+',
+        .add_argument('-l', '--label', nargs='+', default=(),
                       help='show only people with all of those labels')\
         .add_argument('-d', '--disagreement', type=int,
                       metavar='WHO',
@@ -538,9 +534,7 @@ class Grader(cmd_completer.Cmd_Completer):
             total = len(todo)
             done_already = 0
         elif opts.labels is not None:
-            labels = set(opts.labels)
-            todo = [p for p in self.applications
-                    if not labels.difference(self._labels(p.fullname))]
+            todo = self._filter(*opts.label)
             total = len(todo)
             done_already = 0
         elif opts.disagreement is not None:
@@ -783,7 +777,7 @@ class Grader(cmd_completer.Cmd_Completer):
                       help='show only names and emails')\
         .add_argument('--use-labels', action='store_true',
                       help='use labels in ranking (DECLINED at the bottom, etc.)')\
-        .add_argument('-l', '--labels', nargs='+',
+        .add_argument('-l', '--label', nargs='+', default=(),
                       help='show only people with all of those labels')\
         .add_argument('--format',
                       choices=('long', 'short', 'detailed'),
@@ -795,11 +789,7 @@ class Grader(cmd_completer.Cmd_Completer):
     def do_rank(self, args):
         "Print list of people sorted by ranking"
         opts = self.rank_options.parse_args(args.split())
-        if opts.labels:
-            people = [p for p in self.applications
-                      if not set(opts.labels).difference(self._labels(p.fullname))]
-        else:
-            people = None
+        people = self._filter(*opts.label)
         ranked = self._ranked(people, use_labels=opts.use_labels)
         fullname_width = max(len(field) for field in ranked.fullname)
         email_width = max(len(field) for field in ranked.email) + 2
@@ -858,7 +848,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                  dest='highlanders', const=True, default=False,
                                  help='display statistics only for highlanders')\
                    .add_argument('-l', '--label', type=str,
-                                 dest='label', nargs=1,
+                                 nargs='+', default=(),
                                  help='display statistics only for people with label')
 
     def do_stat(self, args):
@@ -869,8 +859,7 @@ class Grader(cmd_completer.Cmd_Completer):
             pool = [person for person in ranked if person.highlander]
         else:
             pool = self.applications
-        if opts.label:
-            pool = tuple(self._filter(opts.label[0]))
+        pool = tuple(self._filter(*opts.label), applications=pool)
 
         observables = ['born', 'female', 'nationality', 'affiliation',
                        'position', 'applied', 'napplied', 'open_source',
@@ -1055,7 +1044,7 @@ class Grader(cmd_completer.Cmd_Completer):
         self.config.save(opts.filename)
         self.modified = False
 
-    def _filter(self, *accept_dash_deny):
+    def _filter(self, *accept_dash_deny, applications=None):
         """Find people who have all labels in accept and none from deny.
 
         Arguments are split into the part before '-', and after. The
@@ -1072,7 +1061,9 @@ class Grader(cmd_completer.Cmd_Completer):
         labels = iter(accept_dash_deny)
         accept = frozenset(itertools.takewhile(lambda x: x!='-', labels))
         deny = frozenset(labels)
-        for p in self.applications:
+        if applications is None:
+            applications = self.applications
+        for p in applications:
             labels = set(self._labels(p.fullname))
             if not (accept - labels) and not (labels & deny):
                 yield p
