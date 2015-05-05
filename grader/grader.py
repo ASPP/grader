@@ -859,7 +859,7 @@ class Grader(cmd_completer.Cmd_Completer):
             pool = [person for person in ranked if person.highlander]
         else:
             pool = self.applications
-        pool = tuple(self._filter(*opts.label), applications=pool)
+        pool = tuple(self._filter(*opts.label, applications=pool))
 
         observables = ['born', 'female', 'nationality', 'affiliation',
                        'position', 'applied', 'napplied', 'open_source',
