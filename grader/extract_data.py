@@ -20,6 +20,8 @@ names = {}
 i = 0
 for person in confirmed:
     gender = int(person.female)
+    # print(person.vcs.split(',')[0])  # add git rating
+    print(list(config['groups_open_source_rating'].values()))
     python = config['groups_python_rating'][person.python.split('/')[0].lower()]
     programming = config['groups_programming_rating'][person.programming.split('/')[0].lower()]
     open_source = config['groups_open_source_rating'][person.open_source.split(' ')[0].lower()]
