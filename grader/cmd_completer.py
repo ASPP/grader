@@ -11,6 +11,7 @@ import fcntl
 import termios
 import pydoc
 import contextlib
+import traceback
 
 import logging
 log = logging.getLogger('cmd_completer')
@@ -167,7 +168,7 @@ class Cmd_Completer(cmd.Cmd):
                 try:
                     exec(fh.read(), self.__dict__)
                 except Exception as e:
-                    log.error(e)
+                    traceback.print_exc(file=sys.stdout)
 
     def do_shell(self, arg):
         "Execute shell statements"
