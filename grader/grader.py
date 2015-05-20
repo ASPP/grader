@@ -1311,6 +1311,7 @@ def our_configfile(filename):
                                  groups_vcs_rating=float,
                                  groups_open_source_rating=float,
                                  groups_programming_rating=float,
+                                 groups_random_seed=str,
                                  formula=str,
                                  equivs=list_of_equivs,
                                  labels=list_of_str,
