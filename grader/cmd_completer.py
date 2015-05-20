@@ -10,6 +10,7 @@ import struct
 import fcntl
 import termios
 import pydoc
+import contextlib
 
 import logging
 log = logging.getLogger('cmd_completer')
@@ -160,12 +161,13 @@ class Cmd_Completer(cmd.Cmd):
     def do_loadpy(self, arg):
         "Load code snippet from file"
         with open(arg,'rt') as fh:
-            try:
-                ans = exec(fh.read(), self.__dict__)
-                if ans is not None:
-                    print(ans)
-            except Exception as e:
-                log.error(e)
+            # redirecting stdout to stderr is needed
+            # to support flushing the I/O stream in scripts
+            with contextlib.redirect_stdout(sys.stderr):
+                try:
+                    exec(fh.read(), self.__dict__)
+                except Exception as e:
+                    log.error(e)
 
     def do_shell(self, arg):
         "Execute shell statements"
