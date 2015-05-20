@@ -1,28 +1,42 @@
-# global imports
+import collections
+import hashlib
 import numpy as np
 
-# fix random seed
-np.random.seed(12345)
+# set parameters from config
+STUDENTS = int(config['formula']['accept_count'])
+TRIALS = config['groups_parameters']['number_trials']
+LABELS = config.sections['labels']
 
+# here we define how to weight different contributions to the total
+# energy. for example, we could decide that matching the average
+# python knowledge is more important than matching the average gender.
+# as a default we opt for equal weight for all criteria
+PARMS_WEIGHTS = collections.OrderedDict([
+                 ('gender',       1.),
+                 ('python',       1.),
+                 ('programming',  1.),
+                 ('vcs',          1.),
+                 ('open_source' , 1.),
+                ])
 
 def extract_data():
-    '''retrieved confirmed students and rate them
+    """Retrieve confirmed students and rate them.
 
-    retrieve all confirmed students from applications by checking the
-    labels and rate them using the ratings defined in
-    grader.conf. returns a dictionary with mapping id->name and a list
+    Retrieve all confirmed students from applications by checking the
+    labels and rate them using the ratings defined in grader.conf.
+    Returns a dictionary with mapping id -> name and a list
     of tuples.
-
-    '''
+    """
     confirmed = []
     for person in applications:
         try:
-            labels = config.sections['labels'][person.fullname.lower()]
+            labels = LABELS[person.fullname.lower()]
         except Exception:
-            labels = []
+            continue
         if 'CONFIRMED' in labels:
             confirmed.append(person)
-    assert(len(confirmed) == 30)
+
+    assert(len(confirmed) == STUDENTS)
 
     # transform confirmed list into useful format for generating groups
     # a single entry will contain
@@ -30,17 +44,23 @@ def extract_data():
     # the id is necessary to generate the list of names in the end
     rated = []
     names = {}
-    for i, person in enumerate(confirmed):
-        gender = int(person.female)
-        python = config['groups_python_rating'][person.python.split('/')[0].lower()]
-        programming = config['groups_programming_rating'][person.programming.split('/')[0].lower()]
-        vcs = config['groups_vcs_rating'][person.vcs.split(',')[0].lower()]
-        open_source = config['groups_open_source_rating'][person.open_source.split(' ')[0].lower()]
-        rated.append((gender, python, programming, vcs, open_source, i))
-        names[i] = person.fullname.lower()
+    for idx, person in enumerate(confirmed):
+        rates = []
+        for field in PARMS_WEIGHTS:
+            # get values from the config file
+            value = config['_'.join(('groups', field, 'rating'))]
+            attr = getattr(person, field).lower()
+            for splitchar in ' /,':
+                attr = attr.split(splitchar)[0]
+            rate = value[attr]
+            rates.append(rate)
+        rated.append((rates+[idx]))
+        names[idx] = person.fullname.lower()
 
     return names, rated
 
+def gslice(i, K):
+    return slice(i * K, (i + 1) * K)
 
 def print_groups(data, K, energy, weights, names):
     '''prints dataset sorted into groups of size K, calculates energy of
@@ -51,12 +71,12 @@ def print_groups(data, K, energy, weights, names):
     for i in range(int(len(data) / K)):
         print('#########################')
         print('Group %d:' % (i))
-        print([names[int(k)] for k in data[i * K:(i + 1) * K, -1]])
+        print([names[int(k)] for k in data[gslice(i, K), -1]])
         print('Ratings:')
-        print(np.round(data[i * K:(i + 1) * K, :-1], 2))
+        print(np.round(data[gslice(i, K), :-1], 2))
         print('-------------------------')
         print('Group average:')
-        print(np.round([x for x in np.mean(data[i * K:(i + 1) * K, :-1],
+        print(np.round([x for x in np.mean(data[gslice(i, K), :-1],
                                            axis=0)], 2))
     print('#########################')
     print('Target averages:')
@@ -64,12 +84,12 @@ def print_groups(data, K, energy, weights, names):
     print('#########################')
     print('Rel. deviation from target averages:')
     for i in range(int(len(data) / K)):
-        print(np.round((np.array([round(x, 2) for x in np.mean(data[i * K:(i + 1) * K, :-1], axis=0)]) -
+        print(np.round((np.array([round(x, 2) for x in np.mean(data[gslice(i, K), :-1], axis=0)]) -
                         np.mean(data[:, :-1], axis=0)) / np.mean(data[:, :-1], axis=0), 2))
     print('-------------------------')
     print('Rel. deviation from target standard deviations:')
     for i in range(int((len(data) / K))):
-        print(np.round((np.array([round(x, 2) for x in np.std(data[i * K:(i + 1) * K, :-1], axis=0)]) -
+        print(np.round((np.array([round(x, 2) for x in np.std(data[gslice(i, K), :-1], axis=0)]) -
                         np.std(data[:, :-1], axis=0)) / np.std(data[:, :-1], axis=0), 2))
 
 
@@ -104,7 +124,7 @@ def energy_mudeviation(data, K, mu):
     of all students.
 
     '''
-    return np.std([np.mean(data[i * K:(i + 1) * K]) for i in range(int(len(data) / K))])
+    return np.std([np.mean(data[gslice(i, K)]) for i in range(int(len(data) / K))])
 
 
 def energy_nonuniform(data, K):
@@ -117,7 +137,7 @@ def energy_nonuniform(data, K):
     the standard deviation of all students.
 
     '''
-    return np.std([np.std(data[i * K:(i + 1) * K]) for i in range(int(len(data) / K))])
+    return np.std([np.std(data[gslice(i, K)]) for i in range(int(len(data) / K))])
 
 
 def energy(data, K, weights):
@@ -144,34 +164,43 @@ def energy(data, K, weights):
     E += weights[4] * energy_mudeviation(data[:, 4], K, targets[4])
     return E
 
-######################################################################
-# here we define how to weight different contributions to the total
-# energy. for example, we could decide that matching the average
-# python knowledge is more important than matching the average gender.
-# as a default we opt for equal weight in all criteria
-weights = np.array([1., 1., 1., 1., 1.])
-######################################################################
 
-names, rated = extract_data()
+def main():
+    global rated
+    weights = np.array([1., 1., 1., 1., 1.])
+    ######################################################################
 
-initial_E_seeds = []
-E_seeds = []
-data_seeds = []
+    names, rated = extract_data()
 
-for seed in np.arange(0, config['groups_parameters']['number_trials']):
-    # create different initial condition for every trial
-    np.random.seed(seed * 12345)
-    data = np.random.permutation(rated)
-    initial_E_seeds.append(energy(data, config['groups_parameters']['group_size'], weights))
-    optimize(data, config['groups_parameters']['group_size'], config['groups_parameters']['repetitions'], energy, weights)
-    E_seeds.append(energy(data, config['groups_parameters']['group_size'], weights))
-    data_seeds.append(data)
+    initial_E_seeds = []
+    E_seeds = []
+    data_seeds = []
 
-print('initial energy of all trials:')
-print('mean: %.4f, std: %.4f' % (np.mean(initial_E_seeds), np.std(initial_E_seeds)))
-print('final energy of all trials:')
-print('mean: %.4f, std: %.4f' % (np.mean(E_seeds), np.std(E_seeds)))
-print('optimal group distribution:')
-pos = np.argsort(E_seeds)
-print_groups(data_seeds[pos[0]], config['groups_parameters']['group_size'], energy, weights, names)
-# TODO write data in csv file for later use
+    # fix random seed
+    random_bytes = bytes(config['groups_random_seed']['seed'], encoding='utf8')
+    # make nice cryptographic dance to get a proper random seed
+    # which will change every year
+    random_seed = np.fromstring(hashlib.sha512(random_bytes).digest(),dtype=np.uint64).sum()//np.uint64(TRIALS)
+    np.random.seed(random_seed)
+    print()
+    for seed in np.arange(1, TRIALS+1, dtype=np.uint64):
+        print(100*'\b'+'Trial: %d/%d'%(seed,TRIALS), end='', flush=True)
+        # create different initial condition for every trial
+        np.random.seed(seed * random_seed)
+        data = np.random.permutation(rated)
+        initial_E_seeds.append(energy(data, config['groups_parameters']['group_size'], weights))
+        optimize(data, config['groups_parameters']['group_size'], config['groups_parameters']['repetitions'], energy, weights)
+        E_seeds.append(energy(data, config['groups_parameters']['group_size'], weights))
+        data_seeds.append(data)
+
+    print()
+    print('initial energy of all trials:')
+    print('mean: %.4f, std: %.4f' % (np.mean(initial_E_seeds), np.std(initial_E_seeds)))
+    print('final energy of all trials:')
+    print('mean: %.4f, std: %.4f' % (np.mean(E_seeds), np.std(E_seeds)))
+    print('optimal group distribution:')
+    pos = np.argsort(E_seeds)
+    print_groups(data_seeds[pos[0]], config['groups_parameters']['group_size'], energy, weights, names)
+    # TODO write data in csv file for later use
+
+main()
