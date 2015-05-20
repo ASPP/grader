@@ -26,17 +26,17 @@ def extract_data():
 
     # transform confirmed list into useful format for generating groups
     # a single entry will contain
-    # (gender, python, git, programming, open source, id) ratings as a tuple
+    # (gender, python, programming, vcs, open source, id) ratings as a tuple
     # the id is necessary to generate the list of names in the end
     rated = []
     names = {}
     for i, person in enumerate(confirmed):
         gender = int(person.female)
-        # print(person.vcs.split(',')[0])  # add git rating
         python = config['groups_python_rating'][person.python.split('/')[0].lower()]
         programming = config['groups_programming_rating'][person.programming.split('/')[0].lower()]
+        vcs = config['groups_vcs_rating'][person.vcs.split(',')[0].lower()]
         open_source = config['groups_open_source_rating'][person.open_source.split(' ')[0].lower()]
-        rated.append((gender, python, programming, open_source, i))
+        rated.append((gender, python, programming, vcs, open_source, i))
         names[i] = person.fullname.lower()
 
     return names, rated
@@ -141,6 +141,7 @@ def energy(data, K, weights):
     E += weights[1] * energy_mudeviation(data[:, 1], K, targets[1])
     E += weights[2] * energy_mudeviation(data[:, 2], K, targets[2])
     E += weights[3] * energy_mudeviation(data[:, 3], K, targets[3])
+    E += weights[4] * energy_mudeviation(data[:, 4], K, targets[4])
     return E
 
 ######################################################################
@@ -148,7 +149,7 @@ def energy(data, K, weights):
 # energy. for example, we could decide that matching the average
 # python knowledge is more important than matching the average gender.
 # as a default we opt for equal weight in all criteria
-weights = np.array([1., 1., 1., 1.])
+weights = np.array([1., 1., 1., 1., 1.])
 ######################################################################
 
 names, rated = extract_data()

@@ -1308,6 +1308,7 @@ def our_configfile(filename):
                                  python_rating=float,
                                  groups_parameters=int,
                                  groups_python_rating=float,
+                                 groups_vcs_rating=float,
                                  groups_open_source_rating=float,
                                  groups_programming_rating=float,
                                  formula=str,
