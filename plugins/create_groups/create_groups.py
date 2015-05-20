@@ -3,9 +3,11 @@ import hashlib
 import numpy as np
 
 # set parameters from config
-STUDENTS = int(config['formula']['accept_count'])
-TRIALS = config['groups_parameters']['number_trials']
+NSTUDENTS = int(config['formula']['accept_count'])
 LABELS = config.sections['labels']
+GSIZE = config['groups_parameters']['group_size']
+NGROUPS = NSTUDENTS//GSIZE
+TRIALS = config['groups_parameters']['number_trials']
 
 # here we define how to weight different contributions to the total
 # energy. for example, we could decide that matching the average
@@ -19,6 +21,16 @@ PARMS_WEIGHTS = collections.OrderedDict([
                  ('open_source' , 1.),
                 ])
 
+def participants():
+    for person in applications:
+        try:
+            labels = LABELS[person.fullname.lower()]
+        except Exception:
+            continue
+        if 'CONFIRMED' in labels:
+            yield person
+    
+
 def extract_data():
     """Retrieve confirmed students and rate them.
 
@@ -27,24 +39,13 @@ def extract_data():
     Returns a dictionary with mapping id -> name and a list
     of tuples.
     """
-    confirmed = []
-    for person in applications:
-        try:
-            labels = LABELS[person.fullname.lower()]
-        except Exception:
-            continue
-        if 'CONFIRMED' in labels:
-            confirmed.append(person)
-
-    assert(len(confirmed) == STUDENTS)
-
     # transform confirmed list into useful format for generating groups
     # a single entry will contain
     # (gender, python, programming, vcs, open source, id) ratings as a tuple
     # the id is necessary to generate the list of names in the end
     rated = []
     names = {}
-    for idx, person in enumerate(confirmed):
+    for idx, person in enumerate(participants()):
         rates = []
         for field in PARMS_WEIGHTS:
             # get values from the config file
@@ -55,8 +56,9 @@ def extract_data():
             rate = value[attr]
             rates.append(rate)
         rated.append((rates+[idx]))
-        names[idx] = person.fullname.lower()
+        names[idx] = person.fullname
 
+    assert(len(names) == NSTUDENTS)
     return names, rated
 
 def gslice(i, K):
@@ -68,7 +70,7 @@ def print_groups(data, K, energy, weights, names):
 
     '''
     print('energy: %.4f' % (energy(data, K, weights)))
-    for i in range(int(len(data) / K)):
+    for i in range(NGROUPS):
         print('#########################')
         print('Group %d:' % (i))
         print([names[int(k)] for k in data[gslice(i, K), -1]])
@@ -83,12 +85,12 @@ def print_groups(data, K, energy, weights, names):
     print(np.round(np.mean(data[:, :-1], axis=0), 2))
     print('#########################')
     print('Rel. deviation from target averages:')
-    for i in range(int(len(data) / K)):
+    for i in range(NGROUPS):
         print(np.round((np.array([round(x, 2) for x in np.mean(data[gslice(i, K), :-1], axis=0)]) -
                         np.mean(data[:, :-1], axis=0)) / np.mean(data[:, :-1], axis=0), 2))
     print('-------------------------')
     print('Rel. deviation from target standard deviations:')
-    for i in range(int((len(data) / K))):
+    for i in range(int((NSTUDENTS / K))):
         print(np.round((np.array([round(x, 2) for x in np.std(data[gslice(i, K), :-1], axis=0)]) -
                         np.std(data[:, :-1], axis=0)) / np.std(data[:, :-1], axis=0), 2))
 
@@ -105,9 +107,9 @@ def optimize(data, K, rep, energy, weights, p=0.):
 
     '''
     for i in range(rep):
-        idx = np.random.randint(0, len(data), 2)
+        idx = np.random.randint(0, NSTUDENTS, 2)
         while idx[0] // K == idx[1] // K:
-            idx = np.random.randint(0, len(data), 2)
+            idx = np.random.randint(0, NSTUDENTS, 2)
         E1 = energy(data, K, weights)
         data[idx] = data[idx[::-1]]
         E2 = energy(data, K, weights)
@@ -124,7 +126,7 @@ def energy_mudeviation(data, K, mu):
     of all students.
 
     '''
-    return np.std([np.mean(data[gslice(i, K)]) for i in range(int(len(data) / K))])
+    return np.std([np.mean(data[gslice(i, K)]) for i in range(NGROUPS)])
 
 
 def energy_nonuniform(data, K):
@@ -137,7 +139,7 @@ def energy_nonuniform(data, K):
     the standard deviation of all students.
 
     '''
-    return np.std([np.std(data[gslice(i, K)]) for i in range(int(len(data) / K))])
+    return np.std([np.std(data[gslice(i, K)]) for i in range(NGROUPS)])
 
 
 def energy(data, K, weights):
