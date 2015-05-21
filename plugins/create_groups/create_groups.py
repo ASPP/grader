@@ -21,7 +21,7 @@ SKILL_WEIGHTS = collections.OrderedDict([
 REJECTION_PROBABILITY = 1.
 
 # Print a lot of debugging output
-DEBUG = False
+DEBUG = True
 
 ### DO NOT NEED TO CHANGE BELOW THIS LINE ###
 
@@ -59,7 +59,11 @@ RANDOM_SEED = bytes(RANDOM_SEED, encoding='utf8')
 RANDOM_SEED = np.fromstring(hashlib.sha512(RANDOM_SEED).digest(),
                             dtype=np.uint64).sum()//np.uint64(TRIALS)
 
-                
+def debug(*args, **kwargs):
+    if DEBUG:
+        print(*args, **kwargs)
+
+
 def participants():
     """Generator that returns persons labeled CONFIRMED"""
     for person in applications:
@@ -69,7 +73,7 @@ def participants():
             continue
         if 'CONFIRMED' in labels:
             yield person
-    
+
 
 def extract_data():
     """Rate all participants based on their skills.
@@ -97,45 +101,45 @@ def extract_data():
     assert(len(people) == NSTUDENTS)
     return people
 
-def gslice(i):
+
+def group(i):
     """Return a slice object that represents group i in the dataset"""
     return slice(i * GSIZE, (i + 1) * GSIZE)
+
 
 def print_groups(data, energy, names):
     """prints dataset sorted into groups of size GSIZE, calculates energy of
     solution and average ratings for all groups"""
-    
-    if DEBUG: print('energy: %.4f' % (energy(data)))
-    for i in range(NGROUPS):
-        if DEBUG:
-            print('#########################')
-            print('Group %d:' % (i))
-            print('Ratings:')
-            print(np.round(data[gslice(i), 1:], 2))
-            print('-------------------------')
-            print('Group average:')
-            print(np.round([x for x in np.mean(data[gslice(i), 1:],
-                                            axis=0)], 2))
-        print([names[int(k)] for k in data[gslice(i), 0]])
-        if DEBUG: print('#########################')
 
-    if DEBUG:
-        print('Target averages:')
-        print(np.round(np.mean(data[:, 1:], axis=0), 2))
-        print('#########################')
-        print('Rel. deviation from target averages:')
-        for i in range(NGROUPS):
-            print(np.round((np.array([round(x, 2) \
-                        for x in np.mean(data[gslice(i), 1:], axis=0)]) -
-                        np.mean(data[:, 1:], axis=0)) / np.mean(data[:, 1:],
-                                                                 axis=0), 2))
-        print('-------------------------')
-        print('Rel. deviation from target standard deviations:')
-        for i in range(int((NSTUDENTS / GSIZE))):
-            print(np.round((np.array([round(x, 2) \
-                        for x in np.std(data[gslice(i), 1:], axis=0)]) -
-                        np.std(data[:, 1:], axis=0)) / np.std(data[:, 1:],
-                                                               axis=0), 2))
+    debug('energy: %.4f' % (energy(data)))
+    for i in range(NGROUPS):
+        debug('#########################')
+        debug('Group %d:' % (i))
+        debug('Ratings:')
+        debug(np.round(data[group(i), 1:], 2))
+        debug('-------------------------')
+        debug('Group average:')
+        debug(np.round([x for x in np.mean(data[group(i), 1:],
+                                        axis=0)], 2))
+        print([names[int(k)] for k in data[group(i), 0]])
+        debug('#########################')
+
+    debug('Target averages:')
+    debug(np.round(np.mean(data[:, 1:], axis=0), 2))
+    debug('#########################')
+    debug('Rel. deviation from target averages:')
+    for i in range(NGROUPS):
+        debug(np.round((np.array([round(x, 2) \
+                    for x in np.mean(data[group(i), 1:], axis=0)]) -
+                    np.mean(data[:, 1:], axis=0)) / np.mean(data[:, 1:],
+                                                             axis=0), 2))
+    debug('-------------------------')
+    debug('Rel. deviation from target standard deviations:')
+    for i in range(NGROUPS):
+        debug(np.round((np.array([round(x, 2) \
+                    for x in np.std(data[group(i), 1:], axis=0)]) -
+                    np.std(data[:, 1:], axis=0)) / np.std(data[:, 1:],
+                                                           axis=0), 2))
 
 
 def optimize(data, energy, p=REJECTION_PROBABILITY):
@@ -169,7 +173,7 @@ def optimize(data, energy, p=REJECTION_PROBABILITY):
 def energy_mudeviation(skill):
     """Penalize deviation of a group from the mean over all groups for a certain
     skill."""
-    return np.std([np.mean(skill[gslice(i)]) for i in range(NGROUPS)])
+    return np.std([np.mean(skill[group(i)]) for i in range(NGROUPS)])
 
 
 def energy_nonuniform(skill):
@@ -184,7 +188,7 @@ def energy_nonuniform(skill):
     # this is not used right now, as it doesn't seem to make a difference
     # most probably because it is too small of a term:
     # std(std) vs std(mean)
-    return np.std([np.std(skill[gslice(i)]) for i in range(NGROUPS)])
+    return np.std([np.std(skill[group(i)]) for i in range(NGROUPS)])
 
 
 def energy(data):
@@ -197,19 +201,15 @@ def energy(data):
 
 
 def main():
-    global rated
-    ######################################################################
-
     people = extract_data()
-
     in_data = np.array(list(people.values()))
-    
     E0_trial = []
     E_trial = []
     data_trial = []
 
     # set the random seed
     np.random.seed(RANDOM_SEED)
+
     print('Running trials...')
     for seed in np.arange(1, TRIALS+1, dtype=np.uint64):
         # give a bit of a progress report
@@ -228,12 +228,11 @@ def main():
         data_trial.append(data)
 
     print()
-    if DEBUG:
-        print('initial energy of all trials:')
-        print('mean: %.4f, std: %.4f' % (np.mean(E0_trial),
-                                      np.std(E0_trial)))
-        print('final energy of all trials:')
-        print('mean: %.4f, std: %.4f' % (np.mean(E_trial), np.std(E_trial)))
+    debug('initial energy of all trials:')
+    debug('mean: %.4f, std: %.4f' % (np.mean(E0_trial),
+                                  np.std(E0_trial)))
+    debug('final energy of all trials:')
+    debug('mean: %.4f, std: %.4f' % (np.mean(E_trial), np.std(E_trial)))
     print('optimal group distribution:')
     pos = np.argsort(E_trial)
     names = {people[name][0]:name for name in people}
