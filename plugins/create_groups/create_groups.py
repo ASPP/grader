@@ -1,13 +1,20 @@
+# This script must be run within grader using the command "loadpy"
+
 import collections
 import hashlib
 import numpy as np
 
 # set parameters from config
+# Number of participants
 NSTUDENTS = int(config['formula']['accept_count'])
+# Labels (contains the CONFIRMED labels)
 LABELS = config.sections['labels']
+# How many students in a group
 GSIZE = config['groups_parameters']['group_size']
-NGROUPS = NSTUDENTS//GSIZE
+# How many independent trials to run of the stochastic algorithm
 TRIALS = config['groups_parameters']['number_trials']
+# Random seed (expected to be a UTF8 string, typically "City YEAR")
+RANDOM_SEED = config['groups_random_seed']['seed']
 
 # here we define how to weight different contributions to the total
 # energy. for example, we could decide that matching the average
@@ -20,8 +27,15 @@ PARMS_WEIGHTS = collections.OrderedDict([
                  ('vcs',          1.),
                  ('open_source' , 1.),
                 ])
+# Number of groups
+NGROUPS = NSTUDENTS//GSIZE
+# The ratings for each quality
+RATINGS = { field : config['_'.join(('groups', field, 'rating'))]\
+            for field in PARMS_WEIGHTS }
 
+                
 def participants():
+    """Generator that returns persons labeled CONFIRMED"""
     for person in applications:
         try:
             labels = LABELS[person.fullname.lower()]
@@ -32,12 +46,10 @@ def participants():
     
 
 def extract_data():
-    """Retrieve confirmed students and rate them.
+    """Rate all participants based on their skills.
 
-    Retrieve all confirmed students from applications by checking the
-    labels and rate them using the ratings defined in grader.conf.
-    Returns a dictionary with mapping id -> name and a list
-    of tuples.
+    Returns a dictionary with mapping {idx : name} and a list
+    of tuples: (skill1_rate, skill2_rate, ..., idx)
     """
     # transform confirmed list into useful format for generating groups
     # a single entry will contain
@@ -48,8 +60,7 @@ def extract_data():
     for idx, person in enumerate(participants()):
         rates = []
         for field in PARMS_WEIGHTS:
-            # get values from the config file
-            value = config['_'.join(('groups', field, 'rating'))]
+            value = RATINGS[field]
             attr = getattr(person, field).lower()
             for splitchar in ' /,':
                 attr = attr.split(splitchar)[0]
@@ -179,7 +190,7 @@ def main():
     data_seeds = []
 
     # fix random seed
-    random_bytes = bytes(config['groups_random_seed']['seed'], encoding='utf8')
+    random_bytes = bytes(RANDOM_SEED, encoding='utf8')
     # make nice cryptographic dance to get a proper random seed
     # which will change every year
     random_seed = np.fromstring(hashlib.sha512(random_bytes).digest(),dtype=np.uint64).sum()//np.uint64(TRIALS)
