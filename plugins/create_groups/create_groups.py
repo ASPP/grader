@@ -16,6 +16,13 @@ SKILL_WEIGHTS = collections.OrderedDict([
                  ('open_source' , 1.),
                 ])
 
+# Probability of accepting one step in the wrong direction
+# in the stochastic algorithm
+REJECTION_PROBABILITY = 1.
+
+# Print a lot of debugging output
+DEBUG = False
+
 ### DO NOT NEED TO CHANGE BELOW THIS LINE ###
 
 # Set parameters from config file
@@ -72,8 +79,8 @@ def extract_data():
     """
     # transform confirmed list into useful format for generating groups
     # a single entry will contain
-    # (gender, python, programming, vcs, open source, id) ratings as a tuple
-    # the id is necessary to generate the list of names in the end
+    # (idx, gender, python, programming, vcs, open source) ratings as a tuple
+    # the idx is necessary to keep track of the people's names
     people = collections.OrderedDict()
     for idx, person in enumerate(participants()):
         rates = [idx]
@@ -86,44 +93,52 @@ def extract_data():
             rates.append(rate)
         people[person.fullname] = rates
 
+    # security check
     assert(len(people) == NSTUDENTS)
     return people
 
 def gslice(i):
+    """Return a slice object that represents group i in the dataset"""
     return slice(i * GSIZE, (i + 1) * GSIZE)
 
 def print_groups(data, energy, names):
-    '''prints dataset sorted into groups of size GSIZE, calculates energy of
-    solution and average ratings for all groups
-
-    '''
-    print('energy: %.4f' % (energy(data)))
+    """prints dataset sorted into groups of size GSIZE, calculates energy of
+    solution and average ratings for all groups"""
+    
+    if DEBUG: print('energy: %.4f' % (energy(data)))
     for i in range(NGROUPS):
-        print('#########################')
-        print('Group %d:' % (i))
+        if DEBUG:
+            print('#########################')
+            print('Group %d:' % (i))
+            print('Ratings:')
+            print(np.round(data[gslice(i), 1:], 2))
+            print('-------------------------')
+            print('Group average:')
+            print(np.round([x for x in np.mean(data[gslice(i), 1:],
+                                            axis=0)], 2))
         print([names[int(k)] for k in data[gslice(i), 0]])
-        print('Ratings:')
-        print(np.round(data[gslice(i), 1:], 2))
+        if DEBUG: print('#########################')
+
+    if DEBUG:
+        print('Target averages:')
+        print(np.round(np.mean(data[:, 1:], axis=0), 2))
+        print('#########################')
+        print('Rel. deviation from target averages:')
+        for i in range(NGROUPS):
+            print(np.round((np.array([round(x, 2) \
+                        for x in np.mean(data[gslice(i), 1:], axis=0)]) -
+                        np.mean(data[:, 1:], axis=0)) / np.mean(data[:, 1:],
+                                                                 axis=0), 2))
         print('-------------------------')
-        print('Group average:')
-        print(np.round([x for x in np.mean(data[gslice(i), 1:],
-                                           axis=0)], 2))
-    print('#########################')
-    print('Target averages:')
-    print(np.round(np.mean(data[:, 1:], axis=0), 2))
-    print('#########################')
-    print('Rel. deviation from target averages:')
-    for i in range(NGROUPS):
-        print(np.round((np.array([round(x, 2) for x in np.mean(data[gslice(i), 1:], axis=0)]) -
-                        np.mean(data[:, 1:], axis=0)) / np.mean(data[:, 1:], axis=0), 2))
-    print('-------------------------')
-    print('Rel. deviation from target standard deviations:')
-    for i in range(int((NSTUDENTS / GSIZE))):
-        print(np.round((np.array([round(x, 2) for x in np.std(data[gslice(i), 1:], axis=0)]) -
-                        np.std(data[:, 1:], axis=0)) / np.std(data[:, 1:], axis=0), 2))
+        print('Rel. deviation from target standard deviations:')
+        for i in range(int((NSTUDENTS / GSIZE))):
+            print(np.round((np.array([round(x, 2) \
+                        for x in np.std(data[gslice(i), 1:], axis=0)]) -
+                        np.std(data[:, 1:], axis=0)) / np.std(data[:, 1:],
+                                                               axis=0), 2))
 
 
-def optimize(data, rep, energy, p=1.):
+def optimize(data, energy, p=REJECTION_PROBABILITY):
     """Minimize energy of a dataset by randomly exchanging two items.
 
     Two items are randomly picked which don't belong to the same group,
@@ -132,13 +147,14 @@ def optimize(data, rep, energy, p=1.):
     reject the change with a probability p.
     a function which calculates the energy must be provided."""
 
-    for i in range(rep):
+    for i in range(REPETITIONS):
         # pick two random students
-        idx = np.random.randint(0, NSTUDENTS, 2)
-        while idx[0] // GSIZE == idx[1] // GSIZE:
-            # make sure the two picked ones are not
-            # in the same group
+        # make sure the two picked ones are not
+        # in the same group
+        while True:
             idx = np.random.randint(0, NSTUDENTS, 2)
+            if idx[0] // GSIZE != idx[1] // GSIZE:
+                break
 
         E_before = energy(data)
         data[idx] = data[idx[::-1]]
@@ -175,6 +191,7 @@ def energy(data):
     """Calculate total energy of a certain configuration of students."""
     energy = 0
     for skill in range(len(WEIGHTS)):
+        # skill+1 is needed to ignore the idx column in the data
         energy += WEIGHTS[skill] * energy_mudeviation(data[:, skill+1])
     return energy
 
@@ -185,39 +202,43 @@ def main():
 
     people = extract_data()
 
-    origdata = np.array(list(people.values()))
-    # calculate target values (-> optimal solution
-    # would be if all groups had this strength)
-    targets = origdata.mean(axis=0)
-
-
+    in_data = np.array(list(people.values()))
     
-    initial_E_seeds = []
-    E_seeds = []
-    data_seeds = []
+    E0_trial = []
+    E_trial = []
+    data_trial = []
 
     # set the random seed
     np.random.seed(RANDOM_SEED)
-    print()
+    print('Running trials...')
     for seed in np.arange(1, TRIALS+1, dtype=np.uint64):
-        print('Trial: %d/%d'%(seed,TRIALS)+12*'\b', end='', flush=True)
+        # give a bit of a progress report
+        print('Trial: %d/%d'%(seed,TRIALS)+20*'\b', end='', flush=True)
         # create different initial condition for every trial
         np.random.seed(seed * RANDOM_SEED)
-        names = {people[name][0]:name for name in people}
-        data = np.random.permutation(origdata)
-        initial_E_seeds.append(energy(data))
-        optimize(data, REPETITIONS, energy)
-        E_seeds.append(energy(data))
-        data_seeds.append(data)
+        # IMPORTANT: data gets modified in place in the optimize
+        # function! Do not generate copies here!
+        data = np.random.permutation(in_data)
+        # store the starting energy of the trial
+        if DEBUG: E0_trial.append(energy(data))
+        optimize(data, energy)
+        # store the final energy of the trial
+        E_trial.append(energy(data))
+        # store the final configuration of the trial
+        data_trial.append(data)
 
     print()
-    print('initial energy of all trials:')
-    print('mean: %.4f, std: %.4f' % (np.mean(initial_E_seeds), np.std(initial_E_seeds)))
-    print('final energy of all trials:')
-    print('mean: %.4f, std: %.4f' % (np.mean(E_seeds), np.std(E_seeds)))
+    if DEBUG:
+        print('initial energy of all trials:')
+        print('mean: %.4f, std: %.4f' % (np.mean(E0_trial),
+                                      np.std(E0_trial)))
+        print('final energy of all trials:')
+        print('mean: %.4f, std: %.4f' % (np.mean(E_trial), np.std(E_trial)))
     print('optimal group distribution:')
-    pos = np.argsort(E_seeds)
-    print_groups(data_seeds[pos[0]], energy, names)
+    pos = np.argsort(E_trial)
+    names = {people[name][0]:name for name in people}
+
+    print_groups(data_trial[pos[0]], energy, names)
     # TODO write data in csv file for later use
 
 main()
