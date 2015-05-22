@@ -26,6 +26,8 @@ MIN_TRIALS = 5
 MAX_REJECTIONS = 200
 # Relative and absolute tolerance to consider two values of energy equal
 RTOL, ATOL = 0.001, 1e-10
+# Output file
+CSV = '/tmp/list_groups.csv'
 
 ### DO NOT NEED TO CHANGE BELOW THIS LINE ###
 
@@ -58,10 +60,6 @@ RANDOM_SEED = bytes(RANDOM_SEED, encoding='utf8')
 # The result is one nice random seed.
 RANDOM_SEED = np.fromstring(hashlib.sha512(RANDOM_SEED).digest(),
                             dtype=np.uint64).sum()
-
-def debug(*args, **kwargs):
-    if DEBUG:
-        print(*args, **kwargs)
 
 
 def participants():
@@ -101,37 +99,15 @@ def extract_data():
     return people
 
 
+def name(idx, people):
+    """Return a name given an index in the people database"""
+    for name, skill in people.items():
+        if skill[0] == idx:
+            return name
+
 def group(i):
     """Return a slice object that represents group i in the dataset"""
     return slice(i * GSIZE, (i + 1) * GSIZE)
-
-
-def print_groups(data, energy, people):
-    """prints dataset sorted into groups of size GSIZE, calculates energy of
-    solution and average ratings for all groups"""
-    names = {people[name][0]:name for name in people}
-
-    debug('energy:', energy(data))
-    for i in range(NGROUPS):
-        debug('Group %d:' % (i))
-        debug('Group average:')
-        debug(np.round([x for x in data[group(i), 1:].mean(axis=0)], 2))
-        print([names[int(k)] for k in data[group(i), 0]])
-
-    debug('Target averages:')
-    debug(np.round(data[:, 1:].mean(axis=0), 2))
-    debug('#########################')
-    debug('Rel. deviation from target averages:')
-    for i in range(NGROUPS):
-        debug(np.round((np.array([round(x, 2) \
-                    for x in data[group(i), 1:].mean(axis=0)]) -
-                    data[:, 1:].mean(axis=0)) / data[:, 1:].mean(axis=0), 2))
-    debug('-------------------------')
-    debug('Rel. deviation from target standard deviations:')
-    for i in range(NGROUPS):
-        debug(np.round((np.array([round(x, 2) \
-                    for x in data[group(i), 1:].std(axis=0)]) -
-                    data[:, 1:].std(axis=0)) / data[:, 1:].std(axis=0), 2))
 
 
 def optimize(data, energy, p=REJECTION_PROBABILITY):
@@ -216,6 +192,7 @@ def main():
     # set the random seed
     np.random.seed(RANDOM_SEED)
 
+    # Run several independent trials until we converge to a good solution
     print('Running trials...')
     trial = 0
     while True:
@@ -227,22 +204,49 @@ def main():
         data = np.random.permutation(in_data)
         count = optimize(data, energy)
         # final energy
-        E_final = energy(data)
+        E = energy(data)
         # store the final energy of the trial
-        E_trial.append(E_final)
+        E_trial.append(E)
         # store the final configuration of the trial
         data_trial.append(data)
         # give a bit of a progress report
-        print('Trial #%d(%d):'%(trial, count), E_final)
-        # stop if we have collected enough trials
-        # we stop only if we have run at least MIN_TRIALS and
-        # if we did not improve much in this last step
-        if trial >= MIN_TRIALS and np.isclose(E_final, min(E_trial[:-1]), rtol=RTOL, atol=ATOL):
-            print('Converged!')
+        print('Trial #%d(%d):'%(trial, count), E)
+        # collect a minimum of trials
+        if trial < MIN_TRIALS: continue
+
+        # if we did not improve much in this last step, we converged
+        E_min = min(E_trial[:-1])
+        if E <= E_min and np.isclose(E, E_min, rtol=RTOL, atol=ATOL):
+            best_trial = np.argmin(E_trial)
+            best = data_trial[best_trial]
+            print('Converged! Best trial #%d,'%(best_trial+1),
+                  'Energy:', E_trial[best_trial])
             break
 
-    # extract the better position
-    print_groups(data_trial[np.argmin(E_trial)], energy, people)
-    # TODO write data in csv file for later use
+    # calculate optimal skill distribution: that is the average over all students
+    opt_skills = in_data.mean(axis=0)[1:]
+    opt_skills_dev = in_data.std(axis=0)[1:]
+    print('Optimal:', opt_skills.round(7))
+    # open CSV output
+    #names = {people[name][0]:name for name in people}
+    with open(CSV, 'wt') as csv:
+        # write header
+        csv.write('$FULLNAME$;$GROUP$\n')
+        for i in range(NGROUPS):
+            print('Group %d:'%i, best[group(i), 1:].mean(axis=0).round(7))
+            for member in best[group(i),0]:
+                # write member line
+                csv.write(name(member, people)+';'+str(i)+'\n')
+
+    # print relative deviation from optimal skills
+    print('Deviation from optimal skills (percent):')
+    dev = [(best[group(i), 1:].mean(axis=0)-opt_skills)/opt_skills\
+            for i in range(NGROUPS)]
+    print((100*np.abs(dev)).round(1))
+    print('Deviation from optimal skills standard deviations (percent):')
+    dev = [(best[group(i), 1:].std(axis=0)-opt_skills_dev)/opt_skills\
+           for i in range(NGROUPS)]
+    print((100*np.abs(dev)).round(1))
+    print('Wrote group list to "'+CSV+'"')
 
 main()
