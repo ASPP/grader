@@ -27,7 +27,7 @@ MAX_REJECTIONS = 200
 # Relative and absolute tolerance to consider two values of energy equal
 RTOL, ATOL = 0.001, 1e-10
 # Output file
-CSV = '/tmp/list_groups.csv'
+CSV = 'list_groups.csv'
 
 ### DO NOT NEED TO CHANGE BELOW THIS LINE ###
 
@@ -55,11 +55,11 @@ WEIGHTS /= WEIGHTS.sum()
 RANDOM_SEED = bytes(RANDOM_SEED, encoding='utf8')
 # make nice cryptographic dance to get a proper random seed.
 # idea: get a hash of the bytes and interpret the result as an array
-# of unsigned 64bit integers. Then sum them up (normalizing by the number
+# of unsigned 32bit integers. Then sum them up (normalizing by the number
 # of trials to avoid an integer overflow down the road).
 # The result is one nice random seed.
 RANDOM_SEED = np.fromstring(hashlib.sha512(RANDOM_SEED).digest(),
-                            dtype=np.uint64).sum()
+                            dtype=np.uint32).sum(dtype=np.uint32)
 
 
 def participants():
@@ -198,7 +198,7 @@ def main():
     while True:
         trial += 1
         # create different initial condition for every trial
-        np.random.seed(np.uint64(trial) * RANDOM_SEED)
+        #np.random.seed(np.uint32(trial) * RANDOM_SEED)
         # IMPORTANT: data gets modified in place in the optimize
         # function! Do not generate copies here!
         data = np.random.permutation(in_data)
