@@ -631,7 +631,7 @@ class Grader(cmd_completer.Cmd_Completer):
         self._dumpone(person, format=what)
         printff('Old score was {}', old_score)
         while True:
-            prompt = 'Your choice {}/s/d/l [{}]? '.format(SCORE_RANGE, default)
+            prompt = 'Your choice {}/s/d/l LABEL [{}]? '.format(SCORE_RANGE, default)
             try:
                 choice = input(prompt)
             except EOFError:
