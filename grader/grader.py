@@ -534,7 +534,7 @@ class Grader(cmd_completer.Cmd_Completer):
             total = len(todo)
             done_already = 0
         elif opts.label:
-            todo = self._filter(*opts.label)
+            todo = list(self._filter(*opts.label))
             total = len(todo)
             done_already = 0
         elif opts.disagreement is not None:
