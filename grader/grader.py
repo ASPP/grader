@@ -533,7 +533,7 @@ class Grader(cmd_completer.Cmd_Completer):
                     if opts.graded is all or self._get_grading(p, opts.what) == opts.graded]
             total = len(todo)
             done_already = 0
-        elif opts.labels is not None:
+        elif opts.label:
             todo = self._filter(*opts.label)
             total = len(todo)
             done_already = 0
