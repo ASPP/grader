@@ -150,6 +150,8 @@ class Cmd_Completer(cmd.Cmd):
 
     do_exit = do_EOF
 
+    do_quit = do_EOF
+
     def do_py(self, arg):
         "Execute python statements"
         try:
