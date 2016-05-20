@@ -553,7 +553,7 @@ class Grader(cmd_completer.Cmd_Completer):
 
         random.shuffle(todo)
         for num, person in enumerate(todo):
-            printff('{:.1%} done, {} left to go',
+            printff(30*'='+'\n'+'  {:.1%} done, {} left to go'+'\n'+30*'=',
                    (num + done_already) / total,
                    len(todo) - num)
             print()
