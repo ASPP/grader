@@ -553,9 +553,11 @@ class Grader(cmd_completer.Cmd_Completer):
 
         random.shuffle(todo)
         for num, person in enumerate(todo):
-            printff(30*'='+'\n'+'  {:.1%} done, {} left to go'+'\n'+30*'=',
-                   (num + done_already) / total,
-                   len(todo) - num)
+            progress = '┃ {:.1%} done, {} left to go ┃'.format((num + done_already) / total,
+                                                             len(todo) - num)
+            sep_up = '\n┏'+(len(progress)-2)*'━'+'┓\n'
+            sep_down = '\n┗'+(len(progress)-2)*'━'+'┛\n'
+            print(sep_up+progress+sep_down)
             print()
             if not self._grade(person, opts.what):
                 break
