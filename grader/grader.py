@@ -636,7 +636,11 @@ class Grader(cmd_completer.Cmd_Completer):
         old_score = self._get_grading(person, 'motivation')
         default = old_score if old_score is not None else ''
         self._dumpone(person, format='motivation')
-        printff('Old score was {}', scores)
+        scores = ['%({})s{}%(default)s'.format('red' if score < 0 else
+                                               'green' if score > 0 else
+                                               'bold', score) % COLOR
+                  for score in scores]
+        printff('Old score was {}', ', '.join(scores))
         while True:
             prompt = 'Your choice {}/s/d/l LABEL [{}]? '.format(SCORE_RANGE, default)
             try:
