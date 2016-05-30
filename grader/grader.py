@@ -524,32 +524,32 @@ class Grader(cmd_completer.Cmd_Completer):
         printff('Press ^C or ^D to stop')
         fullname = ' '.join(opts.person)
 
-        if fullname:
-            todo = [p for p in self.applications if p.fullname == fullname]
-            total = len(todo)
-            done_already = 0
-        elif opts.graded is not None:
+        if opts.graded is not None:
             todo = [p for p in self.applications
                     if opts.graded is all or self._get_grading(p, opts.what) == opts.graded]
             total = len(todo)
-            done_already = 0
-        elif opts.label:
-            todo = list(self._filter(*opts.label))
-            total = len(todo)
-            done_already = 0
-        elif opts.disagreement is not None:
+        else:
             todo = [p for p in self.applications
+                    if self._get_grading(p, opts.what) is None]
+            total = len(self.applications)
+
+        if fullname:
+            todo = [p for p in todo if p.fullname == fullname]
+            total = len(todo)
+
+        if opts.label:
+            todo = list(self._filter(*opts.label, applications=todo))
+            total = len(todo)
+
+        if opts.disagreement is not None:
+            todo = [p for p in todo
                     if (self._get_grading(p, opts.what) is not None and
                         self._get_grading(p, opts.what, opts.disagreement) is not None and
                         abs(self._get_grading(p, opts.what) -
                             self._get_grading(p, opts.what, opts.disagreement)) == 2)]
             total = len(todo)
-            done_already = 0
-        else:
-            todo = [p for p in self.applications
-                    if self._get_grading(p, opts.what) is None]
-            total = len(self.applications)
-            done_already = total - len(todo)
+
+        done_already = total - len(todo)
 
         random.shuffle(todo)
         for num, person in enumerate(todo):
