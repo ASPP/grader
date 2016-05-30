@@ -458,8 +458,8 @@ class Grader(cmd_completer.Cmd_Completer):
         .add_argument('-l', '--label', nargs='+', default=(),
                       help='show only people with all of those labels')\
         .add_argument('-d', '--disagreement', type=int,
-                      metavar='WHO',
-                      help='grade people who have a 2 pt difference')\
+                      nargs='?', const=all, metavar='WHO',
+                      help='grade people who have a >1 pt difference')\
         .add_argument('person', nargs='*')
 
     @set_completions('formula',
@@ -542,11 +542,16 @@ class Grader(cmd_completer.Cmd_Completer):
             total = len(todo)
 
         if opts.disagreement is not None:
-            todo = [p for p in todo
-                    if (self._get_grading(p, opts.what) is not None and
-                        self._get_grading(p, opts.what, opts.disagreement) is not None and
-                        abs(self._get_grading(p, opts.what) -
-                            self._get_grading(p, opts.what, opts.disagreement)) == 2)]
+            if opts.disagreement is all:
+                todo = [p for p in todo
+                        if (max(self._gradings(p, opts.what), default=0) -
+                            min(self._gradings(p, opts.what), default=0) > 1)]
+            else:
+                todo = [p for p in todo
+                        if (self._get_grading(p, opts.what) is not None and
+                            self._get_grading(p, opts.what, opts.disagreement) is not None and
+                            abs(self._get_grading(p, opts.what) -
+                                self._get_grading(p, opts.what, opts.disagreement)) > 1)]
             total = len(todo)
 
         done_already = total - len(todo)
@@ -559,7 +564,7 @@ class Grader(cmd_completer.Cmd_Completer):
             sep_down = '\n┗'+(len(progress)-2)*'━'+'┛\n'
             print(sep_up+progress+sep_down)
             print()
-            if not self._grade(person, opts.what):
+            if not self._grade(person, opts.disagreement is not None):
                 break
 
     RATING_CATEGORIES = ['programming', 'open_source', 'python']
@@ -626,12 +631,12 @@ class Grader(cmd_completer.Cmd_Completer):
         printff('{} score set to {}', what, score)
         self.modified = True
 
-    def _grade(self, person, what):
-        assert what in {'motivation'}, what
-        old_score = self._get_grading(person, what)
+    def _grade(self, person, disagreement):
+        scores = self._gradings(person, 'motivation')
+        old_score = self._get_grading(person, 'motivation')
         default = old_score if old_score is not None else ''
-        self._dumpone(person, format=what)
-        printff('Old score was {}', old_score)
+        self._dumpone(person, format='motivation')
+        printff('Old score was {}', scores)
         while True:
             prompt = 'Your choice {}/s/d/l LABEL [{}]? '.format(SCORE_RANGE, default)
             try:
@@ -667,7 +672,7 @@ class Grader(cmd_completer.Cmd_Completer):
             else:
                 break
         if choice != default:
-            self._set_grading(person, what, choice)
+            self._set_grading(person, 'motivation', choice)
         return True
 
     def _score_with_labels(self, p, use_labels=False):
