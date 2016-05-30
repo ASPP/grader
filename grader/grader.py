@@ -855,6 +855,8 @@ class Grader(cmd_completer.Cmd_Completer):
                    .add_argument('-d', '--detailed', action='store_const',
                                  dest='detailed', const=True, default=False,
                                  help='display detailed statistics')\
+                    .add_argument('--use-labels', action='store_true',
+                                help='use labels in ranking (DECLINED at the bottom, etc.)')\
                    .add_argument('-L', '--highlanders', action='store_const',
                                  dest='highlanders', const=True, default=False,
                                  help='display statistics only for highlanders')\
@@ -866,7 +868,7 @@ class Grader(cmd_completer.Cmd_Completer):
         "Display statistics"
         opts = self.stat_options.parse_args(args.split())
         if opts.highlanders:
-            ranked = self._ranked()
+            ranked = self._ranked(use_labels=opts.use_labels)
             pool = [person for person in ranked if person.highlander]
         else:
             pool = self.applications
