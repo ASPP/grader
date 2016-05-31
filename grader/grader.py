@@ -1090,6 +1090,7 @@ class Grader(cmd_completer.Cmd_Completer):
         - INVITE - person to invite
         - SHORTLIST - person to potentially invite
         - OVERQUALIFIED - persons that are too good to be here
+        - CUSTOM-ANSWER - person is rejected but needs a custom answer
         - REJECTED - the rest
         """
         if args != '':
@@ -1106,7 +1107,9 @@ class Grader(cmd_completer.Cmd_Completer):
         _write_file('list_invite_reminder.csv',
                     self._filter('INVITE', '-', 'DECLINED', 'CONFIRMED'))
         _write_file('list_overqualified.csv',
-                    self._filter('OVERQUALIFIED'))    
+                    self._filter('OVERQUALIFIED', '-', 'CUSTOM-ANSWER'))
+        _write_file('list_custom_answer.csv',
+                    self._filter('CUSTOM-ANSWER'))
         # get all INVITESL? labels
         all_labels = set(sum((self._labels(person.fullname) for person in self._ranked()), []))
         invitesl = [label for label in all_labels if label.startswith('INVITESL')]
@@ -1117,7 +1120,7 @@ class Grader(cmd_completer.Cmd_Completer):
                     self._filter('SHORTLIST', '-', 'DECLINED', 'CONFIRMED', 'INVITE', *invitesl))
         _write_file('list_rejected.csv',
                     self._filter('-', 'DECLINED', 'CONFIRMED', 'INVITE', 'SHORTLIST',
-                                 'OVERQUALIFIED', *invitesl))
+                                 'OVERQUALIFIED', 'CUSTOM-ANSWER', *invitesl))
         _write_file('list_declined_invite_nextyear.csv',
                     self._filter('DECLINED'))
 
