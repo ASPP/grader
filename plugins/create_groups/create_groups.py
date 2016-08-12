@@ -18,7 +18,7 @@ SKILL_WEIGHTS = collections.OrderedDict([
 
 # Probability of accepting one step in the wrong direction
 # in the stochastic algorithm
-REJECTION_PROBABILITY = 1.
+REJECTION_PROBABILITY = 0.01
 # Minimum number of independent trials to run
 MIN_TRIALS = 5
 # Maximum number of rejected step in the optimization routine before
@@ -121,7 +121,7 @@ def optimize(data, energy, p=REJECTION_PROBABILITY):
 
     rejected = 0
     count = 0
-
+    p = 1-p
     #for i in range(REPETITIONS):
     while True:
         count += 1
