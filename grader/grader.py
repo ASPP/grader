@@ -636,7 +636,8 @@ class Grader(cmd_completer.Cmd_Completer):
         old_score = self._get_grading(person, 'motivation')
         default = old_score if old_score is not None else ''
         self._dumpone(person, format='motivation')
-        scores = ['%({})s{}%(default)s'.format('red' if score < 0 else
+        scores = ['%({})s{}%(default)s'.format('bold' if score is None else
+                                                'red' if score < 0 else
                                                'green' if score > 0 else
                                                'bold', score) % COLOR
                   for score in scores]
