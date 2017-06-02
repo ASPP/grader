@@ -632,12 +632,15 @@ class Grader(cmd_completer.Cmd_Completer):
         self.modified = True
 
     def _grade(self, person, disagreement):
-        scores = self._gradings(person, 'motivation')
+        if disagreement:
+            scores = self._gradings(person, 'motivation')
+        else:
+            scores = [self._get_grading(person, 'motivation')]
         old_score = self._get_grading(person, 'motivation')
         default = old_score if old_score is not None else ''
         self._dumpone(person, format='motivation')
         scores = ['%({})s{}%(default)s'.format('bold' if score is None else
-                                                'red' if score < 0 else
+                                               'red' if score < 0 else
                                                'green' if score > 0 else
                                                'bold', score) % COLOR
                   for score in scores]
