@@ -120,9 +120,14 @@ _RANK_FMT_DETAILED = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' [prog: {programming_score}] [python: {python_score}]'
                  ' [os: {open_source_score}]'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}')
+_RANK_FMT_COUNTRY = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
+                 ' {p.fullname:{fullname_width}}'
+                 ' {nationality:{nationality_width}} {affiliation:{affiliation_width}}'
+                 ' {institute:{institute_width}} / {group:{group_width}}')
 RANK_FORMATS = {'short': _RANK_FMT_SHORT,
                 'long': _RANK_FMT_LONG,
                 'detailed': _RANK_FMT_DETAILED,
+                'country': _RANK_FMT_COUNTRY,
                 }
 
 SCORE_RANGE = (-1, 0, 1)
@@ -130,6 +135,8 @@ SCORE_RANGE = (-1, 0, 1)
 IDENTITIES = (0, 1, 2)
 
 DEFAULT_ACCEPT_COUNT = 30
+
+COUNTRY_WIDTH = 10
 
 section_name = '{}_score-{}'.format
 
@@ -794,8 +801,7 @@ class Grader(cmd_completer.Cmd_Completer):
                       help='use labels in ranking (DECLINED at the bottom, etc.)')\
         .add_argument('-l', '--label', nargs='+', default=(),
                       help='show only people with all of those labels')\
-        .add_argument('--format',
-                      choices=('long', 'short', 'detailed'),
+        .add_argument('--format', choices=RANK_FORMATS.keys(),
                       help='use format')\
         .add_argument('-c', '--column-width',
                       dest='width', type=int, default=20,
@@ -806,10 +812,12 @@ class Grader(cmd_completer.Cmd_Completer):
         opts = self.rank_options.parse_args(args.split())
         people = self._filter(*opts.label)
         ranked = self._ranked(people, use_labels=opts.use_labels)
-        fullname_width = max(len(field) for field in ranked.fullname)
+        fullname_width = min(max(len(field) for field in ranked.fullname), opts.width)
         email_width = max(len(field) for field in ranked.email) + 2
         institute_width = min(max(len(field) for field in ranked.institute), opts.width)
         group_width = min(max(len(field) for field in ranked.group), opts.width)
+        affiliation_width = min(max(len(field) for field in ranked.affiliation), COUNTRY_WIDTH)
+        nationality_width = min(max(len(field) for field in ranked.nationality), COUNTRY_WIDTH)
         labels_width = max(len(str(self._labels(field)))
                            for field in ranked.fullname) or 1
 
@@ -841,6 +849,10 @@ class Grader(cmd_completer.Cmd_Completer):
                    institute_width=institute_width,
                    group=ellipsize(person.group, opts.width),
                    group_width=group_width,
+                   nationality=ellipsize(person.nationality, nationality_width),
+                   nationality_width=nationality_width,
+                   affiliation=ellipsize(person.affiliation, affiliation_width),
+                   affiliation_width=affiliation_width,
                    labels=', '.join(labels),
                    labels_width=labels_width,
                    motivation_scores=self._gradings(person, 'motivation'),
