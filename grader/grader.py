@@ -921,7 +921,7 @@ class Grader(cmd_completer.Cmd_Completer):
         printf(FMT_STAP, 'Females', counter['female'][True],
                counter['female'][True]/applicants*100)
         printf(FMT_STAP, 'Males', applicants-counter['female'][True],
-               100-(counter['female'][True]/applicants*100))        
+               100-(counter['female'][True]/applicants*100))
         for pos in counter['position'].most_common():
             printf(FMT_STAP, pos[0], pos[1], pos[1]/applicants*100)
         if opts.detailed:
@@ -938,11 +938,11 @@ class Grader(cmd_completer.Cmd_Completer):
     def _wiki_tb_row(self, items):
         strs = (str(x) for x in items)
         print('| '+' | '.join(strs)+' |')
-    
+
     def _wiki_pc(self, num, tot):
         pc = ' (%.1f%%)'
         return str(num)+pc%(num/tot*100)
-        
+
     def do_wiki(self, args):
         "Dump statistics of CONFIRMED people for the Wiki."
         confirmed = tuple(self._filter('CONFIRMED'))
@@ -960,7 +960,7 @@ class Grader(cmd_completer.Cmd_Completer):
         print('\n\n===== Statistics =====')
         self._wiki_tb_head(('','Applicants', 'Participants'))
 
-        # first collect statistics like we do in the do_stat method (DRY ;))))    
+        # first collect statistics like we do in the do_stat method (DRY ;))))
         observables = ['born', 'female', 'nationality', 'affiliation',
                        'position', 'applied', 'napplied', 'open_source',
                        'programming', 'python', 'vcs']
@@ -973,7 +973,7 @@ class Grader(cmd_completer.Cmd_Completer):
         Na = len(applicants)
         Nc = len(confirmed)
 
-        
+
         self._wiki_tb_row(('Pool', Na, Nc))
         self._wiki_tb_row(('Nationalities',
                            len(c_applicants['nationality']),
