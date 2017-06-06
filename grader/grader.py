@@ -1196,6 +1196,8 @@ def eval_formula(formula, vars):
         msg = 'formula failed: {}\n[{}]\n[{}]'.format(e, formula,
                                                       pprint.pformat(vars))
         raise ValueError(msg)
+    else:
+        vars.pop('__builtins__', None)
 
 class MissingRating(KeyError):
     def __str__(self):
@@ -1271,7 +1273,7 @@ def rank_person(person, formula, location,
     # below what matters for us.
     score = round(score, 5)
     assert (math.isnan(score) or minsc <= score <= maxsc or labels), \
-        (minsc, score, maxsc)
+        (minsc, score, maxsc, vars)
     # labels can cause the score to exceed normal range
 
     # XXX: Remove scaling until we find a better solution to compare
@@ -1301,13 +1303,13 @@ def find_min_max(formula, location,
         born=(1900, 2012),
         gender=('M', 'F'),
         female=(0, 1),
-        nationality=('Nicaragua', location),
-        affiliation=('Československo', location),
+        applied=(0, max(applied)),
+        nationality=('Nicaragua', 'Československo', location),
+        affiliation=('Československo', 'Nicaragua', location),
         location=(location,),
         motivation=SCORE_RANGE,
         programming=programming_rating.values(),
         open_source=open_source_rating.values(),
-        applied=(0, max(applied)),
         python=python_rating.values(),
         labels=())
     needed = list(_yield_values(n, *choices[n]) for n in find_names(formula))
