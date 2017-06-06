@@ -368,7 +368,7 @@ class Grader(cmd_completer.Cmd_Completer):
                       help='print applications only for people with label')\
         .add_argument('-a', '--attribute', type=str, nargs=2, metavar=('ATTRNAME', 'ATTRVALUE'),
                       help='print applications only for people with matching attributes'
-                      ', e.g. -a napplied 3')\
+                      ', e.g. -a napplied 3. Call "-a list list" to get a list of attributes.')\
         .add_argument('persons', nargs='*',
                       help='name fragments of people to display')
 
@@ -384,7 +384,15 @@ class Grader(cmd_completer.Cmd_Completer):
         if opts.sorted:
             persons = self._ranked(persons)
         if opts.attribute:
-            persons = (p for p in persons if str(getattr(p, opts.attribute[0])) == opts.attribute[1])
+            attributes = persons[0]._fields
+            if opts.attribute == ['list', 'list']:
+                print('List of attributes:', attributes)
+                persons = ()
+            elif opts.attribute[0] not in attributes:
+                print('Attribute', opts.attribute[0], 'not known!')
+                persons = ()
+            else:
+                persons = (p for p in persons if str(getattr(p, opts.attribute[0])) == opts.attribute[1])
 
         self._dump(persons, format=opts.format)
 
