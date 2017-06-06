@@ -366,8 +366,11 @@ class Grader(cmd_completer.Cmd_Completer):
                       help='print applications only for highlanders')\
         .add_argument('-l', '--label', type=str, nargs='+', default=(),
                       help='print applications only for people with label')\
+        .add_argument('-a', '--attribute', type=str, nargs=2, metavar=('ATTRNAME', 'ATTRVALUE'),
+                      help='print applications only for people with matching attributes'
+                      ', e.g. -a napplied 3')\
         .add_argument('persons', nargs='*',
-                      help='name fragments of people do display')
+                      help='name fragments of people to display')
 
     def do_dump(self, args):
         "Print information about applications"
@@ -380,6 +383,9 @@ class Grader(cmd_completer.Cmd_Completer):
                        if all(arg in p.fullname for arg in opts.persons))
         if opts.sorted:
             persons = self._ranked(persons)
+        if opts.attribute:
+            persons = (p for p in persons if str(getattr(p, opts.attribute[0])) == opts.attribute[1])
+
         self._dump(persons, format=opts.format)
 
     do_dump.completions = _complete_name
