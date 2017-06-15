@@ -959,7 +959,7 @@ class Grader(cmd_completer.Cmd_Completer):
         print('====== Students ======')
         # we want first a list of confirmed with names/nationality/affiliations
         self._wiki_tb_head(('Firstname', 'Lastname', 'Nationality', 'Affiliation'))
-        for person in confirmed:
+        for person in sorted(confirmed, key=operator.attrgetter('name')):
             natflag = '{{:flags:%s'%FLAGS[person.nationality].lower()+'.png}}'
             affflag = '{{:flags:%s'%FLAGS[person.affiliation].lower()+'.png}}'
             self._wiki_tb_row((person.name, person.lastname,
