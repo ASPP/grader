@@ -930,9 +930,15 @@ class Grader(cmd_completer.Cmd_Completer):
         if opts.detailed:
             for var in observables:
                 print('--\n'+var.upper())
-                for n in sorted(counter[var].items(),
-                                key=operator.itemgetter(1), reverse=True):
-                    printf(FMT_STAP, str(n[0]), n[1], n[1]/applicants*100)
+                if var in ('born', 'napplied'):
+                    # years should be sorted numerically and not by popularity
+                    for n in sorted(counter[var].items(),
+                            key=operator.itemgetter(0)):
+                        printf(FMT_STAP, str(n[0]), n[1], n[1]/applicants*100)
+                else:
+                    for n in sorted(counter[var].items(),
+                                    key=operator.itemgetter(1), reverse=True):
+                        printf(FMT_STAP, str(n[0]), n[1], n[1]/applicants*100)
 
     def _wiki_tb_head(self, items):
         strs = (str(x) for x in items)
@@ -1000,10 +1006,16 @@ class Grader(cmd_completer.Cmd_Completer):
         print('\n\n===Details for Participants===')
         for var in observables:
             self._wiki_tb_head((var.upper(), 'Count'))
-            for n in sorted(c_confirmed[var].items(),
-                            key=operator.itemgetter(1), reverse=True):
-                self._wiki_tb_row((n[0],
-                                   self._wiki_pc(n[1], Nc)))
+            if var in ('born', 'napplied'):
+                for n in sorted(c_confirmed[var].items(),
+                                key=operator.itemgetter(0)):
+                    self._wiki_tb_row((n[0],
+                                       self._wiki_pc(n[1], Nc)))
+            else:
+                for n in sorted(c_confirmed[var].items(),
+                                key=operator.itemgetter(1), reverse=True):
+                    self._wiki_tb_row((n[0],
+                                       self._wiki_pc(n[1], Nc)))
             print()
 
     def do_equiv(self, args):
