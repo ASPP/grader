@@ -388,9 +388,12 @@ class Grader(cmd_completer.Cmd_Completer):
             if opts.attribute == ['list', 'list']:
                 print('List of attributes:', attributes)
                 persons = ()
-            elif opts.attribute[0] not in attributes:
-                print('Attribute', opts.attribute[0], 'not known!')
-                persons = ()
+            # we need to consume all persons to see the final list of all attributes,
+            # because persons[0] may not have all of them. e.g. napplied...
+            # maybe not worth just to display an error message...
+            #elif opts.attribute[0] not in attributes:
+            #    print('Attribute', opts.attribute[0], 'not known!')
+            #    persons = ()
             else:
                 persons = (p for p in persons if str(getattr(p, opts.attribute[0])) == opts.attribute[1])
 
