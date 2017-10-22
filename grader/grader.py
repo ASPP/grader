@@ -165,17 +165,22 @@ class Grader(cmd_completer.Cmd_Completer):
         else:
             applications = [open_no_newlines(filename) for filename
                             in self.config['application_lists'].values()]
-        self.applications = self.csv_file(applications[0])
+        self.applications = self.read_applications(
+            os.path.join(os.getcwd(), 'grader.conf'), applications[0].name)
 
         filename_to_applications_file = {
             fileobj.name: fileobj
             for fileobj in applications
         }
-        self.applications_old = {
-            filename.split('/')[0]: self.csv_file(list)
-            for filename, list in filename_to_applications_file.items()
-            if filename != 'applications.csv'
-        }
+        self.applications_old = {}
+        for filename, list in filename_to_applications_file.items():
+            if filename == 'applications.csv':
+                continue
+
+            path = filename.split('/')[0]
+            config_path = os.path.join(path, 'grader.conf')
+            app = self.read_applications(config_path, filename)
+            self.applications_old[path] = app
 
         for p in self.applications:
             self._set_applied(p)
@@ -189,12 +194,16 @@ class Grader(cmd_completer.Cmd_Completer):
                 self.rank = None
                 self.highlander = None
                 self.samelab = False
+                self.labels = list_of_str()
+
             @property
             def fullname(self):
                 return '{p.name} {p.lastname}'.format(p=self)
+
             @property
             def female(self):
                 return self.gender == 'Female'
+
         return Person
 
     @property
@@ -289,6 +298,23 @@ class Grader(cmd_completer.Cmd_Completer):
         assert len(header) == len(tuple_factory._fields)
         while True:
             yield tuple_factory(*next(reader))
+
+    def read_applications(self, config_path, csv_path):
+        if os.path.exists(config_path):
+            config = our_configfile(config_path)
+        else:
+            config = None
+            printf('Warning: no configuration file found in {}', config_path)
+
+        with open_no_newlines(csv_path) as f:
+            applications = self.csv_file(f)
+
+        if config is not None:
+            for applicant in applications:
+                labels = config['labels'].get(applicant.fullname, list_of_str())
+                applicant.labels = labels
+
+        return applications
 
     @property
     def formula(self):
@@ -721,7 +747,7 @@ class Grader(cmd_completer.Cmd_Completer):
     def _score_with_labels(self, p, use_labels=False):
         if not use_labels:
             return p.score
-        labels = self._labels(p.fullname)
+        labels = p.labels
         lb_val = {'VIP': 1000,
                   'CONFIRMED': 2000,
                   'INVITE': 600,
@@ -919,7 +945,7 @@ class Grader(cmd_completer.Cmd_Completer):
 
         if opts.all_editions:
             applications = self.applications
-            for applicants in self.applications_old.values():
+            for school, applicants in self.applications_old.items():
                 applications = applications + vector.vector(applicants)
         else:
             applications = self.applications
@@ -1075,6 +1101,20 @@ class Grader(cmd_completer.Cmd_Completer):
         saved = self._labels(fullname)
         saved.extend(labels)
         section[fullname] = saved
+        # update applications
+        for applicant in self.applications:
+            if applicant.fullname == fullname:
+                applicant.labels = saved
+                break
+
+    def _clear_labels(self, fullname):
+        section = self.config['labels']
+        section.clear(fullname)
+        # update applications
+        for applicant in self.applications:
+            if applicant.fullname == fullname:
+                applicant.labels = list_of_str()
+                break
 
     def do_label(self, args):
         """Mark persons with string labels
@@ -1097,7 +1137,7 @@ class Grader(cmd_completer.Cmd_Completer):
             if labels:
                 self._add_labels(fullname, *labels)
             else:
-                section.clear(fullname)
+                self._clear_labels(fullname)
             self.modified = True
         else:
             display_by_label = any(label in set(args.split())
@@ -1151,7 +1191,7 @@ class Grader(cmd_completer.Cmd_Completer):
         if applications is None:
             applications = self.applications
         for p in applications:
-            labels = set(self._labels(p.fullname))
+            labels = set(p.labels)
             if not (accept - labels) and not (labels & deny):
                 yield p
 
