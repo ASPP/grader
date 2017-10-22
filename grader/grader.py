@@ -943,7 +943,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 getattr(p, var, NOT_AVAILABLE_LABEL) for p in pool)
         length = {var: len(counter[var]) for var in observables}
         applicants = len(pool)
-        FMT_STAT = '{:<24.24} = {:>3d}'
+        FMT_STAT = '{:<24.24} = {:>5d}'
         FMT_STAP = FMT_STAT + ' ({:4.1f}%)'
         printf(FMT_STAT, 'Pool', applicants)
         printf(FMT_STAT, 'Nationalities', length['nationality'])
