@@ -140,6 +140,8 @@ COUNTRY_WIDTH = 10
 
 section_name = '{}_score-{}'.format
 
+NOT_AVAILABLE_LABEL = 'NOT AVAILABLE'
+
 class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
     set_completions = cmd_completer.Cmd_Completer.set_completions
@@ -893,37 +895,53 @@ class Grader(cmd_completer.Cmd_Completer):
                                   person.python, '-'),
                    )
 
-    stat_options = cmd_completer.PagedArgumentParser('stat')\
-                   .add_argument('-d', '--detailed', action='store_const',
-                                 dest='detailed', const=True, default=False,
-                                 help='display detailed statistics')\
-                    .add_argument('--use-labels', action='store_true',
-                                help='use labels in ranking (DECLINED at the bottom, etc.)')\
-                   .add_argument('-L', '--highlanders', action='store_const',
-                                 dest='highlanders', const=True, default=False,
-                                 help='display statistics only for highlanders')\
-                   .add_argument('-l', '--label', type=str,
-                                 nargs='+', default=(),
-                                 help='display statistics only for people with label')
+    stat_options = (
+        cmd_completer.PagedArgumentParser('stat')
+            .add_argument('-d', '--detailed', action='store_const',
+                          dest='detailed', const=True, default=False,
+                          help='display detailed statistics')
+            .add_argument('--use-labels', action='store_true',
+                          help='use labels in ranking (DECLINED at the bottom, etc.)')
+            .add_argument('-L', '--highlanders', action='store_const',
+                          dest='highlanders', const=True, default=False,
+                          help='display statistics only for highlanders')
+            .add_argument('-l', '--label', type=str,
+                          nargs='+', default=(),
+                          help='display statistics only for people with label')
+            .add_argument('--all-editions', action='store_const',
+                          dest='all_editions', const=True, default=False,
+                          help='compute statistics on the applicants of all school editions')
+    )
 
     def do_stat(self, args):
         "Display statistics"
         opts = self.stat_options.parse_args(args.split())
+
+        if opts.all_editions:
+            applications = self.applications
+            for applicants in self.applications_old.values():
+                applications = applications + vector.vector(applicants)
+        else:
+            applications = self.applications
+
         if opts.highlanders:
-            ranked = self._ranked(use_labels=opts.use_labels)
+            ranked = self._ranked(applications, use_labels=opts.use_labels)
             pool = [person for person in ranked if person.highlander]
         else:
-            pool = self.applications
-        pool = tuple(self._filter(*opts.label, applications=pool))
+            pool = applications
 
+        pool = tuple(self._filter(*opts.label, applications=pool))
+        self._compute_and_print_stats(pool, opts.detailed)
+
+    def _compute_and_print_stats(self, pool, detailed):
         observables = ['born', 'female', 'nationality', 'affiliation',
                        'position', 'applied', 'napplied', 'open_source',
                        'programming', 'python', 'vcs']
         counter = {}
         for var in observables:
-            counter[var] = collections.Counter(getattr(p, var) for p in pool)
-
-        length = {var:len(counter[var]) for var in observables}
+            counter[var] = collections.Counter(
+                getattr(p, var, NOT_AVAILABLE_LABEL) for p in pool)
+        length = {var: len(counter[var]) for var in observables}
         applicants = len(pool)
         FMT_STAT = '{:<24.24} = {:>3d}'
         FMT_STAP = FMT_STAT + ' ({:4.1f}%)'
@@ -936,7 +954,7 @@ class Grader(cmd_completer.Cmd_Completer):
                100-(counter['female'][True]/applicants*100))
         for pos in counter['position'].most_common():
             printf(FMT_STAP, pos[0], pos[1], pos[1]/applicants*100)
-        if opts.detailed:
+        if detailed:
             for var in observables:
                 print('--\n'+var.upper())
                 if var in ('born', 'napplied'):
