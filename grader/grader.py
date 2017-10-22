@@ -934,21 +934,26 @@ class Grader(cmd_completer.Cmd_Completer):
             .add_argument('-l', '--label', type=str,
                           nargs='+', default=(),
                           help='display statistics only for people with label')
-            .add_argument('--all-editions', action='store_const',
-                          dest='all_editions', const=True, default=False,
-                          help='compute statistics on the applicants of all school editions')
+            .add_argument('--edition', type=str, dest='edition',
+                          default='current',
+                          help="edition for which we want the stats, e.g. '2010-trento'. "
+                               "'all' means all editions 'current' (default) means the"
+                               "latest one")
     )
 
     def do_stat(self, args):
         "Display statistics"
         opts = self.stat_options.parse_args(args.split())
+        edition = opts.edition
 
-        if opts.all_editions:
+        if edition == 'current':
+            applications = self.applications
+        elif edition == 'all':
             applications = self.applications
             for school, applicants in self.applications_old.items():
                 applications = applications + vector.vector(applicants)
         else:
-            applications = self.applications
+            applications = self.applications_old[edition]
 
         if opts.highlanders:
             ranked = self._ranked(applications, use_labels=opts.use_labels)
