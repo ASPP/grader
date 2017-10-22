@@ -934,6 +934,8 @@ class Grader(cmd_completer.Cmd_Completer):
         self._compute_and_print_stats(pool, opts.detailed)
 
     def _compute_and_print_stats(self, pool, detailed):
+        """ Given a pool of applicants, compute and display some statistics.
+        """
         observables = ['born', 'female', 'nationality', 'affiliation',
                        'position', 'applied', 'napplied', 'open_source',
                        'programming', 'python', 'vcs']
