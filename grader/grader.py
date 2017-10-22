@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 import sys
 import os
 import math
@@ -10,7 +10,6 @@ import textwrap
 import pprint
 import configfile
 import itertools
-import functools
 import logging
 import tempfile
 import contextlib
