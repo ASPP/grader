@@ -164,8 +164,17 @@ class Grader(cmd_completer.Cmd_Completer):
             applications = [open_no_newlines(filename) for filename
                             in self.config['application_lists'].values()]
         self.applications = self.csv_file(applications[0])
-        self.applications_old = [self.csv_file(list)
-                                 for list in applications[1:]]
+
+        filename_to_applications_file = {
+            fileobj.name: fileobj
+            for fileobj in applications
+        }
+        self.applications_old = {
+            filename.split('/')[0]: self.csv_file(list)
+            for filename, list in filename_to_applications_file.items()
+            if filename != 'applications.csv'
+        }
+
         for p in self.applications:
             self._set_applied(p)
 
@@ -253,7 +262,7 @@ class Grader(cmd_completer.Cmd_Completer):
         "Return the number of times a person applied"
         declared = int(person.applied[0] not in 'nN')
         found = 0
-        for old in self.applications_old:
+        for old in self.applications_old.values():
             found += (person.fullname in old.fullname or
                       person.email in old.email)
         if found and not declared:
