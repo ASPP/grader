@@ -140,6 +140,8 @@ COUNTRY_WIDTH = 10
 
 section_name = '{}_score-{}'.format
 
+NOT_AVAILABLE_LABEL = 'NOT AVAILABLE'
+
 class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
     set_completions = cmd_completer.Cmd_Completer.set_completions
@@ -163,9 +165,23 @@ class Grader(cmd_completer.Cmd_Completer):
         else:
             applications = [open_no_newlines(filename) for filename
                             in self.config['application_lists'].values()]
-        self.applications = self.csv_file(applications[0])
-        self.applications_old = [self.csv_file(list)
-                                 for list in applications[1:]]
+        self.applications = self.read_applications(
+            os.path.join(os.getcwd(), 'grader.conf'), applications[0].name)
+
+        filename_to_applications_file = {
+            fileobj.name: fileobj
+            for fileobj in applications
+        }
+        self.applications_old = {}
+        for filename, list in filename_to_applications_file.items():
+            if filename == 'applications.csv':
+                continue
+
+            path = filename.split('/')[0]
+            config_path = os.path.join(path, 'grader.conf')
+            app = self.read_applications(config_path, filename)
+            self.applications_old[path] = app
+
         for p in self.applications:
             self._set_applied(p)
 
@@ -178,12 +194,16 @@ class Grader(cmd_completer.Cmd_Completer):
                 self.rank = None
                 self.highlander = None
                 self.samelab = False
+                self.labels = list_of_str()
+
             @property
             def fullname(self):
                 return '{p.name} {p.lastname}'.format(p=self)
+
             @property
             def female(self):
                 return self.gender == 'Female'
+
         return Person
 
     @property
@@ -253,7 +273,7 @@ class Grader(cmd_completer.Cmd_Completer):
         "Return the number of times a person applied"
         declared = int(person.applied[0] not in 'nN')
         found = 0
-        for old in self.applications_old:
+        for old in self.applications_old.values():
             found += (person.fullname in old.fullname or
                       person.email in old.email)
         if found and not declared:
@@ -278,6 +298,23 @@ class Grader(cmd_completer.Cmd_Completer):
         assert len(header) == len(tuple_factory._fields)
         while True:
             yield tuple_factory(*next(reader))
+
+    def read_applications(self, config_path, csv_path):
+        if os.path.exists(config_path):
+            config = our_configfile(config_path)
+        else:
+            config = None
+            printf('Warning: no configuration file found in {}', config_path)
+
+        with open_no_newlines(csv_path) as f:
+            applications = self.csv_file(f)
+
+        if config is not None:
+            for applicant in applications:
+                labels = config['labels'].get(applicant.fullname, list_of_str())
+                applicant.labels = labels
+
+        return applications
 
     @property
     def formula(self):
@@ -710,7 +747,7 @@ class Grader(cmd_completer.Cmd_Completer):
     def _score_with_labels(self, p, use_labels=False):
         if not use_labels:
             return p.score
-        labels = self._labels(p.fullname)
+        labels = p.labels
         lb_val = {'VIP': 1000,
                   'CONFIRMED': 2000,
                   'INVITE': 600,
@@ -884,39 +921,62 @@ class Grader(cmd_completer.Cmd_Completer):
                                   person.python, '-'),
                    )
 
-    stat_options = cmd_completer.PagedArgumentParser('stat')\
-                   .add_argument('-d', '--detailed', action='store_const',
-                                 dest='detailed', const=True, default=False,
-                                 help='display detailed statistics')\
-                    .add_argument('--use-labels', action='store_true',
-                                help='use labels in ranking (DECLINED at the bottom, etc.)')\
-                   .add_argument('-L', '--highlanders', action='store_const',
-                                 dest='highlanders', const=True, default=False,
-                                 help='display statistics only for highlanders')\
-                   .add_argument('-l', '--label', type=str,
-                                 nargs='+', default=(),
-                                 help='display statistics only for people with label')
+    stat_options = (
+        cmd_completer.PagedArgumentParser('stat')
+            .add_argument('-d', '--detailed', action='store_const',
+                          dest='detailed', const=True, default=False,
+                          help='display detailed statistics')
+            .add_argument('--use-labels', action='store_true',
+                          help='use labels in ranking (DECLINED at the bottom, etc.)')
+            .add_argument('-L', '--highlanders', action='store_const',
+                          dest='highlanders', const=True, default=False,
+                          help='display statistics only for highlanders')
+            .add_argument('-l', '--label', type=str,
+                          nargs='+', default=(),
+                          help='display statistics only for people with label')
+            .add_argument('--edition', type=str, dest='edition',
+                          default='current',
+                          help="edition for which we want the stats, e.g. '2010-trento'. "
+                               "'all' means all editions 'current' (default) means the"
+                               "latest one")
+    )
 
     def do_stat(self, args):
         "Display statistics"
         opts = self.stat_options.parse_args(args.split())
+        edition = opts.edition
+
+        if edition == 'current':
+            applications = self.applications
+        elif edition == 'all':
+            applications = self.applications
+            for school, applicants in self.applications_old.items():
+                applications = applications + vector.vector(applicants)
+        else:
+            applications = self.applications_old[edition]
+
         if opts.highlanders:
-            ranked = self._ranked(use_labels=opts.use_labels)
+            ranked = self._ranked(applications, use_labels=opts.use_labels)
             pool = [person for person in ranked if person.highlander]
         else:
-            pool = self.applications
-        pool = tuple(self._filter(*opts.label, applications=pool))
+            pool = applications
 
+        pool = tuple(self._filter(*opts.label, applications=pool))
+        self._compute_and_print_stats(pool, opts.detailed)
+
+    def _compute_and_print_stats(self, pool, detailed):
+        """ Given a pool of applicants, compute and display some statistics.
+        """
         observables = ['born', 'female', 'nationality', 'affiliation',
                        'position', 'applied', 'napplied', 'open_source',
                        'programming', 'python', 'vcs']
         counter = {}
         for var in observables:
-            counter[var] = collections.Counter(getattr(p, var) for p in pool)
-
-        length = {var:len(counter[var]) for var in observables}
+            counter[var] = collections.Counter(
+                getattr(p, var, NOT_AVAILABLE_LABEL) for p in pool)
+        length = {var: len(counter[var]) for var in observables}
         applicants = len(pool)
-        FMT_STAT = '{:<24.24} = {:>3d}'
+        FMT_STAT = '{:<24.24} = {:>5d}'
         FMT_STAP = FMT_STAT + ' ({:4.1f}%)'
         printf(FMT_STAT, 'Pool', applicants)
         printf(FMT_STAT, 'Nationalities', length['nationality'])
@@ -927,7 +987,7 @@ class Grader(cmd_completer.Cmd_Completer):
                100-(counter['female'][True]/applicants*100))
         for pos in counter['position'].most_common():
             printf(FMT_STAP, pos[0], pos[1], pos[1]/applicants*100)
-        if opts.detailed:
+        if detailed:
             for var in observables:
                 print('--\n'+var.upper())
                 if var in ('born', 'napplied'):
@@ -1046,6 +1106,20 @@ class Grader(cmd_completer.Cmd_Completer):
         saved = self._labels(fullname)
         saved.extend(labels)
         section[fullname] = saved
+        # update applications
+        for applicant in self.applications:
+            if applicant.fullname == fullname:
+                applicant.labels = saved
+                break
+
+    def _clear_labels(self, fullname):
+        section = self.config['labels']
+        section.clear(fullname)
+        # update applications
+        for applicant in self.applications:
+            if applicant.fullname == fullname:
+                applicant.labels = list_of_str()
+                break
 
     def do_label(self, args):
         """Mark persons with string labels
@@ -1068,7 +1142,7 @@ class Grader(cmd_completer.Cmd_Completer):
             if labels:
                 self._add_labels(fullname, *labels)
             else:
-                section.clear(fullname)
+                self._clear_labels(fullname)
             self.modified = True
         else:
             display_by_label = any(label in set(args.split())
@@ -1122,7 +1196,7 @@ class Grader(cmd_completer.Cmd_Completer):
         if applications is None:
             applications = self.applications
         for p in applications:
-            labels = set(self._labels(p.fullname))
+            labels = set(p.labels)
             if not (accept - labels) and not (labels & deny):
                 yield p
 
