@@ -276,6 +276,7 @@ class Grader(cmd_completer.Cmd_Completer):
         except AttributeError:
             # this is the first instance of the school and we did not
             # ask about previous participation
+            person.applied = 'N'
             person.napplied = 0
             return
         found = 0
