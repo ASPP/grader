@@ -271,7 +271,13 @@ class Grader(cmd_completer.Cmd_Completer):
 
     def _set_applied(self, person):
         "Return the number of times a person applied"
-        declared = int(person.applied[0] not in 'nN')
+        try: 
+            declared = int(person.applied[0] not in 'nN')
+        except AttributeError:
+            # this is the first instance of the school and we did not
+            # ask about previous participation
+            person.napplied = 0
+            return
         found = 0
         for old in self.applications_old.values():
             found += (person.fullname in old.fullname or
