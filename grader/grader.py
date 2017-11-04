@@ -156,24 +156,22 @@ class Grader(cmd_completer.Cmd_Completer):
         self.modified = False
         self.ranking_done = False
 
-    def _init_applications(self, applications):
+    def _init_applications(self, application_filenames):
         section = self.config['application_lists']
-        if applications:
+        if application_filenames:
             section.clear()
-            for i,file in zip('abcdefghijkl', applications):
-                section[i] = file.name
+            for i, filename in zip('abcdefghijkl', application_filenames):
+                section[i] = filename
         else:
-            applications = [open_no_newlines(filename) for filename
-                            in self.config['application_lists'].values()]
-        self.applications = self.read_applications(
-            os.path.join(os.getcwd(), 'grader.conf'), applications[0].name)
+            application_filenames = list(section.values())
 
-        filename_to_applications_file = {
-            fileobj.name: fileobj
-            for fileobj in applications
-        }
+        # Load applications for current edition.
+        self.applications = self.read_applications(
+            os.path.join(os.getcwd(), 'grader.conf'), application_filenames[0])
+
+        # Load applications for previous editions.
         self.applications_old = {}
-        for filename, list in filename_to_applications_file.items():
+        for filename in application_filenames:
             if filename == 'applications.csv':
                 continue
 
@@ -271,7 +269,7 @@ class Grader(cmd_completer.Cmd_Completer):
 
     def _set_applied(self, person):
         "Return the number of times a person applied"
-        try: 
+        try:
             declared = int(person.applied[0] not in 'nN')
         except AttributeError:
             # this is the first instance of the school and we did not
@@ -1472,7 +1470,7 @@ grader_options = cmd_completer.ModArgumentParser('grader')\
                   help='Index of person grading applications')\
     .add_argument('config', type=our_configfile, nargs='?',
                   default=os.path.join(os.getcwd(), 'grader.conf'))\
-    .add_argument('applications', type=open_no_newlines, nargs='*',
+    .add_argument('applications', type=str, nargs='*',
                   help='''CSV files with application data.
                           The first is current, subsequent are from previous years.
                        ''')
