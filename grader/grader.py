@@ -142,6 +142,28 @@ section_name = '{}_score-{}'.format
 
 NOT_AVAILABLE_LABEL = 'NOT AVAILABLE'
 
+
+def build_person_factory(fields):
+    class Person(collections.namedtuple('Person', fields)):
+        def __init__(self, *args, **kwargs):
+            # tuple fields are already set in __new__
+            self.score = None
+            self.rank = None
+            self.highlander = None
+            self.samelab = False
+            self.labels = list_of_str()
+
+        @property
+        def fullname(self):
+            return '{p.name} {p.lastname}'.format(p=self)
+
+        @property
+        def female(self):
+            return self.gender == 'Female'
+
+    return Person
+
+
 class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
     set_completions = cmd_completer.Cmd_Completer.set_completions
@@ -182,27 +204,6 @@ class Grader(cmd_completer.Cmd_Completer):
 
         for p in self.applications:
             self._set_applied(p)
-
-    @classmethod
-    def Person(cls, names):
-        class Person(collections.namedtuple('Person', names)):
-            def __init__(self, *args, **kwargs):
-                # tuple fields are already set in __new__
-                self.score = None
-                self.rank = None
-                self.highlander = None
-                self.samelab = False
-                self.labels = list_of_str()
-
-            @property
-            def fullname(self):
-                return '{p.name} {p.lastname}'.format(p=self)
-
-            @property
-            def female(self):
-                return self.gender == 'Female'
-
-        return Person
 
     @property
     def application_fields(self):
@@ -299,10 +300,10 @@ class Grader(cmd_completer.Cmd_Completer):
         reader = csv.reader(file)
         header = next(reader)
         fields = self._fields(header)
-        tuple_factory = self.Person(fields)
-        assert len(header) == len(tuple_factory._fields)
+        person_factory = build_person_factory(fields)
+        assert len(header) == len(person_factory._fields)
         while True:
-            yield tuple_factory(*next(reader))
+            yield person_factory(*next(reader))
 
     def read_applications(self, config_path, csv_path):
         if os.path.exists(config_path):
