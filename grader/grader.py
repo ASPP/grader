@@ -216,6 +216,21 @@ def col_name_to_field(description, fields_to_col_names):
 
 
 @vector.vectorize
+def parse_applications_csv_file(file, fields_to_col_names_section):
+    if len(list(fields_to_col_names_section.keys())) == 0:
+        fill_fields_to_col_name_section(fields_to_col_names_section)
+
+    printf("loading '{}'", file.name)
+    reader = csv.reader(file)
+    csv_header = next(reader)
+    fields = csv_header_to_fields(csv_header, fields_to_col_names_section)
+    person_factory = build_person_factory(fields)
+    assert len(csv_header) == len(person_factory._fields)
+    while True:
+        yield person_factory(*next(reader))
+
+
+@vector.vectorize
 def csv_header_to_fields(header, fields_to_col_names_section):
     failed = None
     for name in header:
@@ -296,22 +311,9 @@ class Grader(cmd_completer.Cmd_Completer):
         s = set(p.napplied for p in self.applications)
         return sorted(s)
 
-    @vector.vectorize
-    def csv_file(self, file):
-        fields_to_col_names_section = self.config['fields']
-        if len(list(fields_to_col_names_section.keys())) == 0:
-            fill_fields_to_col_name_section(fields_to_col_names_section)
-
-        printf("loading '{}'", file.name)
-        reader = csv.reader(file)
-        csv_header = next(reader)
-        fields = csv_header_to_fields(csv_header, fields_to_col_names_section)
-        person_factory = build_person_factory(fields)
-        assert len(csv_header) == len(person_factory._fields)
-        while True:
-            yield person_factory(*next(reader))
-
     def read_applications(self, config_path, csv_path):
+        fields_to_col_names_section = self.config['fields']
+
         if os.path.exists(config_path):
             config = our_configfile(config_path)
         else:
@@ -319,7 +321,8 @@ class Grader(cmd_completer.Cmd_Completer):
             printf('Warning: no configuration file found in {}', config_path)
 
         with open_no_newlines(csv_path) as f:
-            applications = self.csv_file(f)
+            applications = parse_applications_csv_file(
+                f, fields_to_col_names_section)
 
         if config is not None:
             for applicant in applications:
