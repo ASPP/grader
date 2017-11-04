@@ -164,6 +164,35 @@ def build_person_factory(fields):
     return Person
 
 
+def fill_fields_to_col_name_section(fields_section):
+    if len(list(fields_section.keys())) == 0:
+        def add(k, v):
+            fields_section[k] = list_of_equivs(v)
+        for f in """id completed last_page_seen start_language
+                    date_last_action date_started
+                    ip_address referrer_url
+                    gender
+                    position institute group nationality
+                    python
+                    name email
+                    token""".split():
+            add(f, f.replace('_', ' '))
+        add('affiliation', "Country of Affiliation")
+        add('position_other', "[Other] Position")
+        add('position_other', "Position [Other]")
+        add('applied', "Did you already apply")
+        add('programming', "estimate your programming skills")
+        add('programming_description', "programming experience")
+        add('open_source', "exposure to open-source")
+        add('open_source_description', "description of your contrib")
+        add('motivation', "appropriate course for your skill profile")
+        add('cv', "curriculum vitae")
+        add('lastname', "Last name")
+        add('born', "Year of birth")
+        add('vcs', "Do you habitually use a Version Control System for your software projects? If yes, which one?")
+    return fields_section
+
+
 class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
     set_completions = cmd_completer.Cmd_Completer.set_completions
@@ -205,49 +234,20 @@ class Grader(cmd_completer.Cmd_Completer):
         for p in self.applications:
             self._set_applied(p)
 
-    @property
-    def application_fields(self):
-        section = self.config['fields']
-        if len(list(section.keys())) == 0:
-            def add(k, v):
-                section[k] = list_of_equivs(v)
-            for f in """id completed last_page_seen start_language
-                        date_last_action date_started
-                        ip_address referrer_url
-                        gender
-                        position institute group nationality
-                        python
-                        name email
-                        token""".split():
-                add(f, f.replace('_', ' '))
-            add('affiliation', "Country of Affiliation")
-            add('position_other', "[Other] Position")
-            add('applied', "Did you already apply")
-            add('programming', "estimate your programming skills")
-            add('programming_description', "programming experience")
-            add('open_source', "exposure to open-source")
-            add('open_source_description', "description of your contrib")
-            add('motivation', "appropriate course for your skill profile")
-            add('cv', "curriculum vitae")
-            add('lastname', "Last name")
-            add('born', "Year of birth")
-            add('vcs', "Do you habitually use a Version Control System for your software projects? If yes, which one?")
-        return section
-
     @vector.vectorize
-    def _fields(self, header):
+    def _fields(self, header, fields_to_col_names_section):
         failed = None
         for name in header:
             try:
-                yield self._field_master(name)
+                yield self._field_master(name, fields_to_col_names_section)
             except KeyError as e:
                 printf("unknown field: '{}'".format(name))
                 failed = e
         if failed:
-            pprint.pprint(list(self.application_fields.items()))
+            pprint.pprint(list(fields_to_col_names_section.items()))
             raise failed
 
-    def _field_master(self, description):
+    def _field_master(self, description, fields_to_col_names):
         """Return the name of a field for this description. Must be defined.
 
         The double dance is because we want to map:
@@ -255,11 +255,11 @@ class Grader(cmd_completer.Cmd_Completer):
         - [other] position <=> position_other,
         - curriculum vitae <=> Please type in a short curriculum vitae...
         """
-        for key, values in self.application_fields.items():
+        for key, values in fields_to_col_names.items():
             if description.lower() == key.lower():
                 return key
         candidates = {}
-        for key, values in self.application_fields.items():
+        for key, values in fields_to_col_names.items():
             for spelling in values:
                 if spelling.lower() in description.lower():
                     candidates[spelling] = key
@@ -296,10 +296,14 @@ class Grader(cmd_completer.Cmd_Completer):
 
     @vector.vectorize
     def csv_file(self, file):
+        fields_to_col_names_section = self.config['fields']
+        if len(list(fields_to_col_names_section.keys())) == 0:
+            fill_fields_to_col_name_section(fields_to_col_names_section)
+
         printf("loading '{}'", file.name)
         reader = csv.reader(file)
         header = next(reader)
-        fields = self._fields(header)
+        fields = self._fields(header, fields_to_col_names_section)
         person_factory = build_person_factory(fields)
         assert len(header) == len(person_factory._fields)
         while True:
