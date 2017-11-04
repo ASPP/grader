@@ -240,6 +240,35 @@ def csv_header_to_fields(header, fields_to_col_names_section):
         raise failed
 
 
+class Applications:
+
+    def __init__(self, applicants, config):
+        self.applicants = applicants
+        self.config = config
+
+    @classmethod
+    def from_paths(cls, config_path, csv_path, fields_to_col_names_section):
+        if os.path.exists(config_path):
+            config = our_configfile(config_path)
+        else:
+            config = None
+            printf('Warning: no configuration file found in {}', config_path)
+
+        with open_no_newlines(csv_path) as f:
+            applicants = parse_applications_csv_file(
+                f, fields_to_col_names_section)
+
+        if config is not None:
+            # Add applicant labels from config file to applicant object
+            for applicant in applicants:
+                labels = config['labels'].get(applicant.fullname,
+                                              list_of_str())
+                applicant.labels = labels
+
+        applications = cls(applicants, config)
+        return applications
+
+
 class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
     set_completions = cmd_completer.Cmd_Completer.set_completions
@@ -268,10 +297,10 @@ class Grader(cmd_completer.Cmd_Completer):
             fill_fields_to_col_name_section(fields_to_col_names_section)
 
         # Load applications for current edition.
-        self.applications = self.read_applications(
-            os.path.join(os.getcwd(), 'grader.conf'),
-            application_filenames[0],
-            fields_to_col_names_section
+        self.applications = Applications.from_paths(
+            config_path=os.path.join(os.getcwd(), 'grader.conf'),
+            csv_path=application_filenames[0],
+            fields_to_col_names_section=fields_to_col_names_section
         )
 
         # Load applications for previous editions.
@@ -282,15 +311,15 @@ class Grader(cmd_completer.Cmd_Completer):
 
             path = filename.split('/')[0]
             config_path = os.path.join(path, 'grader.conf')
-            app = self.read_applications(
-                config_path,
-                filename,
-                fields_to_col_names_section
+            app = Applications.from_paths(
+                config_path=config_path,
+                csv_path=filename,
+                fields_to_col_names_section=fields_to_col_names_section,
             )
             self.applications_old[path] = app
 
-        for p in self.applications:
-            self._set_applied(p)
+        for applicant in self.applications.applicants:
+            self._set_applied(applicant)
 
     def _set_applied(self, person):
         "Return the number of times a person applied"
@@ -303,9 +332,9 @@ class Grader(cmd_completer.Cmd_Completer):
             person.napplied = 0
             return
         found = 0
-        for old in self.applications_old.values():
-            found += (person.fullname in old.fullname or
-                      person.email in old.email)
+        for app_old in self.applications_old.values():
+            found += (person.fullname in app_old.applicants.fullname or
+                      person.email in app_old.applicants.email)
         if found and not declared:
             printf('warning: person found in list says not applied prev.: {}',
                    person.fullname)
@@ -315,27 +344,8 @@ class Grader(cmd_completer.Cmd_Completer):
         person.napplied = max(declared, found)
 
     def _applied_range(self):
-        s = set(p.napplied for p in self.applications)
+        s = set(p.napplied for p in self.applications.applicants)
         return sorted(s)
-
-    def read_applications(self, config_path, csv_path,
-                          fields_to_col_names_section):
-        if os.path.exists(config_path):
-            config = our_configfile(config_path)
-        else:
-            config = None
-            printf('Warning: no configuration file found in {}', config_path)
-
-        with open_no_newlines(csv_path) as f:
-            applications = parse_applications_csv_file(
-                f, fields_to_col_names_section)
-
-        if config is not None:
-            for applicant in applications:
-                labels = config['labels'].get(applicant.fullname, list_of_str())
-                applicant.labels = labels
-
-        return applications
 
     @property
     def formula(self):
@@ -387,7 +397,7 @@ class Grader(cmd_completer.Cmd_Completer):
         Name or last-name must start with prefix.
         """
         completions = collections.defaultdict(set)
-        for p in self.applications:
+        for p in self.applications.applicants:
             if p.name.startswith(prefix) or p.lastname.startswith(prefix):
                 completions[p.name].add(p.lastname)
         return completions
@@ -528,7 +538,8 @@ class Grader(cmd_completer.Cmd_Completer):
     def do_grep(self, args):
         "Look for string in applications"
         opts = self.grep_options.parse_args(args.split())
-        which = (p for p in self.applications if re.search(opts.pattern, opts.what(p)))
+        which = (p for p in self.applications.applicants
+                 if re.search(opts.pattern, opts.what(p)))
         self._dump(which, format=opts.format)
 
     grade_options = cmd_completer.PagedArgumentParser('grade')\
@@ -607,13 +618,13 @@ class Grader(cmd_completer.Cmd_Completer):
         fullname = ' '.join(opts.person)
 
         if opts.graded is not None:
-            todo = [p for p in self.applications
+            todo = [p for p in self.applications.applicants
                     if opts.graded is all or self._get_grading(p, opts.what) == opts.graded]
             total = len(todo)
         else:
-            todo = [p for p in self.applications
+            todo = [p for p in self.applications.applicants
                     if self._get_grading(p, opts.what) is None]
-            total = len(self.applications)
+            total = len(self.applications.applicants)
 
         if fullname:
             todo = [p for p in todo if p.fullname == fullname]
@@ -684,7 +695,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 current.print_sorted()
                 if opts.missing:
                     used = set(getattr(p, what).lower()
-                               for p in self.applications)
+                               for p in self.applications.applicants)
                     for descr in used:
                         try:
                             get_rating(what, current, descr)
@@ -806,7 +817,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                            self.python_rating,
                                            self._applied_range())
 
-        for person in self.applications:
+        for person in self.applications.applicants:
             person.score = rank_person(person,
                                        self.formula, self.location,
                                        self.programming_rating,
@@ -816,7 +827,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                        minsc, maxsc,
                                        self._labels(person.fullname),
                                        person.napplied)
-        ordered = sorted(self.applications, key=lambda x: \
+        ordered = sorted(self.applications.applicants, key=lambda x: \
                          self._score_with_labels(x, use_labels=use_labels),
                          reverse=True)
 
@@ -851,13 +862,13 @@ class Grader(cmd_completer.Cmd_Completer):
             person.highlander = highlander
             prevscore = person.score
 
-    def _ranked(self, applications=None, use_labels=False):
+    def _ranked(self, applicants=None, use_labels=False):
         self._assign_rankings(use_labels=use_labels)
 
-        if applications is None:
-            applications = self.applications
+        if applicants is None:
+            applicants = self.applications.applicants
 
-        ranked = sorted(applications, key=lambda p: (p.rank, self._group_institute(p)))
+        ranked = sorted(applicants, key=lambda p: (p.rank, self._group_institute(p)))
         return vector.vector(ranked)
 
     def _equiv_master(self, variant):
@@ -968,19 +979,19 @@ class Grader(cmd_completer.Cmd_Completer):
         edition = opts.edition
 
         if edition == 'current':
-            applications = self.applications
+            applicants = self.applications.applicants
         elif edition == 'all':
-            applications = self.applications
-            for school, applicants in self.applications_old.items():
-                applications = applications + vector.vector(applicants)
+            applicants = self.applications.applicants
+            for school, app_old in self.applications_old.items():
+                applicants = applicants + vector.vector(app_old.applicants)
         else:
-            applications = self.applications_old[edition]
+            applicants = self.applications_old[edition].applicants
 
         if opts.highlanders:
-            ranked = self._ranked(applications, use_labels=opts.use_labels)
+            ranked = self._ranked(applicants, use_labels=opts.use_labels)
             pool = [person for person in ranked if person.highlander]
         else:
-            pool = applications
+            pool = applicants
 
         pool = tuple(self._filter(*opts.label, applications=pool))
         self._compute_and_print_stats(pool, opts.detailed)
@@ -1036,7 +1047,7 @@ class Grader(cmd_completer.Cmd_Completer):
     def do_wiki(self, args):
         "Dump statistics of CONFIRMED people for the Wiki."
         confirmed = tuple(self._filter('CONFIRMED'))
-        applicants = self.applications
+        applicants = self.applications.applicants
         print('====== Students ======')
         # we want first a list of confirmed with names/nationality/affiliations
         self._wiki_tb_head(('Firstname', 'Lastname', 'Nationality', 'Affiliation'))
@@ -1128,7 +1139,7 @@ class Grader(cmd_completer.Cmd_Completer):
         saved.extend(labels)
         section[fullname] = saved
         # update applications
-        for applicant in self.applications:
+        for applicant in self.applications.applicants:
             if applicant.fullname == fullname:
                 applicant.labels = saved
                 break
@@ -1137,7 +1148,7 @@ class Grader(cmd_completer.Cmd_Completer):
         section = self.config['labels']
         section.clear(fullname)
         # update applications
-        for applicant in self.applications:
+        for applicant in self.applications.applicants:
             if applicant.fullname == fullname:
                 applicant.labels = list_of_str()
                 break
@@ -1215,7 +1226,7 @@ class Grader(cmd_completer.Cmd_Completer):
         accept = frozenset(itertools.takewhile(lambda x: x!='-', labels))
         deny = frozenset(labels)
         if applications is None:
-            applications = self.applications
+            applications = self.applications.applicants
         for p in applications:
             labels = set(p.labels)
             if not (accept - labels) and not (labels & deny):
