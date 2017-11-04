@@ -58,18 +58,26 @@ class _Section:
             print(key, '=', val)
 
 class ConfigFile:
-    def __init__(self, filename, **sections):
-        self.filename = filename
-        cp = configparser.ConfigParser(comment_prefixes='#', inline_comment_prefixes='#')
-        cp.read(filename)
+    def __init__(self, fileobj, **sections):
+        config_parser = configparser.ConfigParser(
+            comment_prefixes='#',
+            inline_comment_prefixes='#',
+        )
+        config_parser.read_file(fileobj)
 
         self.sections = collections.OrderedDict()
         for section, type in sections.items():
-            if not cp.has_section(section):
-                cp.add_section(section)
-            self.sections[section] = _Section(cp, section, type)
+            if not config_parser.has_section(section):
+                config_parser.add_section(section)
+            self.sections[section] = _Section(
+                config_parser, section, type)
 
-        self.cp = cp
+        self.cp = config_parser
+        if hasattr(fileobj, 'name'):
+            self.filename = fileobj.name
+        else:
+            # E.g. during testing, with StringIO
+            self.filename = None
 
     def __getitem__(self, section):
         return self.sections[section]
