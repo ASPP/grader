@@ -193,6 +193,28 @@ def fill_fields_to_col_name_section(fields_section):
     return fields_section
 
 
+def col_name_to_field(description, fields_to_col_names):
+    """Return the name of a field for this description. Must be defined.
+
+    The double dance is because we want to map:
+    - position <=> position,
+    - [other] position <=> position_other,
+    - curriculum vitae <=> Please type in a short curriculum vitae...
+    """
+    for key, values in fields_to_col_names.items():
+        if description.lower() == key.lower():
+            return key
+    candidates = {}
+    for key, values in fields_to_col_names.items():
+        for spelling in values:
+            if spelling.lower() in description.lower():
+                candidates[spelling] = key
+    if candidates:
+        ans = candidates[sorted(candidates.keys(), key=len)[-1]]
+        return ans
+    raise KeyError(description)
+
+
 class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
     set_completions = cmd_completer.Cmd_Completer.set_completions
@@ -239,34 +261,13 @@ class Grader(cmd_completer.Cmd_Completer):
         failed = None
         for name in header:
             try:
-                yield self._field_master(name, fields_to_col_names_section)
+                yield col_name_to_field(name, fields_to_col_names_section)
             except KeyError as e:
                 printf("unknown field: '{}'".format(name))
                 failed = e
         if failed:
             pprint.pprint(list(fields_to_col_names_section.items()))
             raise failed
-
-    def _field_master(self, description, fields_to_col_names):
-        """Return the name of a field for this description. Must be defined.
-
-        The double dance is because we want to map:
-        - position <=> position,
-        - [other] position <=> position_other,
-        - curriculum vitae <=> Please type in a short curriculum vitae...
-        """
-        for key, values in fields_to_col_names.items():
-            if description.lower() == key.lower():
-                return key
-        candidates = {}
-        for key, values in fields_to_col_names.items():
-            for spelling in values:
-                if spelling.lower() in description.lower():
-                    candidates[spelling] = key
-        if candidates:
-            ans = candidates[sorted(candidates.keys(), key=len)[-1]]
-            return ans
-        raise KeyError(description)
 
     def _set_applied(self, person):
         "Return the number of times a person applied"
