@@ -215,6 +215,20 @@ def col_name_to_field(description, fields_to_col_names):
     raise KeyError(description)
 
 
+@vector.vectorize
+def csv_header_to_fields(header, fields_to_col_names_section):
+    failed = None
+    for name in header:
+        try:
+            yield col_name_to_field(name, fields_to_col_names_section)
+        except KeyError as e:
+            printf("unknown field: '{}'".format(name))
+            failed = e
+    if failed:
+        pprint.pprint(list(fields_to_col_names_section.items()))
+        raise failed
+
+
 class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
     set_completions = cmd_completer.Cmd_Completer.set_completions
@@ -256,19 +270,6 @@ class Grader(cmd_completer.Cmd_Completer):
         for p in self.applications:
             self._set_applied(p)
 
-    @vector.vectorize
-    def _fields(self, header, fields_to_col_names_section):
-        failed = None
-        for name in header:
-            try:
-                yield col_name_to_field(name, fields_to_col_names_section)
-            except KeyError as e:
-                printf("unknown field: '{}'".format(name))
-                failed = e
-        if failed:
-            pprint.pprint(list(fields_to_col_names_section.items()))
-            raise failed
-
     def _set_applied(self, person):
         "Return the number of times a person applied"
         try:
@@ -303,10 +304,10 @@ class Grader(cmd_completer.Cmd_Completer):
 
         printf("loading '{}'", file.name)
         reader = csv.reader(file)
-        header = next(reader)
-        fields = self._fields(header, fields_to_col_names_section)
+        csv_header = next(reader)
+        fields = csv_header_to_fields(csv_header, fields_to_col_names_section)
         person_factory = build_person_factory(fields)
-        assert len(header) == len(person_factory._fields)
+        assert len(csv_header) == len(person_factory._fields)
         while True:
             yield person_factory(*next(reader))
 
