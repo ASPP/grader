@@ -246,6 +246,13 @@ class Applications:
         self.applicants = applicants
         self.config = config
 
+        if config is not None:
+            # Add applicant labels from config file to applicant object
+            for applicant in applicants:
+                labels = config['labels'].get(applicant.fullname,
+                                              list_of_str())
+                applicant.labels = labels
+
     @classmethod
     def from_paths(cls, config_path, csv_path, fields_to_col_names_section):
         if os.path.exists(config_path):
@@ -257,13 +264,6 @@ class Applications:
         with open_no_newlines(csv_path) as f:
             applicants = parse_applications_csv_file(
                 f, fields_to_col_names_section)
-
-        if config is not None:
-            # Add applicant labels from config file to applicant object
-            for applicant in applicants:
-                labels = config['labels'].get(applicant.fullname,
-                                              list_of_str())
-                applicant.labels = labels
 
         applications = cls(applicants, config)
         return applications

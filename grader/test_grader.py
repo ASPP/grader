@@ -1,6 +1,8 @@
+from io import StringIO
 from textwrap import dedent
 
-from grader import Applications
+from configfile import ConfigFile
+from grader import Applications, build_person_factory, list_of_str
 
 
 def _tmp_application_files(tmpdir, config_string, csv_string):
@@ -40,3 +42,19 @@ def test_applications_from_paths(tmpdir):
     assert applications.applicants[0].name == 'John'
     assert applications.applicants[1].lastname == 'Smith'
     assert applications.applicants[0].labels == ['VEGAN']
+
+
+def test_applications_init():
+    config_string = dedent("""
+    [labels]
+    john doe = VEGAN, VIP
+    """)
+    config = ConfigFile(StringIO(config_string), labels=list_of_str)
+
+    person_factory = build_person_factory(['name', 'lastname'])
+    applicants = [person_factory('john', 'doe')]
+
+    applications = Applications(applicants, config)
+
+    assert len(applications.applicants) == 1
+    assert applications.applicants[0].labels == ['VEGAN', 'VIP']
