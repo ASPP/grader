@@ -285,6 +285,13 @@ class Applications:
         saved.extend(labels)
         section[fullname] = saved
 
+    def clear_labels(self, fullname):
+        # update applicant
+        applicant = self.find_applicant_by_fullname(fullname)
+        applicant.labels = []
+        # update config file
+        self.config['labels'].clear(fullname)
+
 
 class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
@@ -1150,15 +1157,6 @@ class Grader(cmd_completer.Cmd_Completer):
             labels.update(l)
         return labels
 
-    def _clear_labels(self, fullname):
-        section = self.config['labels']
-        section.clear(fullname)
-        # update applications
-        for applicant in self.applications.applicants:
-            if applicant.fullname == fullname:
-                applicant.labels = list_of_str()
-                break
-
     def do_label(self, args):
         """Mark persons with string labels
 
@@ -1180,7 +1178,7 @@ class Grader(cmd_completer.Cmd_Completer):
             if labels:
                 self.applications.add_labels(fullname, labels)
             else:
-                self._clear_labels(fullname)
+                self.applications.clear_labels(fullname)
             self.modified = True
         else:
             display_by_label = any(label in set(args.split())

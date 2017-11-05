@@ -102,3 +102,23 @@ def test_applications_add_labels():
 
     assert ben_johnson.labels == ['VIPER']
     assert config.sections['labels']['ben johnson'] == ['VIPER']
+
+
+def test_applications_clear_labels():
+    config_string = dedent("""
+    [labels]
+    john doe = VEGAN, VIP
+    """)
+    config = ConfigFile(StringIO(config_string), labels=list_of_str)
+
+    person_factory = build_person_factory(['name', 'lastname'])
+    john_doe = person_factory('john', 'doe')
+    applicants = [john_doe]
+
+    applications = Applications(applicants, config)
+
+    assert john_doe.labels == ['VEGAN', 'VIP']
+    assert 'john doe' in config.sections['labels'].keys()
+    applications.clear_labels('john doe')
+    assert john_doe.labels == []
+    assert 'john doe' not in config.sections['labels'].keys()
