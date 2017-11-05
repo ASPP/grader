@@ -291,6 +291,10 @@ class Applications:
         # update config file
         self.config['labels'].clear(fullname)
 
+    def get_labels(self, fullname):
+        applicant = self.find_applicant_by_fullname(fullname)
+        return applicant.labels
+
 
 class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
@@ -513,7 +517,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                    if p.programming_description else '')
         open_source_description = ('\n             {}'.format(osd)
                                    if p.open_source_description else '')
-        labels = self._labels(p.fullname)
+        labels = self.applications.get_labels(p.fullname)
         if labels:
             labels = '[{}] '.format(labels)
         printf(DUMP_FMTS[format],
@@ -841,6 +845,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                            self._applied_range())
 
         for person in self.applications.applicants:
+            labels = self.applications.get_labels(person.fullname)
             person.score = rank_person(person,
                                        self.formula, self.location,
                                        self.programming_rating,
@@ -848,7 +853,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                        self.python_rating,
                                        self._gradings(person, 'motivation'),
                                        minsc, maxsc,
-                                       self._labels(person.fullname),
+                                       labels,
                                        person.napplied)
         ordered = sorted(self.applications.applicants, key=lambda x: \
                          self._score_with_labels(x, use_labels=use_labels),
@@ -927,7 +932,7 @@ class Grader(cmd_completer.Cmd_Completer):
         group_width = min(max(len(field) for field in ranked.group), opts.width)
         affiliation_width = min(max(len(field) for field in ranked.affiliation), COUNTRY_WIDTH)
         nationality_width = min(max(len(field) for field in ranked.nationality), COUNTRY_WIDTH)
-        labels_width = max(len(str(self._labels(field)))
+        labels_width = max(len(str(self.applications.get_labels(field)))
                            for field in ranked.fullname) or 1
 
         fmt = RANK_FORMATS[opts.format]
@@ -1147,9 +1152,6 @@ class Grader(cmd_completer.Cmd_Completer):
         self.modified = True
         self.ranking_done = False
 
-    def _labels(self, fullname):
-        return self.config['labels'].get(fullname, list_of_str())
-
     def do_label(self, args):
         """Mark persons with string labels
 
@@ -1259,7 +1261,10 @@ class Grader(cmd_completer.Cmd_Completer):
         _write_file('list_custom_answer.csv',
                     self._filter('CUSTOM-ANSWER'))
         # get all INVITESL? labels
-        all_labels = set(sum((self._labels(person.fullname) for person in self._ranked()), []))
+        all_labels = set(
+            sum((self.applications.get_labels(person.fullname)
+                 for person in self._ranked()), [])
+        )
         invitesl = [label for label in all_labels if label.startswith('INVITESL')]
         for i, sl_label in enumerate(invitesl):
             _write_file_samelab('list_same_lab%d.csv'%(i+1),
