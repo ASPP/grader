@@ -1002,40 +1002,41 @@ class Grader(cmd_completer.Cmd_Completer):
         label                      # display all labels
         label LABEL                # display people thus labelled
         """
-        section = self.config['labels']
+        applications = self.applications
         if args == '':
-            for key, value in section.items():
-                printf('{} = {}', key, value)
+            for applicant in applications.applicants:
+                if applicant.labels:
+                    print('{} = {}'.format(applicant.fullname.lower(),
+                                           applicant.labels))
             return
 
         if '=' in args:
             fullname, *labels = [item.strip() for item in args.split('=')
                                  if item is not '']
             if labels:
-                self.applications.add_labels(fullname, labels)
+                applications.add_labels(fullname, labels)
             else:
-                self.applications.clear_labels(fullname)
+                applications.clear_labels(fullname)
             self.modified = True
         else:
             display_by_label = any(label in set(args.split())
-                                   for group in section.values()
-                                   for label in group)
+                                   for label in applications.get_all_labels())
             if display_by_label:
                 for label in args.split():
                     count = 0
                     printf('== {} ==', label)
-                    for key, value in section.items():
-                        if label in value:
-                            printf('{}. {}', count, key)
+                    for applicant in applications.applicants:
+                        if label in applicant.labels:
+                            printf('{}. {}', count, applicant.fullname.lower())
                             count += 1
                     printf('== {} labelled ==', count)
             else:
-                try:
-                    labels = section[args]
-                except KeyError:
-                    printf('{} has no labels', args)
-                else:
+                applicant = applications.find_applicant_by_fullname(args)
+                labels = applicant.labels
+                if labels:
                     printf('{} = {}', args, labels)
+                else:
+                    printf('{} has no labels', args)
 
     do_label.completions = _complete_name
 
