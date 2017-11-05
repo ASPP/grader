@@ -1,39 +1,38 @@
 #!/usr/bin/env python3
-import sys
-import os
+import collections
+import contextlib
+import io
+import itertools
+import keyword
+import logging
 import math
 import numbers
-import traceback
-import csv
-import collections
-import textwrap
-import pprint
-import configfile
-import itertools
-import logging
-import tempfile
-import contextlib
 import operator
-import re
-import token, tokenize
-import io
-import keyword
+import os
+import pprint
 import random
+import re
+import sys
+import tempfile
+import textwrap
+import token
+import tokenize
+import traceback
 
 import cmd_completer
-from flags import flags as FLAGS
 import vector
+from applications import fill_fields_to_col_name_section, Applications
+from flags import flags as FLAGS
+from util import (
+    list_of_equivs,
+    list_of_float,
+    our_configfile,
+    printf,
+    printff,
+    section_name,
+    IDENTITIES,
+)
 
-def printf(fmt, *args, **kwargs):
-    print(fmt.format(*args, **kwargs))
-
-# like printf above, but this time with explicit flush.
-# it should be used everytime you want the strings
-# to be print immediately and not only at the end of
-# the command
-def printff(fmt, *args, **kwargs):
-    print(fmt.format(*args, **kwargs))
-    cmd_completer.PAGER.flush()
 
 @contextlib.contextmanager
 def Umask(umask):
@@ -131,169 +130,11 @@ RANK_FORMATS = {'short': _RANK_FMT_SHORT,
 
 SCORE_RANGE = (-1, 0, 1)
 
-IDENTITIES = (0, 1, 2)
-
 DEFAULT_ACCEPT_COUNT = 30
 
 COUNTRY_WIDTH = 10
 
-section_name = '{}_score-{}'.format
-
 NOT_AVAILABLE_LABEL = 'NOT AVAILABLE'
-
-
-def build_person_factory(fields):
-    class Person(collections.namedtuple('Person', fields)):
-        def __init__(self, *args, **kwargs):
-            # tuple fields are already set in __new__
-            self.score = None
-            self.rank = None
-            self.highlander = None
-            self.samelab = False
-            self.labels = list_of_str()
-
-        @property
-        def fullname(self):
-            return '{p.name} {p.lastname}'.format(p=self)
-
-        @property
-        def female(self):
-            return self.gender == 'Female'
-
-    return Person
-
-
-def fill_fields_to_col_name_section(fields_section):
-    def add(k, v):
-        fields_section[k] = list_of_equivs(v)
-    for f in """id completed last_page_seen start_language
-                date_last_action date_started
-                ip_address referrer_url
-                gender
-                position institute group nationality
-                python
-                name email
-                token""".split():
-        add(f, f.replace('_', ' '))
-    add('affiliation', "Country of Affiliation")
-    add('position_other', "[Other] Position")
-    add('position_other', "Position [Other]")
-    add('applied', "Did you already apply")
-    add('programming', "estimate your programming skills")
-    add('programming_description', "programming experience")
-    add('open_source', "exposure to open-source")
-    add('open_source_description', "description of your contrib")
-    add('motivation', "appropriate course for your skill profile")
-    add('cv', "curriculum vitae")
-    add('lastname', "Last name")
-    add('born', "Year of birth")
-    add('vcs', "Do you habitually use a Version Control System for your software projects? If yes, which one?")
-    return fields_section
-
-
-def col_name_to_field(description, fields_to_col_names):
-    """Return the name of a field for this description. Must be defined.
-
-    The double dance is because we want to map:
-    - position <=> position,
-    - [other] position <=> position_other,
-    - curriculum vitae <=> Please type in a short curriculum vitae...
-    """
-    for key, values in fields_to_col_names.items():
-        if description.lower() == key.lower():
-            return key
-    candidates = {}
-    for key, values in fields_to_col_names.items():
-        for spelling in values:
-            if spelling.lower() in description.lower():
-                candidates[spelling] = key
-    if candidates:
-        ans = candidates[sorted(candidates.keys(), key=len)[-1]]
-        return ans
-    raise KeyError(description)
-
-
-@vector.vectorize
-def parse_applications_csv_file(file, fields_to_col_names_section):
-    printf("loading '{}'", file.name)
-    reader = csv.reader(file)
-    csv_header = next(reader)
-    fields = csv_header_to_fields(csv_header, fields_to_col_names_section)
-    person_factory = build_person_factory(fields)
-    assert len(csv_header) == len(person_factory._fields)
-    while True:
-        yield person_factory(*next(reader))
-
-
-@vector.vectorize
-def csv_header_to_fields(header, fields_to_col_names_section):
-    failed = None
-    for name in header:
-        try:
-            yield col_name_to_field(name, fields_to_col_names_section)
-        except KeyError as e:
-            printf("unknown field: '{}'".format(name))
-            failed = e
-    if failed:
-        pprint.pprint(list(fields_to_col_names_section.items()))
-        raise failed
-
-
-class Applications:
-
-    def __init__(self, applicants, config):
-        self.applicants = applicants
-        self.config = config
-
-        if config is not None:
-            # Add applicant labels from config file to applicant object
-            for applicant in applicants:
-                labels = config['labels'].get(applicant.fullname,
-                                              list_of_str())
-                applicant.labels = labels
-
-    @classmethod
-    def from_paths(cls, config_path, csv_path, fields_to_col_names_section):
-        if os.path.exists(config_path):
-            config = our_configfile(config_path)
-        else:
-            config = None
-            printf('Warning: no configuration file found in {}', config_path)
-
-        with open_no_newlines(csv_path) as f:
-            applicants = parse_applications_csv_file(
-                f, fields_to_col_names_section)
-
-        applications = cls(applicants, config)
-        return applications
-
-    def find_applicant_by_fullname(self, fullname):
-        for applicant in self.applicants:
-            if applicant.fullname == fullname:
-                return applicant
-        else:
-            raise ValueError('Applicant "{}" not found'.format(fullname))
-
-    def add_labels(self, fullname, labels):
-        # update applicant
-        applicant = self.find_applicant_by_fullname(fullname)
-        applicant.labels.extend(labels)
-        # update config file
-        section = self.config['labels']
-        saved = section.get(fullname, list_of_str())
-        saved.extend(labels)
-        section[fullname] = saved
-
-    def clear_labels(self, fullname):
-        # update applicant
-        applicant = self.find_applicant_by_fullname(fullname)
-        applicant.labels = []
-        # update config file
-        self.config['labels'].clear(fullname)
-
-    def get_labels(self, fullname):
-        applicant = self.find_applicant_by_fullname(fullname)
-        return applicant.labels
 
 
 class Grader(cmd_completer.Cmd_Completer):
@@ -955,7 +796,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 line_color = COLOR['cyan']
             else:
                 line_color = COLOR['grey']
-            printf(line_color+fmt+COLOR['default'], pos+1, p=person,
+            printf(line_color + fmt + COLOR['default'], pos + 1, p=person,
                    email='<{}>'.format(person.email),
                    fullname_width=fullname_width, email_width=email_width,
                    institute='—' if person.samelab else
@@ -1042,11 +883,11 @@ class Grader(cmd_completer.Cmd_Completer):
         printf(FMT_STAT, 'Nationalities', length['nationality'])
         printf(FMT_STAT, 'Countries of affiliation', length['affiliation'])
         printf(FMT_STAP, 'Females', counter['female'][True],
-               counter['female'][True]/applicants*100)
-        printf(FMT_STAP, 'Males', applicants-counter['female'][True],
-               100-(counter['female'][True]/applicants*100))
+               counter['female'][True] / applicants * 100)
+        printf(FMT_STAP, 'Males', applicants - counter['female'][True],
+               100 - (counter['female'][True]/applicants*100))
         for pos in counter['position'].most_common():
-            printf(FMT_STAP, pos[0], pos[1], pos[1]/applicants*100)
+            printf(FMT_STAP, pos[0], pos[1], pos[1] / applicants * 100)
         if detailed:
             for var in observables:
                 print('--\n'+var.upper())
@@ -1054,11 +895,11 @@ class Grader(cmd_completer.Cmd_Completer):
                     # years should be sorted numerically and not by popularity
                     for n in sorted(counter[var].items(),
                             key=operator.itemgetter(0)):
-                        printf(FMT_STAP, str(n[0]), n[1], n[1]/applicants*100)
+                        printf(FMT_STAP, str(n[0]), n[1], n[1] / applicants * 100)
                 else:
                     for n in sorted(counter[var].items(),
                                     key=operator.itemgetter(1), reverse=True):
-                        printf(FMT_STAP, str(n[0]), n[1], n[1]/applicants*100)
+                        printf(FMT_STAP, str(n[0]), n[1], n[1] / applicants * 100)
 
     def _wiki_tb_head(self, items):
         strs = (str(x) for x in items)
@@ -1288,7 +1129,7 @@ def _write_file(filename, persons):
         for i, person in enumerate(persons):
             row = ';'.join((person.name, person.lastname, person.email))
             f.write(row + '\n')
-    printf("'{}' written with header + {} rows", filename, i+1)
+    printf("'{}' written with header + {} rows", filename, i + 1)
 
 def _write_file_samelab(filename, persons):
     persons = list(persons)
@@ -1309,7 +1150,7 @@ def _write_file_samelab(filename, persons):
         names = ';'.join(names)
         emails = ','.join(emails)
         f.write(names+';'+emails+'\n')
-    printf("'{}' written with header + {} entries", filename, i+1)
+    printf("'{}' written with header + {} entries", filename, i + 1)
 
 def eval_formula(formula, vars):
     try:
@@ -1346,25 +1187,6 @@ def get_rating(name, dict, key, fallback=None):
         else:
             return fallback
 
-class list_of_float(list):
-    def __str__(self):
-        return ', '.join(str(item) if item is not None else '-'
-                         for item in self)
-
-    def mean(self):
-        valid = [arg for arg in self if arg is not None]
-        if not valid:
-            return float('nan')
-        return sum(valid) / len(valid)
-
-class list_of_str(list):
-    def __init__(self, arg=None):
-        equivs = ((item.strip() for item in arg.split(','))
-                  if arg is not None else ())
-        super().__init__(equivs)
-
-    def __str__(self):
-        return ', '.join(self)
 
 def rank_person(person, formula, location,
                 programming_rating, open_source_rating, python_rating,
@@ -1460,42 +1282,6 @@ def wrap_paragraphs(text, prefix=''):
                for para in paras)
     return ('\n'+prefix).join(wrapped)
 
-class list_of_equivs(list):
-    def __init__(self, arg=None):
-        equivs = ((item.strip() for item in arg.split('='))
-                  if arg is not None else ())
-        super().__init__(equivs)
-
-    def __str__(self):
-        return ' = '.join(self)
-
-def our_configfile(filename):
-    kw = {section_name('motivation', ident):float
-          for ident in IDENTITIES}
-    with open(filename, 'r') as fileobj:
-        config = configfile.ConfigFile(
-            fileobj,
-            application_lists=str,
-            programming_rating=float,
-            open_source_rating=float,
-            python_rating=float,
-            groups_parameters=int,
-            groups_gender_rating=float,
-            groups_python_rating=float,
-            groups_vcs_rating=float,
-            groups_open_source_rating=float,
-            groups_programming_rating=float,
-            groups_random_seed=str,
-            formula=str,
-            equivs=list_of_equivs,
-            labels=list_of_str,
-            fields=list_of_equivs,
-            **kw,
-        )
-    return config
-
-def open_no_newlines(filename):
-    return open(filename, newline='')
 
 grader_options = cmd_completer.ModArgumentParser('grader')\
     .add_argument('-i', '--identity', type=int,
