@@ -140,3 +140,20 @@ def test_applications_get_labels():
     applications = Applications(applicants, config)
     assert applications.get_labels('john doe') == ['VEGAN', 'VIP']
     assert applications.get_labels('ben johnson') == []
+
+
+def test_applications_get_all_labels():
+    config_string = dedent("""
+    [labels]
+    john doe = VEGAN, VIP
+    ben johnson = VIPER
+    """)
+    config = ConfigFile(StringIO(config_string), labels=list_of_str)
+
+    person_factory = build_person_factory(['name', 'lastname'])
+    john_doe = person_factory('john', 'doe')
+    ben_johnson = person_factory('ben', 'johnson')
+    applicants = [john_doe, ben_johnson]
+
+    applications = Applications(applicants, config)
+    assert applications.get_all_labels() == {'VEGAN', 'VIP', 'VIPER'}

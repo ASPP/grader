@@ -165,3 +165,9 @@ class Applications:
     def get_labels(self, fullname):
         applicant = self.find_applicant_by_fullname(fullname)
         return applicant.labels
+
+    def get_all_labels(self):
+        labels = set()
+        for applicant in self.applicants:
+            labels.update(applicant.labels)
+        return labels

@@ -1073,7 +1073,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 yield p
 
     def do_write(self, args):
-        """Write lists of mailing ricipients
+        """Write lists of mailing recipients
 
         Labels have the following precedence:
         - DECLINE - person cancelled, let's forget about them
@@ -1102,10 +1102,7 @@ class Grader(cmd_completer.Cmd_Completer):
         _write_file('list_custom_answer.csv',
                     self._filter('CUSTOM-ANSWER'))
         # get all INVITESL? labels
-        all_labels = set(
-            sum((self.applications.get_labels(person.fullname)
-                 for person in self._ranked()), [])
-        )
+        all_labels = self.applications.get_all_labels()
         invitesl = [label for label in all_labels if label.startswith('INVITESL')]
         for i, sl_label in enumerate(invitesl):
             _write_file_samelab('list_same_lab%d.csv'%(i+1),
