@@ -1,6 +1,8 @@
 from io import StringIO
 from textwrap import dedent
 
+from pytest import raises
+
 from configfile import ConfigFile
 from grader import Applications, build_person_factory, list_of_str
 
@@ -58,3 +60,21 @@ def test_applications_init():
 
     assert len(applications.applicants) == 1
     assert applications.applicants[0].labels == ['VEGAN', 'VIP']
+
+
+def test_applications_find_applicant_by_fullname():
+    config_string = dedent("""
+    [labels]
+    john doe = VEGAN
+    """)
+    config = ConfigFile(StringIO(config_string), labels=list_of_str)
+
+    person_factory = build_person_factory(['name', 'lastname'])
+    applicants = [person_factory('john', 'doe')]
+
+    applications = Applications(applicants, config)
+    john_doe = applications.find_applicant_by_fullname('john doe')
+    assert applications.applicants[0] is john_doe
+
+    with raises(ValueError):
+        applications.find_applicant_by_fullname('johnny mnemonic')

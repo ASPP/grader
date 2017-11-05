@@ -268,6 +268,14 @@ class Applications:
         applications = cls(applicants, config)
         return applications
 
+    def find_applicant_by_fullname(self, fullname):
+        for applicant in self.applicants:
+            if applicant.fullname == fullname:
+                return applicant
+        else:
+            raise ValueError('Applicant "{}" not found'.format(fullname))
+
+    def add_label(self, fullname, label):
 
 class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
