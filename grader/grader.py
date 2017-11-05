@@ -21,11 +21,16 @@ import traceback
 
 import cmd_completer
 import vector
-from applications import fill_fields_to_col_name_section, Applications
+from applications import (
+    fill_fields_to_col_name_section,
+    parse_applications_csv_file,
+    Applications,
+)
 from flags import flags as FLAGS
 from util import (
     list_of_equivs,
     list_of_float,
+    open_no_newlines,
     our_configfile,
     printf,
     printff,
@@ -165,11 +170,10 @@ class Grader(cmd_completer.Cmd_Completer):
             fill_fields_to_col_name_section(fields_to_col_names_section)
 
         # Load applications for current edition.
-        self.applications = Applications.from_paths(
-            config_path=os.path.join(os.getcwd(), 'grader.conf'),
-            csv_path=application_filenames[0],
-            fields_to_col_names_section=fields_to_col_names_section
-        )
+        with open_no_newlines(application_filenames[0]) as f:
+            applicants = parse_applications_csv_file(
+                f, fields_to_col_names_section)
+        self.applications = Applications(applicants, self.config)
 
         # Load applications for previous editions.
         self.applications_old = {}
