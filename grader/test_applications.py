@@ -55,7 +55,7 @@ def test_applications_init():
     config = ConfigFile(StringIO(config_string), labels=list_of_str)
 
     person_factory = build_person_factory(['name', 'lastname'])
-    applicants = [person_factory('john', 'doe')]
+    applicants = [person_factory('John', 'Doe')]
 
     applications = Applications(applicants, config)
 
@@ -71,7 +71,7 @@ def test_applications_find_applicant_by_fullname():
     config = ConfigFile(StringIO(config_string), labels=list_of_str)
 
     person_factory = build_person_factory(['name', 'lastname'])
-    applicants = [person_factory('john', 'doe')]
+    applicants = [person_factory('John', 'Doe')]
 
     applications = Applications(applicants, config)
     john_doe = applications.find_applicant_by_fullname('john doe')
@@ -89,8 +89,8 @@ def test_applications_add_labels():
     config = ConfigFile(StringIO(config_string), labels=list_of_str)
 
     person_factory = build_person_factory(['name', 'lastname'])
-    john_doe = person_factory('john', 'doe')
-    ben_johnson = person_factory('ben', 'johnson')
+    john_doe = person_factory('John', 'Doe')
+    ben_johnson = person_factory('Ben', 'Johnson')
     applicants = [john_doe, ben_johnson]
 
     applications = Applications(applicants, config)
@@ -113,7 +113,7 @@ def test_applications_clear_labels():
     config = ConfigFile(StringIO(config_string), labels=list_of_str)
 
     person_factory = build_person_factory(['name', 'lastname'])
-    john_doe = person_factory('john', 'doe')
+    john_doe = person_factory('John', 'Doe')
     applicants = [john_doe]
 
     applications = Applications(applicants, config)
@@ -133,8 +133,8 @@ def test_applications_get_labels():
     config = ConfigFile(StringIO(config_string), labels=list_of_str)
 
     person_factory = build_person_factory(['name', 'lastname'])
-    john_doe = person_factory('john', 'doe')
-    ben_johnson = person_factory('ben', 'johnson')
+    john_doe = person_factory('John', 'Doe')
+    ben_johnson = person_factory('Ben', 'Johnson')
     applicants = [john_doe, ben_johnson]
 
     applications = Applications(applicants, config)
@@ -151,8 +151,8 @@ def test_applications_get_all_labels():
     config = ConfigFile(StringIO(config_string), labels=list_of_str)
 
     person_factory = build_person_factory(['name', 'lastname'])
-    john_doe = person_factory('john', 'doe')
-    ben_johnson = person_factory('ben', 'johnson')
+    john_doe = person_factory('John', 'Doe')
+    ben_johnson = person_factory('Ben', 'Johnson')
     applicants = [john_doe, ben_johnson]
 
     applications = Applications(applicants, config)

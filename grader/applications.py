@@ -140,7 +140,7 @@ class Applications:
 
     def find_applicant_by_fullname(self, fullname):
         for applicant in self.applicants:
-            if applicant.fullname == fullname:
+            if applicant.fullname.lower() == fullname.lower():
                 return applicant
         else:
             raise ValueError('Applicant "{}" not found'.format(fullname))
