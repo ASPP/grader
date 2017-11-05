@@ -78,3 +78,27 @@ def test_applications_find_applicant_by_fullname():
 
     with raises(ValueError):
         applications.find_applicant_by_fullname('johnny mnemonic')
+
+
+def test_applications_add_labels():
+    config_string = dedent("""
+    [labels]
+    john doe = VEGAN
+    """)
+    config = ConfigFile(StringIO(config_string), labels=list_of_str)
+
+    person_factory = build_person_factory(['name', 'lastname'])
+    john_doe = person_factory('john', 'doe')
+    ben_johnson = person_factory('ben', 'johnson')
+    applicants = [john_doe, ben_johnson]
+
+    applications = Applications(applicants, config)
+    applications.add_labels('john doe', ['VIP', 'VIRULENT'])
+    applications.add_labels('ben johnson', ['VIPER'])
+
+    assert john_doe.labels == ['VEGAN', 'VIP', 'VIRULENT']
+    assert config.sections['labels']['john doe'] \
+           == ['VEGAN', 'VIP', 'VIRULENT']
+
+    assert ben_johnson.labels == ['VIPER']
+    assert config.sections['labels']['ben johnson'] == ['VIPER']

@@ -275,7 +275,16 @@ class Applications:
         else:
             raise ValueError('Applicant "{}" not found'.format(fullname))
 
-    def add_label(self, fullname, label):
+    def add_labels(self, fullname, labels):
+        # update applicant
+        applicant = self.find_applicant_by_fullname(fullname)
+        applicant.labels.extend(labels)
+        # update config file
+        section = self.config['labels']
+        saved = section.get(fullname, list_of_str())
+        saved.extend(labels)
+        section[fullname] = saved
+
 
 class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
@@ -764,7 +773,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 labels = choice.split()[1:]
                 printff('labelling {} as {}',
                         person.fullname, ', '.join(labels))
-                self._add_labels(person.fullname, *labels)
+                self.applications.add_labels(person.fullname, labels)
                 continue
             elif choice == '':
                 choice = default
@@ -1141,17 +1150,6 @@ class Grader(cmd_completer.Cmd_Completer):
             labels.update(l)
         return labels
 
-    def _add_labels(self, fullname, *labels):
-        section = self.config['labels']
-        saved = self._labels(fullname)
-        saved.extend(labels)
-        section[fullname] = saved
-        # update applications
-        for applicant in self.applications.applicants:
-            if applicant.fullname == fullname:
-                applicant.labels = saved
-                break
-
     def _clear_labels(self, fullname):
         section = self.config['labels']
         section.clear(fullname)
@@ -1180,7 +1178,7 @@ class Grader(cmd_completer.Cmd_Completer):
             fullname, *labels = [item.strip() for item in args.split('=')
                                  if item is not '']
             if labels:
-                self._add_labels(fullname, *labels)
+                self.applications.add_labels(fullname, labels)
             else:
                 self._clear_labels(fullname)
             self.modified = True
