@@ -10,7 +10,6 @@ import textwrap
 import pprint
 import configfile
 import itertools
-import functools
 import logging
 import tempfile
 import contextlib
@@ -1150,12 +1149,6 @@ class Grader(cmd_completer.Cmd_Completer):
 
     def _labels(self, fullname):
         return self.config['labels'].get(fullname, list_of_str())
-
-    def _get_all_labels(self):
-        labels = set()
-        for l in self.config['labels'].values():
-            labels.update(l)
-        return labels
 
     def do_label(self, args):
         """Mark persons with string labels
