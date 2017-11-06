@@ -34,8 +34,6 @@ CSV = 'list_groups.csv'
 # Set parameters from config file
 # Number of participants
 NSTUDENTS = int(config['formula']['accept_count'])
-# Labels (contains the CONFIRMED labels)
-LABELS = config.sections['labels']
 # How many students in a group
 GSIZE = config['groups_parameters']['group_size']
 # Random seed (expected to be a UTF8 string, typically "City YEAR")
@@ -64,9 +62,9 @@ RANDOM_SEED = np.fromstring(hashlib.sha512(RANDOM_SEED).digest(),
 
 def participants():
     """Generator that returns persons labeled CONFIRMED"""
-    for person in applications:
+    for person in applications.applicants:
         try:
-            labels = LABELS[person.fullname.lower()]
+            labels = person.labels
         except Exception:
             continue
         if 'CONFIRMED' in labels:
