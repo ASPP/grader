@@ -1,5 +1,6 @@
 import collections
 import csv
+import itertools
 import os
 import pprint
 
@@ -181,3 +182,48 @@ class Applications:
         for applicant in self.applicants:
             labels.update(applicant.labels)
         return labels
+
+    def filter(self, **kwargs):
+        """Return an iterator over the applications which match certain criteria:
+
+        Examples:
+
+        applications.filter(nationality='Italy') -->
+                            applicants where person.nationality=='Italy'
+
+        applications.filter(label='XXX') -->
+                            applicants labeled XXX
+
+        applications.filter(label=('XXX', 'YYY')) -->
+                            applicants labeled XXX and YYY
+
+        applications.filter(label=('XXX', 'YYY', '-', 'ZZZ')) -->
+                            applicants labeled XXX and YYY but not ZZZ
+
+        applications.filter(label=('XXX', 'YYY', '-', 'ZZZ', 'WWW')) -->
+                            applicants labeled XXX and YYY
+                            but nor ZZZ neither WWW
+
+        Note: returns all applications when called without arguments
+        """
+        # first match labels
+        labels = kwargs.pop('label', None)
+        if labels is not None:
+            matching = []
+            labels = iter((labels, )) if type(labels) == str else iter(labels)
+            accept = frozenset(itertools.takewhile(lambda x: x!='-', labels))
+            deny = frozenset(labels)
+            for p in self.applicants:
+                labels = set(p.labels)
+                if not (accept - labels) and not (labels & deny):
+                    matching.append(p)
+        else:
+            matching = self.applicants[:]
+
+        # now filter through attributes
+        for attr, value in kwargs.items():
+            matching = [p for p in matching if getattr(p, attr) == value]
+
+        return matching
+
+

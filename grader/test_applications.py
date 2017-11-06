@@ -157,3 +157,46 @@ def test_applications_get_all_labels():
 
     applications = Applications(applicants, config)
     assert applications.get_all_labels() == {'VEGAN', 'VIP', 'VIPER'}
+
+def test_applications_filter_attributes():
+    config_string = dedent("""
+    [labels]
+    mario rossi = VEGAN, VIP
+    fritz lang = VIPER
+    """)
+    config = ConfigFile(StringIO(config_string), labels=list_of_str)
+
+    person_factory = build_person_factory(['name', 'lastname', 'nationality'])
+    mario_rossi = person_factory('Mario', 'Rossi', 'Italy')
+    fritz_lang = person_factory('Fritz', 'Lang', 'Germany')
+    applicants = [mario_rossi, fritz_lang]
+
+    applications = Applications(applicants, config)
+    assert applications.filter(nationality='Italy') == [mario_rossi]
+    assert applications.filter(nationality='Germany') == [fritz_lang]
+    assert applications.filter(nationality='NoCountryForOldMen') == []
+    with raises(AttributeError):
+        applications.filter(dummy='Error')
+
+def test_applications_filter_labels():
+    config_string = dedent("""
+    [labels]
+    mario rossi = ALFA, DELTA, MIKE
+    fritz lang = ZULU, DELTA, MIKE, ECHO
+    """)
+    config = ConfigFile(StringIO(config_string), labels=list_of_str)
+
+    person_factory = build_person_factory(['name', 'lastname'])
+    mario_rossi = person_factory('Mario', 'Rossi')
+    fritz_lang = person_factory('Fritz', 'Lang')
+    applicants = [mario_rossi, fritz_lang]
+
+    applications = Applications(applicants, config)
+    assert applications.filter(label='ALFA') == [mario_rossi]
+    assert applications.filter(label='ZULU') == [fritz_lang]
+    assert applications.filter(label=('ALFA', 'MIKE')) == [mario_rossi]
+    assert applications.filter(label=('DELTA','MIKE')) == [mario_rossi, fritz_lang]
+    assert applications.filter(label=('DELTA', 'MIKE', '-', 'ECHO')) == [mario_rossi]
+    assert applications.filter(label=('DELTA', 'MIKE', '-', 'ECHO', 'ALFA')) == []
+    assert applications.filter(label='NOLABEL') == []
+
