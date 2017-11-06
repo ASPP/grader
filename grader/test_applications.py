@@ -161,18 +161,18 @@ def test_applications_get_all_labels():
 def test_applications_filter_attributes():
     config_string = dedent("""
     [labels]
-    mario rossi = VEGAN, VIP
-    fritz lang = VIPER
     """)
     config = ConfigFile(StringIO(config_string), labels=list_of_str)
 
-    person_factory = build_person_factory(['name', 'lastname', 'nationality'])
-    mario_rossi = person_factory('Mario', 'Rossi', 'Italy')
-    fritz_lang = person_factory('Fritz', 'Lang', 'Germany')
-    applicants = [mario_rossi, fritz_lang]
+    person_factory = build_person_factory(['name', 'lastname', 'nationality', 'gender'])
+    mario_rossi = person_factory('Mario', 'Rossi', 'Italy', 'Male')
+    lucia_bianchi = person_factory('Lucia', 'Bianchi', 'Italy', 'Female')
+    fritz_lang = person_factory('Fritz', 'Lang', 'Germany', 'Male')
+    applicants = [mario_rossi, fritz_lang, lucia_bianchi]
 
     applications = Applications(applicants, config)
-    assert applications.filter(nationality='Italy') == [mario_rossi]
+    assert applications.filter(nationality='Italy') == [mario_rossi, lucia_bianchi]
+    assert applications.filter(nationality='Italy', female=True) == [lucia_bianchi]
     assert applications.filter(nationality='Germany') == [fritz_lang]
     assert applications.filter(nationality='NoCountryForOldMen') == []
     with raises(AttributeError):
