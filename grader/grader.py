@@ -315,7 +315,7 @@ class Grader(cmd_completer.Cmd_Completer):
     def do_dump(self, args):
         "Print information about applications"
         opts = self.dump_options.parse_args(args.split())
-        persons = tuple(self._filter(*opts.label))
+        persons = tuple(self.applications.filter(label=opts.label))
         if opts.highlanders:
             persons = (p for p in persons if p.highlander)
         if opts.persons:
@@ -769,7 +769,7 @@ class Grader(cmd_completer.Cmd_Completer):
     def do_rank(self, args):
         "Print list of people sorted by ranking"
         opts = self.rank_options.parse_args(args.split())
-        people = self._filter(*opts.label)
+        people = self.applications.filter(label=opts.label)
         ranked = self._ranked(people, use_labels=opts.use_labels)
         fullname_width = min(max(len(field) for field in ranked.fullname), opts.width)
         email_width = max(len(field) for field in ranked.email) + 2
@@ -919,7 +919,7 @@ class Grader(cmd_completer.Cmd_Completer):
 
     def do_wiki(self, args):
         "Dump statistics of CONFIRMED people for the Wiki."
-        confirmed = tuple(self._filter('CONFIRMED'))
+        confirmed = tuple(self.applications.filter(label=('CONFIRMED')))
         applicants = self.applications.applicants
         print('====== Students ======')
         # we want first a list of confirmed with names/nationality/affiliations
@@ -1091,34 +1091,35 @@ class Grader(cmd_completer.Cmd_Completer):
         """
         if args != '':
             raise ValueError('no args please')
-        #ranked = self._ranking()
-        #printf('accepting {}', self.accept_count)
-        #count = collections.Counter(ranked.rank)
+        applications = self.applications
 
         _write_file('list_confirmed.csv',
-                    self._filter('CONFIRMED', '-', 'DECLINED'))
+                    applications.filter(label=('CONFIRMED', '-', 'DECLINED')))
 
         _write_file('list_invite.csv',
-                    self._filter('INVITE', '-', 'DECLINED', 'CONFIRMED'))
+                    applications.filter(label=('INVITE', '-', 'DECLINED', 'CONFIRMED')))
         _write_file('list_invite_reminder.csv',
-                    self._filter('INVITE', '-', 'DECLINED', 'CONFIRMED'))
+                    applications.filter(label=('INVITE', '-', 'DECLINED', 'CONFIRMED')))
         _write_file('list_overqualified.csv',
-                    self._filter('OVERQUALIFIED', '-', 'CUSTOM-ANSWER'))
+                    applications.filter(label=('OVERQUALIFIED', '-', 'CUSTOM-ANSWER')))
         _write_file('list_custom_answer.csv',
-                    self._filter('CUSTOM-ANSWER'))
+                    applications.filter(label=('CUSTOM-ANSWER')))
         # get all INVITESL? labels
         all_labels = self.applications.get_all_labels()
-        invitesl = [label for label in all_labels if label.startswith('INVITESL')]
+        invitesl = [label for label in all_labels
+                    if label.startswith('INVITESL')]
         for i, sl_label in enumerate(invitesl):
-            _write_file_samelab('list_same_lab%d.csv'%(i+1),
-                        self._filter(sl_label,'-', 'CONFIRMED', 'DECLINED'))
+            _write_file_samelab(
+                'list_same_lab%d.csv'%(i+1),
+                applications.filter(label=(sl_label,'-', 'CONFIRMED', 'DECLINED')))
         _write_file('list_shortlist.csv',
-                    self._filter('SHORTLIST', '-', 'DECLINED', 'CONFIRMED', 'INVITE', *invitesl))
+                    applications.filter(label=('SHORTLIST', '-', 'DECLINED', 'CONFIRMED', 'INVITE', *invitesl)))
         _write_file('list_rejected.csv',
-                    self._filter('-', 'DECLINED', 'CONFIRMED', 'INVITE', 'SHORTLIST',
-                                 'OVERQUALIFIED', 'CUSTOM-ANSWER', *invitesl))
+                    applications.filter(
+                        label=('-', 'DECLINED', 'CONFIRMED', 'INVITE', 'SHORTLIST',
+                               'OVERQUALIFIED', 'CUSTOM-ANSWER', *invitesl)))
         _write_file('list_declined_invite_nextyear.csv',
-                    self._filter('DECLINED'))
+                    applications.filter(label=('DECLINED')))
 
 def _write_file(filename, persons):
     header = '$NAME$;$SURNAME$;$EMAIL$'
