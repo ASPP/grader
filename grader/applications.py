@@ -22,6 +22,16 @@ def build_person_factory(fields):
             self.highlander = None
             self.samelab = False
             self.labels = list_of_str()
+            try:
+                # manually set applied and napplied attributes,
+                # in case this is the first time we run the school
+                # and there are no old applications laying around
+                self.napplied = 0
+                self.applied = 'N'
+            except AttributeError:
+                # we get an "AttributeError: can't set attribute"
+                # if the attributes are set already
+                pass
 
         @property
         def fullname(self):
