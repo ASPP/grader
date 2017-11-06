@@ -787,7 +787,7 @@ class Grader(cmd_completer.Cmd_Completer):
             if prev_highlander and not person.highlander:
                 print(COLOR['grey']+'-' * 70+COLOR['default'])
             prev_highlander = person.highlander
-            labels = self._labels(person.fullname)
+            labels = person.labels
             if 'CONFIRMED' in labels:
                 line_color = COLOR['bold']
             elif 'DECLINED' in labels:
