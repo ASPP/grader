@@ -493,7 +493,7 @@ class Grader(cmd_completer.Cmd_Completer):
         if opts.label:
             applications = self.applications.filter(label=opts.label)
         else:
-            applications = self.applications.to_list()
+            applications = list(self.applications)
 
         if opts.graded is not None:
             todo = [p for p in applications
@@ -702,7 +702,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                        minsc, maxsc,
                                        labels,
                                        person.napplied)
-        ordered = sorted(self.applications.to_list(), key=lambda x: \
+        ordered = sorted(self.applications, key=lambda x: \
                          self._score_with_labels(x, use_labels=use_labels),
                          reverse=True)
 
@@ -741,7 +741,7 @@ class Grader(cmd_completer.Cmd_Completer):
         self._assign_rankings(use_labels=use_labels)
 
         if applicants is None:
-            applicants = self.applications.to_list()
+            applicants = list(self.applications)
 
         ranked = sorted(applicants, key=lambda p: (p.rank, self._group_institute(p)))
         return vector.vector(ranked)
@@ -853,13 +853,13 @@ class Grader(cmd_completer.Cmd_Completer):
         edition = opts.edition
 
         if edition == 'current':
-            applicants = self.applications.to_list()
+            applicants = list(self.applications)
         elif edition == 'all':
-            applicants = self.applications.to_list()
+            applicants = list(self.applications)
             for school, app_old in self.applications_old.items():
-                applicants = applicants + vector.vector(app_old.to_list())
+                applicants = applicants + vector.vector(list(app_old))
         else:
-            applicants = self.applications_old[edition].to_list()
+            applicants = list(self.applications_old[edition])
 
         if opts.highlanders:
             ranked = self._ranked(applicants, use_labels=opts.use_labels)
@@ -923,7 +923,7 @@ class Grader(cmd_completer.Cmd_Completer):
     def do_wiki(self, args):
         "Dump statistics of CONFIRMED people for the Wiki."
         confirmed = tuple(self.applications.filter(label=('CONFIRMED')))
-        applicants = self.applications.to_list()
+        applicants = list(self.applications)
         print('====== Students ======')
         # we want first a list of confirmed with names/nationality/affiliations
         self._wiki_tb_head(('Firstname', 'Lastname', 'Nationality', 'Affiliation'))

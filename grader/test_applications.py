@@ -216,4 +216,4 @@ def test_applications_iteration():
     assert result == applications.applicants
     # test that we can call len
     assert len(applications) == len(applications.applicants)
-
+    assert result == list(applications)
