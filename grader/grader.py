@@ -19,15 +19,16 @@ import token
 import tokenize
 import traceback
 
-import cmd_completer
-import vector
-from applications import (
+from . import cmd_completer
+from .flags import flags as FLAGS
+from . import vector
+
+from .applications import (
     fill_fields_to_col_name_section,
     parse_applications_csv_file,
     Applications,
 )
-from flags import flags as FLAGS
-from util import (
+from .util import (
     list_of_equivs,
     list_of_float,
     open_no_newlines,
@@ -1275,7 +1276,7 @@ grader_options = cmd_completer.ModArgumentParser('grader')\
                           The first is current, subsequent are from previous years.
                        ''')
 
-def main(argv0, *args):
+def main():
     logging.basicConfig(level=logging.INFO)
 
     opts = grader_options.parse_args()
@@ -1309,4 +1310,4 @@ def main(argv0, *args):
             cmd.do_save(tmpfile)
 
 if __name__ == '__main__':
-    sys.exit(main(*sys.argv))
+    sys.exit(main())
