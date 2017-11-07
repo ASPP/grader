@@ -8,7 +8,6 @@ import csv
 import collections
 import textwrap
 import pprint
-import configfile
 import itertools
 import functools
 import logging
@@ -21,9 +20,10 @@ import io
 import keyword
 import random
 
-import cmd_completer
-from flags import flags as FLAGS
-import vector
+from . import cmd_completer
+from .flags import flags as FLAGS
+from . import vector
+from . import configfile
 
 def printf(fmt, *args, **kwargs):
     print(fmt.format(*args, **kwargs))
@@ -1477,7 +1477,7 @@ grader_options = cmd_completer.ModArgumentParser('grader')\
                           The first is current, subsequent are from previous years.
                        ''')
 
-def main(argv0, *args):
+def main():
     logging.basicConfig(level=logging.INFO)
 
     opts = grader_options.parse_args()
@@ -1511,4 +1511,4 @@ def main(argv0, *args):
             cmd.do_save(tmpfile)
 
 if __name__ == '__main__':
-    sys.exit(main(*sys.argv))
+    sys.exit(main())
