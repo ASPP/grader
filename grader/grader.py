@@ -838,7 +838,6 @@ class Grader(cmd_completer.Cmd_Completer):
                           dest='highlanders', const=True, default=False,
                           help='display statistics only for highlanders')
             .add_argument('-l', '--label', type=str,
-                          nargs='+', default=(),
                           help='display statistics only for people with label')
             .add_argument('--edition', type=str, dest='edition',
                           default='current',
@@ -867,7 +866,9 @@ class Grader(cmd_completer.Cmd_Completer):
         else:
             pool = applicants
 
-        pool = tuple(self._filter(*opts.label, applications=pool))
+        if opts.label:
+            pool = [p for p in pool if opts.label in p.labels]
+
         self._compute_and_print_stats(pool, opts.detailed)
 
     def _compute_and_print_stats(self, pool, detailed):
