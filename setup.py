@@ -1,26 +1,36 @@
-"""Grader: a Python module and command-line utility to grade applications.
-"""
-
-# Always prefer setuptools over distutils
+# -*- coding: utf-8 -*-
+import ast
+import os
 from setuptools import setup, find_packages
-# To use a consistent encoding
-from codecs import open
-from os import path
 
-here = path.abspath(path.dirname(__file__))
+# this file is used to pick the relevant metadata for setup.py
+INITFILE = os.path.join('grader', '__init__.py')
+# the directory we are in
+CWD = os.path.abspath(os.path.dirname(__file__))
+
+def parse_keyword(key):
+    """Get metadata from grader/__init__.py using an AST"""
+    with open(os.path.join(CWD, INITFILE), encoding='utf-8') as f:
+        ast_tree = ast.parse(f.read())
+        for node in ast.walk(ast_tree):
+            if type(node) is ast.Assign:
+                try:
+                    if node.targets[0].id == key:
+                        return node.value.s
+                except:
+                    pass
+    # return "not available" if we didn't find the variable
+    return 'N/A'
+
+# pick the relevant keywords from the __init__.py file
+metadata_vars = ('name', 'version', 'description', 'author', 'license', 'url')
+metadata = dict((var, parse_keyword('__%s__'%var)) for var in metadata_vars)
 
 # Get the long description from the README file
-with open(path.join(here, 'README.md'), encoding='utf-8') as f:
-    long_description = f.read()
+with open(os.path.join(CWD, 'README.md'), encoding='utf-8') as f:
+    metadata['long_description'] = f.read()
 
 setup(
-    name='grader',
-    version='0.1.0',
-    description='A Python module and command-line utility to grade applications.',
-    long_description=long_description,
-    url='https://github.com/ASPP/grader',
-    author='grader contributors',
-    license='GPLv3+',
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
         'Development Status :: 3 - Alpha',
@@ -40,4 +50,5 @@ setup(
             'grader=grader.grader:main',
         ],
     },
+    **metadata
 )
