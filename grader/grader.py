@@ -190,7 +190,7 @@ class Grader(cmd_completer.Cmd_Completer):
             )
             self.applications_old[path] = app
 
-        for applicant in self.applications.applicants:
+        for applicant in self.applications:
             self._set_applied(applicant)
 
     def _set_applied(self, person):
@@ -216,7 +216,7 @@ class Grader(cmd_completer.Cmd_Completer):
         person.napplied = max(declared, found)
 
     def _applied_range(self):
-        s = set(p.napplied for p in self.applications.applicants)
+        s = set(p.napplied for p in self.applications)
         return sorted(s)
 
     @property
@@ -269,7 +269,7 @@ class Grader(cmd_completer.Cmd_Completer):
         Name or last-name must start with prefix.
         """
         completions = collections.defaultdict(set)
-        for p in self.applications.applicants:
+        for p in self.applications:
             if p.name.startswith(prefix) or p.lastname.startswith(prefix):
                 completions[p.name].add(p.lastname)
         return completions
@@ -410,7 +410,7 @@ class Grader(cmd_completer.Cmd_Completer):
     def do_grep(self, args):
         "Look for string in applications"
         opts = self.grep_options.parse_args(args.split())
-        which = (p for p in self.applications.applicants
+        which = (p for p in self.applications
                  if re.search(opts.pattern, opts.what(p)))
         self._dump(which, format=opts.format)
 
@@ -490,11 +490,11 @@ class Grader(cmd_completer.Cmd_Completer):
         fullname = ' '.join(opts.person)
 
         if opts.graded is not None:
-            todo = [p for p in self.applications.applicants
+            todo = [p for p in self.applications
                     if opts.graded is all or self._get_grading(p, opts.what) == opts.graded]
             total = len(todo)
         else:
-            todo = [p for p in self.applications.applicants
+            todo = [p for p in self.applications
                     if self._get_grading(p, opts.what) is None]
             total = len(self.applications.applicants)
 
@@ -567,7 +567,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 current.print_sorted()
                 if opts.missing:
                     used = set(getattr(p, what).lower()
-                               for p in self.applications.applicants)
+                               for p in self.applications)
                     for descr in used:
                         try:
                             get_rating(what, current, descr)
@@ -689,7 +689,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                            self.python_rating,
                                            self._applied_range())
 
-        for person in self.applications.applicants:
+        for person in self.applications:
             labels = self.applications.get_labels(person.fullname)
             person.score = rank_person(person,
                                        self.formula, self.location,
@@ -1008,7 +1008,7 @@ class Grader(cmd_completer.Cmd_Completer):
         """
         applications = self.applications
         if args == '':
-            for applicant in applications.applicants:
+            for applicant in applications:
                 if applicant.labels:
                     print('{} = {}'.format(applicant.fullname.lower(),
                                            applicant.labels))
@@ -1029,7 +1029,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 for label in args.split():
                     count = 0
                     printf('== {} ==', label)
-                    for applicant in applications.applicants:
+                    for applicant in applications:
                         if label in applicant.labels:
                             printf('{}. {}', count, applicant.fullname.lower())
                             count += 1
