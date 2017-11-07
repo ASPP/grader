@@ -496,7 +496,7 @@ class Grader(cmd_completer.Cmd_Completer):
         else:
             todo = [p for p in self.applications
                     if self._get_grading(p, opts.what) is None]
-            total = len(self.applications.applicants)
+            total = len(self.applications)
 
         if fullname:
             todo = [p for p in todo if p.fullname == fullname]
