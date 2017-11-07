@@ -700,7 +700,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                        minsc, maxsc,
                                        labels,
                                        person.napplied)
-        ordered = sorted(self.applications.applicants, key=lambda x: \
+        ordered = sorted(self.applications.to_list(), key=lambda x: \
                          self._score_with_labels(x, use_labels=use_labels),
                          reverse=True)
 
@@ -739,7 +739,7 @@ class Grader(cmd_completer.Cmd_Completer):
         self._assign_rankings(use_labels=use_labels)
 
         if applicants is None:
-            applicants = self.applications.applicants
+            applicants = self.applications.to_list()
 
         ranked = sorted(applicants, key=lambda p: (p.rank, self._group_institute(p)))
         return vector.vector(ranked)
@@ -852,13 +852,13 @@ class Grader(cmd_completer.Cmd_Completer):
         edition = opts.edition
 
         if edition == 'current':
-            applicants = self.applications.applicants
+            applicants = self.applications.to_list()
         elif edition == 'all':
-            applicants = self.applications.applicants
+            applicants = self.applications.to_list()
             for school, app_old in self.applications_old.items():
-                applicants = applicants + vector.vector(app_old.applicants)
+                applicants = applicants + vector.vector(app_old.to_list())
         else:
-            applicants = self.applications_old[edition].applicants
+            applicants = self.applications_old[edition].to_list()
 
         if opts.highlanders:
             ranked = self._ranked(applicants, use_labels=opts.use_labels)
@@ -920,7 +920,7 @@ class Grader(cmd_completer.Cmd_Completer):
     def do_wiki(self, args):
         "Dump statistics of CONFIRMED people for the Wiki."
         confirmed = tuple(self.applications.filter(label=('CONFIRMED')))
-        applicants = self.applications.applicants
+        applicants = self.applications.to_list()
         print('====== Students ======')
         # we want first a list of confirmed with names/nationality/affiliations
         self._wiki_tb_head(('Firstname', 'Lastname', 'Nationality', 'Affiliation'))
@@ -1071,7 +1071,7 @@ class Grader(cmd_completer.Cmd_Completer):
         accept = frozenset(itertools.takewhile(lambda x: x!='-', labels))
         deny = frozenset(labels)
         if applications is None:
-            applications = self.applications.applicants
+            applications = self.applications.to_list()
         for p in applications:
             labels = set(p.labels)
             if not (accept - labels) and not (labels & deny):

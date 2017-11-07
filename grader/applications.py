@@ -141,6 +141,10 @@ class Applications:
     def __len__(self):
         return len(self.applicants)
 
+    def to_list(self):
+        """Return the list of applicants as-is"""
+        return self.applicants
+
     @classmethod
     def from_paths(cls, config_path, csv_path, fields_to_col_names_section):
         if os.path.exists(config_path):
