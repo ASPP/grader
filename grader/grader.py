@@ -1055,30 +1055,6 @@ class Grader(cmd_completer.Cmd_Completer):
         self.config.save(opts.filename)
         self.modified = False
 
-    def _filter(self, *accept_dash_deny, applications=None):
-        """Find people who have all labels in accept and none from deny.
-
-        Arguments are split into the part before '-', and after. The
-        first becomes a list of labels that must be present, and the
-        second becomes a list of labels which cannot be present.
-
-        self._filter('XXX') --> people who have 'XXX'
-        self._filter('XXX', 'YYY') --> people who have both
-        self._filter('XXX', 'YYY', '-', ZZZ') --> people who have both
-           'XXX' and 'YYY', but don't have 'ZZZ'
-        self._filter('XXX', 'YYY', '-', ZZZ', 'ŻŻŻ') --> people who have
-           both 'XXX' and 'YYY', but neither 'ZZZ' nor 'ŻŻŻ'.
-        """
-        labels = iter(accept_dash_deny)
-        accept = frozenset(itertools.takewhile(lambda x: x!='-', labels))
-        deny = frozenset(labels)
-        if applications is None:
-            applications = self.applications.to_list()
-        for p in applications:
-            labels = set(p.labels)
-            if not (accept - labels) and not (labels & deny):
-                yield p
-
     def do_write(self, args):
         """Write lists of mailing recipients
 
