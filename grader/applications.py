@@ -138,6 +138,9 @@ class Applications:
         """Support basic iteration"""
         return self.applicants[key]
 
+    def __len__(self):
+        return len(self.applicants)
+
     @classmethod
     def from_paths(cls, config_path, csv_path, fields_to_col_names_section):
         if os.path.exists(config_path):
