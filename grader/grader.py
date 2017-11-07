@@ -489,21 +489,22 @@ class Grader(cmd_completer.Cmd_Completer):
         printff('Press ^C or ^D to stop')
         fullname = ' '.join(opts.person)
 
+        if opts.label:
+            applications = self.applications.filter(label=opts.label)
+        else:
+            applications = self.applications.to_list()
+
         if opts.graded is not None:
-            todo = [p for p in self.applications
+            todo = [p for p in applications
                     if opts.graded is all or self._get_grading(p, opts.what) == opts.graded]
             total = len(todo)
         else:
-            todo = [p for p in self.applications
+            todo = [p for p in applications
                     if self._get_grading(p, opts.what) is None]
             total = len(self.applications)
 
         if fullname:
             todo = [p for p in todo if p.fullname == fullname]
-            total = len(todo)
-
-        if opts.label:
-            todo = list(self._filter(*opts.label, applications=todo))
             total = len(todo)
 
         if opts.disagreement is not None:
