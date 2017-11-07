@@ -200,3 +200,18 @@ def test_applications_filter_labels():
     assert applications.filter(label=('DELTA', 'MIKE', '-', 'ECHO', 'ALFA')) == []
     assert applications.filter(label='NOLABEL') == []
 
+def test_applications_iteration():
+    config_string = ""
+    config = ConfigFile(StringIO(config_string), labels=list_of_str)
+
+    person_factory = build_person_factory(['name', 'lastname'])
+    mario_rossi = person_factory('Mario', 'Rossi')
+    fritz_lang = person_factory('Fritz', 'Lang')
+    applicants = [mario_rossi, fritz_lang]
+
+    applications = Applications(applicants, config)
+    result = []
+    for app in applications:
+        result.append(app)
+    assert result == applications.applicants
+

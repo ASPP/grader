@@ -134,6 +134,10 @@ class Applications:
                                               list_of_str())
                 applicant.labels = labels
 
+    def __getitem__(self, key):
+        """Support basic iteration"""
+        return self.applicants[key]
+
     @classmethod
     def from_paths(cls, config_path, csv_path, fields_to_col_names_section):
         if os.path.exists(config_path):
