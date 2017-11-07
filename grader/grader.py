@@ -8,7 +8,6 @@ import csv
 import collections
 import textwrap
 import pprint
-import configfile
 import itertools
 import functools
 import logging
@@ -21,9 +20,10 @@ import io
 import keyword
 import random
 
-import cmd_completer
-from flags import flags as FLAGS
-import vector
+from . import cmd_completer
+from .flags import flags as FLAGS
+from . import vector
+from . import configfile
 
 def printf(fmt, *args, **kwargs):
     print(fmt.format(*args, **kwargs))
