@@ -1,5 +1,5 @@
-import cmd_completer
-import configfile
+from . import cmd_completer
+from . import configfile
 
 IDENTITIES = (0, 1, 2)
 

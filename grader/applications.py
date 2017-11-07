@@ -4,8 +4,8 @@ import itertools
 import os
 import pprint
 
-import vector
-from util import (
+from . import vector
+from .util import (
     list_of_str,
     list_of_equivs,
     printf,

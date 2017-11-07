@@ -1,6 +1,6 @@
 from io import StringIO
 
-from configfile import ConfigFile
+from .configfile import ConfigFile
 
 
 CONFIG_STRING_MINIMAL = """

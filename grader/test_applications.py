@@ -3,9 +3,9 @@ from textwrap import dedent
 
 from pytest import raises
 
-from configfile import ConfigFile
-from applications import Applications, build_person_factory
-from util import list_of_str
+from .configfile import ConfigFile
+from .applications import Applications, build_person_factory
+from .util import list_of_str
 
 
 def _tmp_application_files(tmpdir, config_string, csv_string):

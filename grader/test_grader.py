@@ -1,5 +1,5 @@
-from grader import Grader
-from util import our_configfile
+from .grader import Grader
+from .util import our_configfile
 
 
 CSV_APPLICATIONS = """
