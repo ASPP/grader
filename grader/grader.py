@@ -1,40 +1,44 @@
 #!/usr/bin/env python3
-import sys
-import os
+import collections
+import contextlib
+import io
+import itertools
+import keyword
+import logging
 import math
 import numbers
-import traceback
-import csv
-import collections
-import textwrap
-import pprint
-import itertools
-import functools
-import logging
-import tempfile
-import contextlib
 import operator
-import re
-import token, tokenize
-import io
-import keyword
+import os
+import pprint
 import random
+import re
+import sys
+import tempfile
+import textwrap
+import token
+import tokenize
+import traceback
 
 from . import cmd_completer
 from .flags import flags as FLAGS
 from . import vector
-from . import configfile
 
-def printf(fmt, *args, **kwargs):
-    print(fmt.format(*args, **kwargs))
+from .applications import (
+    fill_fields_to_col_name_section,
+    parse_applications_csv_file,
+    Applications,
+)
+from .util import (
+    list_of_equivs,
+    list_of_float,
+    open_no_newlines,
+    our_configfile,
+    printf,
+    printff,
+    section_name,
+    IDENTITIES,
+)
 
-# like printf above, but this time with explicit flush.
-# it should be used everytime you want the strings
-# to be print immediately and not only at the end of
-# the command
-def printff(fmt, *args, **kwargs):
-    print(fmt.format(*args, **kwargs))
-    cmd_completer.PAGER.flush()
 
 @contextlib.contextmanager
 def Umask(umask):
@@ -132,15 +136,12 @@ RANK_FORMATS = {'short': _RANK_FMT_SHORT,
 
 SCORE_RANGE = (-1, 0, 1)
 
-IDENTITIES = (0, 1, 2)
-
 DEFAULT_ACCEPT_COUNT = 30
 
 COUNTRY_WIDTH = 10
 
-section_name = '{}_score-{}'.format
-
 NOT_AVAILABLE_LABEL = 'NOT AVAILABLE'
+
 
 class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
@@ -156,122 +157,46 @@ class Grader(cmd_completer.Cmd_Completer):
         self.modified = False
         self.ranking_done = False
 
-    def _init_applications(self, applications):
+    def _init_applications(self, application_filenames):
         section = self.config['application_lists']
-        if applications:
+        if application_filenames:
             section.clear()
-            for i,file in zip('abcdefghijkl', applications):
-                section[i] = file.name
+            for i, filename in zip('abcdefghijkl', application_filenames):
+                section[i] = filename
         else:
-            applications = [open_no_newlines(filename) for filename
-                            in self.config['application_lists'].values()]
-        self.applications = self.read_applications(
-            os.path.join(os.getcwd(), 'grader.conf'), applications[0].name)
+            application_filenames = list(section.values())
 
-        filename_to_applications_file = {
-            fileobj.name: fileobj
-            for fileobj in applications
-        }
+        fields_to_col_names_section = self.config['fields']
+        if len(list(fields_to_col_names_section.keys())) == 0:
+            fill_fields_to_col_name_section(fields_to_col_names_section)
+
+        # Load applications for current edition.
+        with open_no_newlines(application_filenames[0]) as f:
+            applicants = parse_applications_csv_file(
+                f, fields_to_col_names_section)
+        self.applications = Applications(applicants, self.config)
+
+        # Load applications for previous editions.
         self.applications_old = {}
-        for filename, list in filename_to_applications_file.items():
+        for filename in application_filenames:
             if filename == 'applications.csv':
                 continue
 
             path = filename.split('/')[0]
             config_path = os.path.join(path, 'grader.conf')
-            app = self.read_applications(config_path, filename)
+            app = Applications.from_paths(
+                config_path=config_path,
+                csv_path=filename,
+                fields_to_col_names_section=fields_to_col_names_section,
+            )
             self.applications_old[path] = app
 
-        for p in self.applications:
-            self._set_applied(p)
-
-    @classmethod
-    def Person(cls, names):
-        class Person(collections.namedtuple('Person', names)):
-            def __init__(self, *args, **kwargs):
-                # tuple fields are already set in __new__
-                self.score = None
-                self.rank = None
-                self.highlander = None
-                self.samelab = False
-                self.labels = list_of_str()
-
-            @property
-            def fullname(self):
-                return '{p.name} {p.lastname}'.format(p=self)
-
-            @property
-            def female(self):
-                return self.gender == 'Female'
-
-        return Person
-
-    @property
-    def application_fields(self):
-        section = self.config['fields']
-        if len(list(section.keys())) == 0:
-            def add(k, v):
-                section[k] = list_of_equivs(v)
-            for f in """id completed last_page_seen start_language
-                        date_last_action date_started
-                        ip_address referrer_url
-                        gender
-                        position institute group nationality
-                        python
-                        name email
-                        token""".split():
-                add(f, f.replace('_', ' '))
-            add('affiliation', "Country of Affiliation")
-            add('position_other', "[Other] Position")
-            add('applied', "Did you already apply")
-            add('programming', "estimate your programming skills")
-            add('programming_description', "programming experience")
-            add('open_source', "exposure to open-source")
-            add('open_source_description', "description of your contrib")
-            add('motivation', "appropriate course for your skill profile")
-            add('cv', "curriculum vitae")
-            add('lastname', "Last name")
-            add('born', "Year of birth")
-            add('vcs', "Do you habitually use a Version Control System for your software projects? If yes, which one?")
-        return section
-
-    @vector.vectorize
-    def _fields(self, header):
-        failed = None
-        for name in header:
-            try:
-                yield self._field_master(name)
-            except KeyError as e:
-                printf("unknown field: '{}'".format(name))
-                failed = e
-        if failed:
-            pprint.pprint(list(self.application_fields.items()))
-            raise failed
-
-    def _field_master(self, description):
-        """Return the name of a field for this description. Must be defined.
-
-        The double dance is because we want to map:
-        - position <=> position,
-        - [other] position <=> position_other,
-        - curriculum vitae <=> Please type in a short curriculum vitae...
-        """
-        for key, values in self.application_fields.items():
-            if description.lower() == key.lower():
-                return key
-        candidates = {}
-        for key, values in self.application_fields.items():
-            for spelling in values:
-                if spelling.lower() in description.lower():
-                    candidates[spelling] = key
-        if candidates:
-            ans = candidates[sorted(candidates.keys(), key=len)[-1]]
-            return ans
-        raise KeyError(description)
+        for applicant in self.applications:
+            self._set_applied(applicant)
 
     def _set_applied(self, person):
         "Return the number of times a person applied"
-        try: 
+        try:
             declared = int(person.applied[0] not in 'nN')
         except AttributeError:
             # this is the first instance of the school and we did not
@@ -280,9 +205,9 @@ class Grader(cmd_completer.Cmd_Completer):
             person.napplied = 0
             return
         found = 0
-        for old in self.applications_old.values():
-            found += (person.fullname in old.fullname or
-                      person.email in old.email)
+        for app_old in self.applications_old.values():
+            found += (person.fullname in app_old.applicants.fullname or
+                      person.email in app_old.applicants.email)
         if found and not declared:
             printf('warning: person found in list says not applied prev.: {}',
                    person.fullname)
@@ -294,34 +219,6 @@ class Grader(cmd_completer.Cmd_Completer):
     def _applied_range(self):
         s = set(p.napplied for p in self.applications)
         return sorted(s)
-
-    @vector.vectorize
-    def csv_file(self, file):
-        printf("loading '{}'", file.name)
-        reader = csv.reader(file)
-        header = next(reader)
-        fields = self._fields(header)
-        tuple_factory = self.Person(fields)
-        assert len(header) == len(tuple_factory._fields)
-        while True:
-            yield tuple_factory(*next(reader))
-
-    def read_applications(self, config_path, csv_path):
-        if os.path.exists(config_path):
-            config = our_configfile(config_path)
-        else:
-            config = None
-            printf('Warning: no configuration file found in {}', config_path)
-
-        with open_no_newlines(csv_path) as f:
-            applications = self.csv_file(f)
-
-        if config is not None:
-            for applicant in applications:
-                labels = config['labels'].get(applicant.fullname, list_of_str())
-                applicant.labels = labels
-
-        return applications
 
     @property
     def formula(self):
@@ -419,7 +316,7 @@ class Grader(cmd_completer.Cmd_Completer):
     def do_dump(self, args):
         "Print information about applications"
         opts = self.dump_options.parse_args(args.split())
-        persons = tuple(self._filter(*opts.label))
+        persons = tuple(self.applications.filter(label=opts.label))
         if opts.highlanders:
             persons = (p for p in persons if p.highlander)
         if opts.persons:
@@ -466,7 +363,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                    if p.programming_description else '')
         open_source_description = ('\n             {}'.format(osd)
                                    if p.open_source_description else '')
-        labels = self._labels(p.fullname)
+        labels = self.applications.get_labels(p.fullname)
         if labels:
             labels = '[{}] '.format(labels)
         printf(DUMP_FMTS[format],
@@ -514,7 +411,8 @@ class Grader(cmd_completer.Cmd_Completer):
     def do_grep(self, args):
         "Look for string in applications"
         opts = self.grep_options.parse_args(args.split())
-        which = (p for p in self.applications if re.search(opts.pattern, opts.what(p)))
+        which = (p for p in self.applications
+                 if re.search(opts.pattern, opts.what(p)))
         self._dump(which, format=opts.format)
 
     grade_options = cmd_completer.PagedArgumentParser('grade')\
@@ -592,21 +490,22 @@ class Grader(cmd_completer.Cmd_Completer):
         printff('Press ^C or ^D to stop')
         fullname = ' '.join(opts.person)
 
+        if opts.label:
+            applications = self.applications.filter(label=opts.label)
+        else:
+            applications = list(self.applications)
+
         if opts.graded is not None:
-            todo = [p for p in self.applications
+            todo = [p for p in applications
                     if opts.graded is all or self._get_grading(p, opts.what) == opts.graded]
             total = len(todo)
         else:
-            todo = [p for p in self.applications
+            todo = [p for p in applications
                     if self._get_grading(p, opts.what) is None]
             total = len(self.applications)
 
         if fullname:
             todo = [p for p in todo if p.fullname == fullname]
-            total = len(todo)
-
-        if opts.label:
-            todo = list(self._filter(*opts.label, applications=todo))
             total = len(todo)
 
         if opts.disagreement is not None:
@@ -731,7 +630,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 labels = choice.split()[1:]
                 printff('labelling {} as {}',
                         person.fullname, ', '.join(labels))
-                self._add_labels(person.fullname, *labels)
+                self.applications.add_labels(person.fullname, labels)
                 continue
             elif choice == '':
                 choice = default
@@ -793,6 +692,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                            self._applied_range())
 
         for person in self.applications:
+            labels = self.applications.get_labels(person.fullname)
             person.score = rank_person(person,
                                        self.formula, self.location,
                                        self.programming_rating,
@@ -800,7 +700,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                        self.python_rating,
                                        self._gradings(person, 'motivation'),
                                        minsc, maxsc,
-                                       self._labels(person.fullname),
+                                       labels,
                                        person.napplied)
         ordered = sorted(self.applications, key=lambda x: \
                          self._score_with_labels(x, use_labels=use_labels),
@@ -837,13 +737,13 @@ class Grader(cmd_completer.Cmd_Completer):
             person.highlander = highlander
             prevscore = person.score
 
-    def _ranked(self, applications=None, use_labels=False):
+    def _ranked(self, applicants=None, use_labels=False):
         self._assign_rankings(use_labels=use_labels)
 
-        if applications is None:
-            applications = self.applications
+        if applicants is None:
+            applicants = list(self.applications)
 
-        ranked = sorted(applications, key=lambda p: (p.rank, self._group_institute(p)))
+        ranked = sorted(applicants, key=lambda p: (p.rank, self._group_institute(p)))
         return vector.vector(ranked)
 
     def _equiv_master(self, variant):
@@ -871,7 +771,7 @@ class Grader(cmd_completer.Cmd_Completer):
     def do_rank(self, args):
         "Print list of people sorted by ranking"
         opts = self.rank_options.parse_args(args.split())
-        people = self._filter(*opts.label)
+        people = self.applications.filter(label=opts.label)
         ranked = self._ranked(people, use_labels=opts.use_labels)
         fullname_width = min(max(len(field) for field in ranked.fullname), opts.width)
         email_width = max(len(field) for field in ranked.email) + 2
@@ -879,7 +779,7 @@ class Grader(cmd_completer.Cmd_Completer):
         group_width = min(max(len(field) for field in ranked.group), opts.width)
         affiliation_width = min(max(len(field) for field in ranked.affiliation), COUNTRY_WIDTH)
         nationality_width = min(max(len(field) for field in ranked.nationality), COUNTRY_WIDTH)
-        labels_width = max(len(str(self._labels(field)))
+        labels_width = max(len(str(self.applications.get_labels(field)))
                            for field in ranked.fullname) or 1
 
         fmt = RANK_FORMATS[opts.format]
@@ -889,7 +789,7 @@ class Grader(cmd_completer.Cmd_Completer):
             if prev_highlander and not person.highlander:
                 print(COLOR['grey']+'-' * 70+COLOR['default'])
             prev_highlander = person.highlander
-            labels = self._labels(person.fullname)
+            labels = person.labels
             if 'CONFIRMED' in labels:
                 line_color = COLOR['bold']
             elif 'DECLINED' in labels:
@@ -902,7 +802,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 line_color = COLOR['cyan']
             else:
                 line_color = COLOR['grey']
-            printf(line_color+fmt+COLOR['default'], pos+1, p=person,
+            printf(line_color + fmt + COLOR['default'], pos + 1, p=person,
                    email='<{}>'.format(person.email),
                    fullname_width=fullname_width, email_width=email_width,
                    institute='—' if person.samelab else
@@ -939,7 +839,6 @@ class Grader(cmd_completer.Cmd_Completer):
                           dest='highlanders', const=True, default=False,
                           help='display statistics only for highlanders')
             .add_argument('-l', '--label', type=str,
-                          nargs='+', default=(),
                           help='display statistics only for people with label')
             .add_argument('--edition', type=str, dest='edition',
                           default='current',
@@ -954,21 +853,23 @@ class Grader(cmd_completer.Cmd_Completer):
         edition = opts.edition
 
         if edition == 'current':
-            applications = self.applications
+            applicants = list(self.applications)
         elif edition == 'all':
-            applications = self.applications
-            for school, applicants in self.applications_old.items():
-                applications = applications + vector.vector(applicants)
+            applicants = list(self.applications)
+            for school, app_old in self.applications_old.items():
+                applicants = applicants + vector.vector(list(app_old))
         else:
-            applications = self.applications_old[edition]
+            applicants = list(self.applications_old[edition])
 
         if opts.highlanders:
-            ranked = self._ranked(applications, use_labels=opts.use_labels)
+            ranked = self._ranked(applicants, use_labels=opts.use_labels)
             pool = [person for person in ranked if person.highlander]
         else:
-            pool = applications
+            pool = applicants
 
-        pool = tuple(self._filter(*opts.label, applications=pool))
+        if opts.label:
+            pool = [p for p in pool if opts.label in p.labels]
+
         self._compute_and_print_stats(pool, opts.detailed)
 
     def _compute_and_print_stats(self, pool, detailed):
@@ -989,11 +890,11 @@ class Grader(cmd_completer.Cmd_Completer):
         printf(FMT_STAT, 'Nationalities', length['nationality'])
         printf(FMT_STAT, 'Countries of affiliation', length['affiliation'])
         printf(FMT_STAP, 'Females', counter['female'][True],
-               counter['female'][True]/applicants*100)
-        printf(FMT_STAP, 'Males', applicants-counter['female'][True],
-               100-(counter['female'][True]/applicants*100))
+               counter['female'][True] / applicants * 100)
+        printf(FMT_STAP, 'Males', applicants - counter['female'][True],
+               100 - (counter['female'][True]/applicants*100))
         for pos in counter['position'].most_common():
-            printf(FMT_STAP, pos[0], pos[1], pos[1]/applicants*100)
+            printf(FMT_STAP, pos[0], pos[1], pos[1] / applicants * 100)
         if detailed:
             for var in observables:
                 print('--\n'+var.upper())
@@ -1001,11 +902,11 @@ class Grader(cmd_completer.Cmd_Completer):
                     # years should be sorted numerically and not by popularity
                     for n in sorted(counter[var].items(),
                             key=operator.itemgetter(0)):
-                        printf(FMT_STAP, str(n[0]), n[1], n[1]/applicants*100)
+                        printf(FMT_STAP, str(n[0]), n[1], n[1] / applicants * 100)
                 else:
                     for n in sorted(counter[var].items(),
                                     key=operator.itemgetter(1), reverse=True):
-                        printf(FMT_STAP, str(n[0]), n[1], n[1]/applicants*100)
+                        printf(FMT_STAP, str(n[0]), n[1], n[1] / applicants * 100)
 
     def _wiki_tb_head(self, items):
         strs = (str(x) for x in items)
@@ -1021,8 +922,8 @@ class Grader(cmd_completer.Cmd_Completer):
 
     def do_wiki(self, args):
         "Dump statistics of CONFIRMED people for the Wiki."
-        confirmed = tuple(self._filter('CONFIRMED'))
-        applicants = self.applications
+        confirmed = tuple(self.applications.filter(label=('CONFIRMED')))
+        applicants = list(self.applications)
         print('====== Students ======')
         # we want first a list of confirmed with names/nationality/affiliations
         self._wiki_tb_head(('Firstname', 'Lastname', 'Nationality', 'Affiliation'))
@@ -1099,35 +1000,6 @@ class Grader(cmd_completer.Cmd_Completer):
         self.modified = True
         self.ranking_done = False
 
-    def _labels(self, fullname):
-        return self.config['labels'].get(fullname, list_of_str())
-
-    def _get_all_labels(self):
-        labels = set()
-        for l in self.config['labels'].values():
-            labels.update(l)
-        return labels
-
-    def _add_labels(self, fullname, *labels):
-        section = self.config['labels']
-        saved = self._labels(fullname)
-        saved.extend(labels)
-        section[fullname] = saved
-        # update applications
-        for applicant in self.applications:
-            if applicant.fullname == fullname:
-                applicant.labels = saved
-                break
-
-    def _clear_labels(self, fullname):
-        section = self.config['labels']
-        section.clear(fullname)
-        # update applications
-        for applicant in self.applications:
-            if applicant.fullname == fullname:
-                applicant.labels = list_of_str()
-                break
-
     def do_label(self, args):
         """Mark persons with string labels
 
@@ -1137,40 +1009,41 @@ class Grader(cmd_completer.Cmd_Completer):
         label                      # display all labels
         label LABEL                # display people thus labelled
         """
-        section = self.config['labels']
+        applications = self.applications
         if args == '':
-            for key, value in section.items():
-                printf('{} = {}', key, value)
+            for applicant in applications:
+                if applicant.labels:
+                    print('{} = {}'.format(applicant.fullname.lower(),
+                                           applicant.labels))
             return
 
         if '=' in args:
             fullname, *labels = [item.strip() for item in args.split('=')
                                  if item is not '']
             if labels:
-                self._add_labels(fullname, *labels)
+                applications.add_labels(fullname, labels)
             else:
-                self._clear_labels(fullname)
+                applications.clear_labels(fullname)
             self.modified = True
         else:
             display_by_label = any(label in set(args.split())
-                                   for group in section.values()
-                                   for label in group)
+                                   for label in applications.get_all_labels())
             if display_by_label:
                 for label in args.split():
                     count = 0
                     printf('== {} ==', label)
-                    for key, value in section.items():
-                        if label in value:
-                            printf('{}. {}', count, key)
+                    for applicant in applications:
+                        if label in applicant.labels:
+                            printf('{}. {}', count, applicant.fullname.lower())
                             count += 1
                     printf('== {} labelled ==', count)
             else:
-                try:
-                    labels = section[args]
-                except KeyError:
-                    printf('{} has no labels', args)
-                else:
+                applicant = applications.find_applicant_by_fullname(args)
+                labels = applicant.labels
+                if labels:
                     printf('{} = {}', args, labels)
+                else:
+                    printf('{} has no labels', args)
 
     do_label.completions = _complete_name
 
@@ -1183,32 +1056,8 @@ class Grader(cmd_completer.Cmd_Completer):
         self.config.save(opts.filename)
         self.modified = False
 
-    def _filter(self, *accept_dash_deny, applications=None):
-        """Find people who have all labels in accept and none from deny.
-
-        Arguments are split into the part before '-', and after. The
-        first becomes a list of labels that must be present, and the
-        second becomes a list of labels which cannot be present.
-
-        self._filter('XXX') --> people who have 'XXX'
-        self._filter('XXX', 'YYY') --> people who have both
-        self._filter('XXX', 'YYY', '-', ZZZ') --> people who have both
-           'XXX' and 'YYY', but don't have 'ZZZ'
-        self._filter('XXX', 'YYY', '-', ZZZ', 'ŻŻŻ') --> people who have
-           both 'XXX' and 'YYY', but neither 'ZZZ' nor 'ŻŻŻ'.
-        """
-        labels = iter(accept_dash_deny)
-        accept = frozenset(itertools.takewhile(lambda x: x!='-', labels))
-        deny = frozenset(labels)
-        if applications is None:
-            applications = self.applications
-        for p in applications:
-            labels = set(p.labels)
-            if not (accept - labels) and not (labels & deny):
-                yield p
-
     def do_write(self, args):
-        """Write lists of mailing ricipients
+        """Write lists of mailing recipients
 
         Labels have the following precedence:
         - DECLINE - person cancelled, let's forget about them
@@ -1221,34 +1070,35 @@ class Grader(cmd_completer.Cmd_Completer):
         """
         if args != '':
             raise ValueError('no args please')
-        #ranked = self._ranking()
-        #printf('accepting {}', self.accept_count)
-        #count = collections.Counter(ranked.rank)
+        applications = self.applications
 
         _write_file('list_confirmed.csv',
-                    self._filter('CONFIRMED', '-', 'DECLINED'))
+                    applications.filter(label=('CONFIRMED', '-', 'DECLINED')))
 
         _write_file('list_invite.csv',
-                    self._filter('INVITE', '-', 'DECLINED', 'CONFIRMED'))
+                    applications.filter(label=('INVITE', '-', 'DECLINED', 'CONFIRMED')))
         _write_file('list_invite_reminder.csv',
-                    self._filter('INVITE', '-', 'DECLINED', 'CONFIRMED'))
+                    applications.filter(label=('INVITE', '-', 'DECLINED', 'CONFIRMED')))
         _write_file('list_overqualified.csv',
-                    self._filter('OVERQUALIFIED', '-', 'CUSTOM-ANSWER'))
+                    applications.filter(label=('OVERQUALIFIED', '-', 'CUSTOM-ANSWER')))
         _write_file('list_custom_answer.csv',
-                    self._filter('CUSTOM-ANSWER'))
+                    applications.filter(label=('CUSTOM-ANSWER')))
         # get all INVITESL? labels
-        all_labels = set(sum((self._labels(person.fullname) for person in self._ranked()), []))
-        invitesl = [label for label in all_labels if label.startswith('INVITESL')]
+        all_labels = self.applications.get_all_labels()
+        invitesl = [label for label in all_labels
+                    if label.startswith('INVITESL')]
         for i, sl_label in enumerate(invitesl):
-            _write_file_samelab('list_same_lab%d.csv'%(i+1),
-                        self._filter(sl_label,'-', 'CONFIRMED', 'DECLINED'))
+            _write_file_samelab(
+                'list_same_lab%d.csv'%(i+1),
+                applications.filter(label=(sl_label,'-', 'CONFIRMED', 'DECLINED')))
         _write_file('list_shortlist.csv',
-                    self._filter('SHORTLIST', '-', 'DECLINED', 'CONFIRMED', 'INVITE', *invitesl))
+                    applications.filter(label=('SHORTLIST', '-', 'DECLINED', 'CONFIRMED', 'INVITE', *invitesl)))
         _write_file('list_rejected.csv',
-                    self._filter('-', 'DECLINED', 'CONFIRMED', 'INVITE', 'SHORTLIST',
-                                 'OVERQUALIFIED', 'CUSTOM-ANSWER', *invitesl))
+                    applications.filter(
+                        label=('-', 'DECLINED', 'CONFIRMED', 'INVITE', 'SHORTLIST',
+                               'OVERQUALIFIED', 'CUSTOM-ANSWER', *invitesl)))
         _write_file('list_declined_invite_nextyear.csv',
-                    self._filter('DECLINED'))
+                    applications.filter(label=('DECLINED')))
 
 def _write_file(filename, persons):
     header = '$NAME$;$SURNAME$;$EMAIL$'
@@ -1261,7 +1111,7 @@ def _write_file(filename, persons):
         for i, person in enumerate(persons):
             row = ';'.join((person.name, person.lastname, person.email))
             f.write(row + '\n')
-    printf("'{}' written with header + {} rows", filename, i+1)
+    printf("'{}' written with header + {} rows", filename, i + 1)
 
 def _write_file_samelab(filename, persons):
     persons = list(persons)
@@ -1282,7 +1132,7 @@ def _write_file_samelab(filename, persons):
         names = ';'.join(names)
         emails = ','.join(emails)
         f.write(names+';'+emails+'\n')
-    printf("'{}' written with header + {} entries", filename, i+1)
+    printf("'{}' written with header + {} entries", filename, i + 1)
 
 def eval_formula(formula, vars):
     try:
@@ -1319,25 +1169,6 @@ def get_rating(name, dict, key, fallback=None):
         else:
             return fallback
 
-class list_of_float(list):
-    def __str__(self):
-        return ', '.join(str(item) if item is not None else '-'
-                         for item in self)
-
-    def mean(self):
-        valid = [arg for arg in self if arg is not None]
-        if not valid:
-            return float('nan')
-        return sum(valid) / len(valid)
-
-class list_of_str(list):
-    def __init__(self, arg=None):
-        equivs = ((item.strip() for item in arg.split(','))
-                  if arg is not None else ())
-        super().__init__(equivs)
-
-    def __str__(self):
-        return ', '.join(self)
 
 def rank_person(person, formula, location,
                 programming_rating, open_source_rating, python_rating,
@@ -1433,38 +1264,6 @@ def wrap_paragraphs(text, prefix=''):
                for para in paras)
     return ('\n'+prefix).join(wrapped)
 
-class list_of_equivs(list):
-    def __init__(self, arg=None):
-        equivs = ((item.strip() for item in arg.split('='))
-                  if arg is not None else ())
-        super().__init__(equivs)
-
-    def __str__(self):
-        return ' = '.join(self)
-
-def our_configfile(filename):
-    kw = {section_name('motivation', ident):float
-          for ident in IDENTITIES}
-    return configfile.ConfigFile(filename,
-                                 application_lists=str,
-                                 programming_rating=float,
-                                 open_source_rating=float,
-                                 python_rating=float,
-                                 groups_parameters=int,
-                                 groups_gender_rating=float,
-                                 groups_python_rating=float,
-                                 groups_vcs_rating=float,
-                                 groups_open_source_rating=float,
-                                 groups_programming_rating=float,
-                                 groups_random_seed=str,
-                                 formula=str,
-                                 equivs=list_of_equivs,
-                                 labels=list_of_str,
-                                 fields=list_of_equivs,
-                                 **kw)
-
-def open_no_newlines(filename):
-    return open(filename, newline='')
 
 grader_options = cmd_completer.ModArgumentParser('grader')\
     .add_argument('-i', '--identity', type=int,
@@ -1472,7 +1271,7 @@ grader_options = cmd_completer.ModArgumentParser('grader')\
                   help='Index of person grading applications')\
     .add_argument('config', type=our_configfile, nargs='?',
                   default=os.path.join(os.getcwd(), 'grader.conf'))\
-    .add_argument('applications', type=open_no_newlines, nargs='*',
+    .add_argument('applications', type=str, nargs='*',
                   help='''CSV files with application data.
                           The first is current, subsequent are from previous years.
                        ''')
