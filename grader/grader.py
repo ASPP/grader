@@ -173,7 +173,7 @@ class Grader(cmd_completer.Cmd_Completer):
         # Load applications for current edition.
         with open_no_newlines(application_filenames[0]) as f:
             applicants = parse_applications_csv_file(
-                f, fields_to_col_names_section)
+                f, fields_to_col_names_section, scorers=IDENTITIES)
         self.applications = Applications(applicants, self.config)
 
         # Load applications for previous editions.
@@ -467,7 +467,6 @@ class Grader(cmd_completer.Cmd_Completer):
                                                self.open_source_rating,
                                                self.python_rating,
                                                self._applied_range())
-
 
             printf('formula = {}', self.formula)
             printf('score ∈ [{:6.3f},{:6.3f}]', minsc, maxsc)

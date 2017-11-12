@@ -16,9 +16,9 @@ class list_of_equivs(list):
         return ' = '.join(self)
 
 
-def our_configfile(filename):
-    kw = {section_name('motivation', ident):float
-          for ident in IDENTITIES}
+def our_configfile(filename, scorers=IDENTITIES):
+    kw = {section_name('motivation', scorer):float
+          for scorer in scorers}
     with open(filename, 'r') as fileobj:
         config = configfile.ConfigFile(
             fileobj,

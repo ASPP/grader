@@ -5,7 +5,7 @@ from pytest import raises
 
 from .configfile import ConfigFile
 from .applications import Applications, build_person_factory
-from .util import list_of_str
+from .util import list_of_str, section_name
 
 
 def _tmp_application_files(tmpdir, config_string, csv_string):
@@ -20,6 +20,15 @@ def test_applications_from_paths(tmpdir):
     config_string = dedent("""
         [labels]
         john doe = VEGAN
+
+        [motivation_score-s0]
+        john doe = -1
+
+        [motivation_score-s1]
+        john doe = +1
+
+        [motivation_score-s2]
+        john doe = 0
         """)
     csv_string = dedent("""
         "First name","Last name","Email address"
@@ -38,29 +47,53 @@ def test_applications_from_paths(tmpdir):
     applications = Applications.from_paths(
         config_tmpfile.strpath,
         csv_tmpfile.strpath,
-        fields_to_col_names_section
+        fields_to_col_names_section,
+        scorers=['s0', 's1', 's2']
     )
 
     assert len(applications.applicants) == 2
-    assert applications.applicants[0].name == 'John'
+    john_doe = applications.applicants[0]
+    assert john_doe.name == 'John'
     assert applications.applicants[1].lastname == 'Smith'
-    assert applications.applicants[0].labels == ['VEGAN']
+    assert john_doe.labels == ['VEGAN']
+    assert john_doe.motivation_score == {'s0': -1, 's1': +1, 's2': 0}
 
 
 def test_applications_init():
     config_string = dedent("""
     [labels]
     john doe = VEGAN, VIP
+
+    [motivation_score-s0]
+    john doe = -1
+
+    [motivation_score-s1]
+    john doe = +1
+
+    [motivation_score-s2]
+    john doe = 0
     """)
-    config = ConfigFile(StringIO(config_string), labels=list_of_str)
+    scorers = ['s0', 's1', 's2']
+    motivation_sections = {
+        section_name('motivation', scorer): float
+        for scorer in scorers
+    }
+    config = ConfigFile(
+        StringIO(config_string),
+        labels=list_of_str,
+        **motivation_sections,
+    )
 
-    person_factory = build_person_factory(['name', 'lastname'])
-    applicants = [person_factory('John', 'Doe')]
+    person_factory = build_person_factory(['name', 'lastname'],
+                                          scorers=scorers)
+    john_doe = person_factory('John', 'Doe')
+    applicants = [john_doe]
 
-    applications = Applications(applicants, config)
+    applications = Applications(applicants, config, scorers)
 
     assert len(applications.applicants) == 1
-    assert applications.applicants[0].labels == ['VEGAN', 'VIP']
+    assert john_doe.labels == ['VEGAN', 'VIP']
+    assert john_doe.motivation_score == {'s0': -1, 's1': +1, 's2': 0}
 
 
 def test_applications_find_applicant_by_fullname():
@@ -70,10 +103,10 @@ def test_applications_find_applicant_by_fullname():
     """)
     config = ConfigFile(StringIO(config_string), labels=list_of_str)
 
-    person_factory = build_person_factory(['name', 'lastname'])
+    person_factory = build_person_factory(['name', 'lastname'], scorers=[])
     applicants = [person_factory('John', 'Doe')]
 
-    applications = Applications(applicants, config)
+    applications = Applications(applicants, config, scorers=[])
     john_doe = applications.find_applicant_by_fullname('john doe')
     assert applications.applicants[0] is john_doe
 
@@ -88,12 +121,12 @@ def test_applications_add_labels():
     """)
     config = ConfigFile(StringIO(config_string), labels=list_of_str)
 
-    person_factory = build_person_factory(['name', 'lastname'])
+    person_factory = build_person_factory(['name', 'lastname'], scorers=[])
     john_doe = person_factory('John', 'Doe')
     ben_johnson = person_factory('Ben', 'Johnson')
     applicants = [john_doe, ben_johnson]
 
-    applications = Applications(applicants, config)
+    applications = Applications(applicants, config, scorers=[])
     applications.add_labels('john doe', ['VIP', 'VIRULENT'])
     applications.add_labels('ben johnson', ['VIPER'])
 
@@ -112,11 +145,11 @@ def test_applications_clear_labels():
     """)
     config = ConfigFile(StringIO(config_string), labels=list_of_str)
 
-    person_factory = build_person_factory(['name', 'lastname'])
+    person_factory = build_person_factory(['name', 'lastname'], scorers=[])
     john_doe = person_factory('John', 'Doe')
     applicants = [john_doe]
 
-    applications = Applications(applicants, config)
+    applications = Applications(applicants, config, scorers=[])
 
     assert john_doe.labels == ['VEGAN', 'VIP']
     assert 'john doe' in config.sections['labels'].keys()
@@ -132,12 +165,12 @@ def test_applications_get_labels():
     """)
     config = ConfigFile(StringIO(config_string), labels=list_of_str)
 
-    person_factory = build_person_factory(['name', 'lastname'])
+    person_factory = build_person_factory(['name', 'lastname'], scorers=[])
     john_doe = person_factory('John', 'Doe')
     ben_johnson = person_factory('Ben', 'Johnson')
     applicants = [john_doe, ben_johnson]
 
-    applications = Applications(applicants, config)
+    applications = Applications(applicants, config, scorers=[])
     assert applications.get_labels('john doe') == ['VEGAN', 'VIP']
     assert applications.get_labels('ben johnson') == []
 
@@ -150,13 +183,14 @@ def test_applications_get_all_labels():
     """)
     config = ConfigFile(StringIO(config_string), labels=list_of_str)
 
-    person_factory = build_person_factory(['name', 'lastname'])
+    person_factory = build_person_factory(['name', 'lastname'], scorers=[])
     john_doe = person_factory('John', 'Doe')
     ben_johnson = person_factory('Ben', 'Johnson')
     applicants = [john_doe, ben_johnson]
 
-    applications = Applications(applicants, config)
+    applications = Applications(applicants, config, scorers=[])
     assert applications.get_all_labels() == {'VEGAN', 'VIP', 'VIPER'}
+
 
 def test_applications_filter_attributes():
     config_string = dedent("""
@@ -164,19 +198,21 @@ def test_applications_filter_attributes():
     """)
     config = ConfigFile(StringIO(config_string), labels=list_of_str)
 
-    person_factory = build_person_factory(['name', 'lastname', 'nationality', 'gender'])
+    person_factory = build_person_factory(
+        ['name', 'lastname', 'nationality', 'gender'], scorers=[])
     mario_rossi = person_factory('Mario', 'Rossi', 'Italy', 'Male')
     lucia_bianchi = person_factory('Lucia', 'Bianchi', 'Italy', 'Female')
     fritz_lang = person_factory('Fritz', 'Lang', 'Germany', 'Male')
     applicants = [mario_rossi, fritz_lang, lucia_bianchi]
 
-    applications = Applications(applicants, config)
+    applications = Applications(applicants, config, scorers=[])
     assert applications.filter(nationality='Italy') == [mario_rossi, lucia_bianchi]
     assert applications.filter(nationality='Italy', female=True) == [lucia_bianchi]
     assert applications.filter(nationality='Germany') == [fritz_lang]
     assert applications.filter(nationality='NoCountryForOldMen') == []
     with raises(AttributeError):
         applications.filter(dummy='Error')
+
 
 def test_applications_filter_labels():
     config_string = dedent("""
@@ -186,12 +222,12 @@ def test_applications_filter_labels():
     """)
     config = ConfigFile(StringIO(config_string), labels=list_of_str)
 
-    person_factory = build_person_factory(['name', 'lastname'])
+    person_factory = build_person_factory(['name', 'lastname'], scorers=[])
     mario_rossi = person_factory('Mario', 'Rossi')
     fritz_lang = person_factory('Fritz', 'Lang')
     applicants = [mario_rossi, fritz_lang]
 
-    applications = Applications(applicants, config)
+    applications = Applications(applicants, config, scorers=[])
     assert applications.filter(label='ALFA') == [mario_rossi]
     assert applications.filter(label='ZULU') == [fritz_lang]
     assert applications.filter(label=('ALFA', 'MIKE')) == [mario_rossi]
@@ -200,16 +236,17 @@ def test_applications_filter_labels():
     assert applications.filter(label=('DELTA', 'MIKE', '-', 'ECHO', 'ALFA')) == []
     assert applications.filter(label='NOLABEL') == []
 
+
 def test_applications_iteration():
     config_string = ""
     config = ConfigFile(StringIO(config_string), labels=list_of_str)
 
-    person_factory = build_person_factory(['name', 'lastname'])
+    person_factory = build_person_factory(['name', 'lastname'], scorers=[])
     mario_rossi = person_factory('Mario', 'Rossi')
     fritz_lang = person_factory('Fritz', 'Lang')
     applicants = [mario_rossi, fritz_lang]
 
-    applications = Applications(applicants, config)
+    applications = Applications(applicants, config, scorers=[])
     result = []
     for app in applications:
         result.append(app)
