@@ -4,15 +4,16 @@ import itertools
 import os
 import pprint
 
-from grader.util import IDENTITIES
 from . import vector
 from .util import (
+    list_of_float,
     list_of_str,
     list_of_equivs,
     our_configfile,
     open_no_newlines,
     printf,
     section_name,
+    IDENTITIES,
 )
 
 
@@ -44,6 +45,10 @@ def build_person_factory(fields, scorers):
         @property
         def female(self):
             return self.gender == 'Female'
+
+        @property
+        def motivation_scores(self):
+            return list_of_float(self.motivation_score.values())
 
     return Person
 

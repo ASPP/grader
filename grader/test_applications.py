@@ -254,3 +254,14 @@ def test_applications_iteration():
     # test that we can call len
     assert len(applications) == len(applications.applicants)
     assert result == list(applications)
+
+
+def test_person_motivation_scores():
+    scorers = ['me', 'you', 'him']
+    person_factory = build_person_factory(['name', 'lastname'],
+                                          scorers=scorers)
+    john_doe = person_factory('John', 'Doe')
+
+    john_doe.motivation_score = {'me': +1, 'you': -1, 'him': 0}
+    # use a set: we can't trust the order of a dictionary in Python < 3.6
+    assert set(john_doe.motivation_scores) == {1, -1, 0}
