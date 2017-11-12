@@ -381,7 +381,7 @@ class Grader(cmd_completer.Cmd_Completer):
                    get_rating('python', self.python_rating, p.python, '-'),
                cv=cv,
                motivation=motivation,
-               motivation_scores=self._gradings(p, 'motivation'),
+               motivation_scores=p.motivation_scores,
                labels=labels,
                labels_newline=labels + '\n' if labels else '',
                )
@@ -516,8 +516,8 @@ class Grader(cmd_completer.Cmd_Completer):
         if opts.disagreement is not None:
             if opts.disagreement is all:
                 todo = [p for p in todo
-                        if (max(self._gradings(p, opts.what), default=0) -
-                            min(self._gradings(p, opts.what), default=0) > 1)]
+                        if (max(p.motivation_scores, default=0) -
+                            min(p.motivation_scores, default=0) > 1)]
             else:
                 todo = [
                     p for p in todo
@@ -586,12 +586,6 @@ class Grader(cmd_completer.Cmd_Completer):
                             current[e.key] = value
                             self.modified = True
 
-    def _gradings(self, person, what):
-        gen = (
-            self.config[section_name(what, identity)].get(person.fullname, None)
-            for identity in IDENTITIES)
-        return list_of_float(gen)
-
     def _set_grading(self, person, what, score):
         assert isinstance(score, numbers.Number), score
         section = self.config[section_name(what, self.identity)]
@@ -601,7 +595,7 @@ class Grader(cmd_completer.Cmd_Completer):
 
     def _grade(self, person, disagreement):
         if disagreement:
-            scores = self._gradings(person, 'motivation')
+            scores = person.motivation_scores
         else:
             scores = [person.motivation_score[self.identity]]
         old_score = person.motivation_score[self.identity]
@@ -699,7 +693,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                        self.programming_rating,
                                        self.open_source_rating,
                                        self.python_rating,
-                                       self._gradings(person, 'motivation'),
+                                       person.motivation_scores,
                                        minsc, maxsc,
                                        labels,
                                        person.napplied)
@@ -817,7 +811,7 @@ class Grader(cmd_completer.Cmd_Completer):
                    affiliation_width=affiliation_width,
                    labels=', '.join(labels),
                    labels_width=labels_width,
-                   motivation_scores=self._gradings(person, 'motivation'),
+                   motivation_scores=person.motivation_scores,
                    programming_score=\
                        get_rating('programming', self.programming_rating,
                                   person.programming, '-'),
