@@ -485,9 +485,14 @@ class Grader(cmd_completer.Cmd_Completer):
             printf('location = {}', self.location)
             return
 
+        # From here on `what` is either `cv` or `motivation`, except that
+        # `cv` is broken (see issue #12), so we will assume
+        # `what == 'motivation'`
+
         printff('Doing grading for identity {}', self.identity)
         printff('Press ^C or ^D to stop')
         fullname = ' '.join(opts.person)
+        scorer = self.identity
 
         if opts.label:
             applications = self.applications.filter(label=opts.label)
@@ -496,11 +501,12 @@ class Grader(cmd_completer.Cmd_Completer):
 
         if opts.graded is not None:
             todo = [p for p in applications
-                    if opts.graded is all or self._get_grading(p, opts.what) == opts.graded]
+                    if opts.graded is all
+                        or p.motivation_score[scorer] == opts.graded]
             total = len(todo)
         else:
             todo = [p for p in applications
-                    if self._get_grading(p, opts.what) is None]
+                    if p.motivation_score[scorer] is None]
             total = len(self.applications)
 
         if fullname:
@@ -513,11 +519,13 @@ class Grader(cmd_completer.Cmd_Completer):
                         if (max(self._gradings(p, opts.what), default=0) -
                             min(self._gradings(p, opts.what), default=0) > 1)]
             else:
-                todo = [p for p in todo
-                        if (self._get_grading(p, opts.what) is not None and
-                            self._get_grading(p, opts.what, opts.disagreement) is not None and
-                            abs(self._get_grading(p, opts.what) -
-                                self._get_grading(p, opts.what, opts.disagreement)) > 1)]
+                todo = [
+                    p for p in todo
+                    if (p.motivation_score[scorer] is not None and
+                        p.motivation_score[opts.disagreement] is not None and
+                        abs(p.motivation_score[scorer] -
+                            p.motivation_score[opts.disagreement]) > 1)
+                ]
             total = len(todo)
 
         done_already = total - len(todo)
@@ -578,12 +586,6 @@ class Grader(cmd_completer.Cmd_Completer):
                             current[e.key] = value
                             self.modified = True
 
-    def _get_grading(self, person, what, identity=None):
-        if identity is None:
-            identity = self.identity
-        section = self.config[section_name(what, identity)]
-        return section.get(person.fullname, None)
-
     def _gradings(self, person, what):
         gen = (
             self.config[section_name(what, identity)].get(person.fullname, None)
@@ -601,8 +603,8 @@ class Grader(cmd_completer.Cmd_Completer):
         if disagreement:
             scores = self._gradings(person, 'motivation')
         else:
-            scores = [self._get_grading(person, 'motivation')]
-        old_score = self._get_grading(person, 'motivation')
+            scores = [person.motivation_score[self.identity]]
+        old_score = person.motivation_score[self.identity]
         default = old_score if old_score is not None else ''
         self._dumpone(person, format='motivation')
         scores = ['%({})s{}%(default)s'.format('bold' if score is None else
