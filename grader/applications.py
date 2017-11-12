@@ -206,6 +206,14 @@ class Applications:
             labels.update(applicant.labels)
         return labels
 
+    def set_motivation_score(self, fullname, score, scorer):
+        # update applicant
+        applicant = self.find_applicant_by_fullname(fullname)
+        applicant.motivation_score[scorer] = score
+        # update config file
+        section = self.config[section_name('motivation', scorer)]
+        section[fullname] = score
+
     def filter(self, **kwargs):
         """Return an iterator over the applications which match certain criteria:
 

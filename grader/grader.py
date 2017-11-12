@@ -30,12 +30,10 @@ from .applications import (
 )
 from .util import (
     list_of_equivs,
-    list_of_float,
     open_no_newlines,
     our_configfile,
     printf,
     printff,
-    section_name,
     IDENTITIES,
 )
 
@@ -588,8 +586,8 @@ class Grader(cmd_completer.Cmd_Completer):
 
     def _set_grading(self, person, what, score):
         assert isinstance(score, numbers.Number), score
-        section = self.config[section_name(what, self.identity)]
-        section[person.fullname] = score
+        self.applications.set_motivation_score(
+            fullname=person.fullname, score=score, scorer=self.identity)
         printff('{} score set to {}', what, score)
         self.modified = True
 

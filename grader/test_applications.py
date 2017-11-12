@@ -256,6 +256,46 @@ def test_applications_iteration():
     assert result == list(applications)
 
 
+def test_applications_set_motivation_score():
+    config_string = dedent("""
+    [motivation_score-judgy]
+    john doe = +1
+
+    [motivation_score-critic]
+    john doe = -1
+    """)
+    scorers = ['judgy', 'critic']
+    motivation_sections = {
+        section_name('motivation', scorer): float
+        for scorer in scorers
+    }
+    config = ConfigFile(
+        StringIO(config_string),
+        labels=list_of_str,
+        **motivation_sections,
+    )
+
+    person_factory = build_person_factory(['name', 'lastname'],
+                                          scorers=scorers)
+    john_doe = person_factory('John', 'Doe')
+    ben_johnson = person_factory('Ben', 'Johnson')
+    applicants = [john_doe, ben_johnson]
+
+    applications = Applications(applicants, config, scorers=scorers)
+    applications.set_motivation_score('john doe', -1, 'judgy')
+    applications.set_motivation_score('ben johnson', +1, 'critic')
+
+    assert john_doe.motivation_score['judgy'] == -1
+    assert john_doe.motivation_score['critic'] == -1
+    assert ben_johnson.motivation_score['judgy'] == None
+    assert ben_johnson.motivation_score['critic'] == +1
+
+    assert config.sections['motivation_score-judgy']['john doe'] == -1
+    assert config.sections['motivation_score-critic']['john doe'] == -1
+    assert config.sections['motivation_score-judgy'].get('ben johnson', 'NA') == 'NA'  # noqa
+    assert config.sections['motivation_score-critic']['ben johnson'] == +1
+
+
 def test_person_motivation_scores():
     scorers = ['me', 'you', 'him']
     person_factory = build_person_factory(['name', 'lastname'],
