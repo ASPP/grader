@@ -1184,6 +1184,7 @@ def rank_person(person, formula, location,
                 gender=person.gender, # if we decide, ...
                                       # oh we already did
                 nonmale=person.nonmale,
+                female=person.nonmale, # a compat mapping for old formulas
                 applied=applied,
                 nationality=person.nationality,
                 affiliation=person.affiliation,
