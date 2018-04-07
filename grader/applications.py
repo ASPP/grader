@@ -152,7 +152,7 @@ class Applications:
             config = our_configfile(config_path)
         else:
             config = None
-            printf('Warning: no configuration file found in {}', config_path)
+            printf('Warning: no configuration file {}', config_path)
 
         with open_no_newlines(csv_path) as f:
             applicants = parse_applications_csv_file(
