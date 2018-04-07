@@ -44,7 +44,6 @@ def build_person_factory(fields):
 
     return Person
 
-
 def fill_fields_to_col_name_section(fields_section):
     def add(k, v):
         fields_section[k] = list_of_equivs(v)
@@ -72,7 +71,6 @@ def fill_fields_to_col_name_section(fields_section):
     add('vcs', "Do you habitually use a Version Control System for your software projects? If yes, which one?")
     return fields_section
 
-
 def col_name_to_field(description, fields_to_col_names):
     """Return the name of a field for this description. Must be defined.
 
@@ -94,19 +92,6 @@ def col_name_to_field(description, fields_to_col_names):
         return ans
     raise KeyError(description)
 
-
-@vector.vectorize
-def parse_applications_csv_file(file, fields_to_col_names_section):
-    printf("loading '{}'", file.name)
-    reader = csv.reader(file)
-    csv_header = next(reader)
-    fields = csv_header_to_fields(csv_header, fields_to_col_names_section)
-    person_factory = build_person_factory(fields)
-    assert len(csv_header) == len(person_factory._fields)
-    while True:
-        yield person_factory(*next(reader))
-
-
 @vector.vectorize
 def csv_header_to_fields(header, fields_to_col_names_section):
     failed = None
@@ -119,6 +104,26 @@ def csv_header_to_fields(header, fields_to_col_names_section):
     if failed:
         pprint.pprint(list(fields_to_col_names_section.items()))
         raise failed
+
+@vector.vectorize
+def parse_applications_csv_file(file, fields_to_col_names_section):
+    printf("loading '{}'", file.name)
+    reader = csv.reader(file)
+    csv_header = next(reader)
+    fields = csv_header_to_fields(csv_header, fields_to_col_names_section)
+    assert len(fields) == len(csv_header)      # sanity check
+    assert len(set(fields)) == len(csv_header) # two columns map to the same field
+    person_factory = build_person_factory(fields)
+    assert len(csv_header) == len(person_factory._fields)
+    while True:
+        entry = next(reader)
+        if not entry:
+            # skip empty line
+            continue
+        try:
+            yield person_factory(*entry)
+        except Exception:
+            import pdb; pdb.set_trace()
 
 
 class Applications:
