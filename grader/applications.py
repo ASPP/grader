@@ -39,8 +39,9 @@ def build_person_factory(fields):
             return '{p.name} {p.lastname}'.format(p=self)
 
         @property
-        def female(self):
-            return self.gender == 'Female'
+        def nonmale(self):
+            "Return true if gender is 'female' or 'other'"
+            return self.gender.lower() != 'male'
 
     return Person
 

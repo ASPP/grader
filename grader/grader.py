@@ -437,7 +437,7 @@ class Grader(cmd_completer.Cmd_Completer):
         where ... is a python expression using the following variables:
           born: int,
           gender: 'M' or 'F',
-          female: 0 or 1,
+          nonmale: 0 or 1,
           nationality: str,
           affiliation: str,
           motivation: float,
@@ -874,7 +874,7 @@ class Grader(cmd_completer.Cmd_Completer):
     def _compute_and_print_stats(self, pool, detailed):
         """ Given a pool of applicants, compute and display some statistics.
         """
-        observables = ['born', 'female', 'nationality', 'affiliation',
+        observables = ['born', 'nonmale', 'nationality', 'affiliation',
                        'position', 'applied', 'napplied', 'open_source',
                        'programming', 'python', 'vcs']
         counter = {}
@@ -888,10 +888,10 @@ class Grader(cmd_completer.Cmd_Completer):
         printf(FMT_STAT, 'Pool', applicants)
         printf(FMT_STAT, 'Nationalities', length['nationality'])
         printf(FMT_STAT, 'Countries of affiliation', length['affiliation'])
-        printf(FMT_STAP, 'Females', counter['female'][True],
-               counter['female'][True] / applicants * 100)
-        printf(FMT_STAP, 'Males', applicants - counter['female'][True],
-               100 - (counter['female'][True]/applicants*100))
+        printf(FMT_STAP, 'Female/Other', counter['nonmale'][True],
+               counter['nonmale'][True] / applicants * 100)
+        printf(FMT_STAP, 'Male', applicants - counter['nonmale'][True],
+               100 - (counter['nonmale'][True]/applicants*100))
         for pos in counter['position'].most_common():
             printf(FMT_STAP, pos[0], pos[1], pos[1] / applicants * 100)
         if detailed:
@@ -937,7 +937,7 @@ class Grader(cmd_completer.Cmd_Completer):
         self._wiki_tb_head(('','Applicants', 'Participants'))
 
         # first collect statistics like we do in the do_stat method (DRY ;))))
-        observables = ['born', 'female', 'nationality', 'affiliation',
+        observables = ['born', 'nonmale', 'nationality', 'affiliation',
                        'position', 'applied', 'napplied', 'open_source',
                        'programming', 'python', 'vcs']
         c_confirmed = {}
@@ -957,13 +957,13 @@ class Grader(cmd_completer.Cmd_Completer):
         self._wiki_tb_row(('Countries of affiliation',
                            len(c_applicants['affiliation']),
                            len(c_confirmed['affiliation'])))
-        self._wiki_tb_row(('Females',
-                           self._wiki_pc(c_applicants['female'][True], Na),
-                           self._wiki_pc(c_confirmed['female'][True], Nc)))
+        self._wiki_tb_row(('Female/Other',
+                           self._wiki_pc(c_applicants['nonmale'][True], Na),
+                           self._wiki_pc(c_confirmed['nonmale'][True], Nc)))
 
-        self._wiki_tb_row(('Males',
-                           self._wiki_pc(Na-c_applicants['female'][True], Na),
-                           self._wiki_pc(Nc-c_confirmed['female'][True], Nc)))
+        self._wiki_tb_row(('Male',
+                           self._wiki_pc(Na-c_applicants['nonmale'][True], Na),
+                           self._wiki_pc(Nc-c_confirmed['nonmale'][True], Nc)))
 
         for pos, count in c_applicants['position'].most_common():
             self._wiki_tb_row((pos,
@@ -1183,7 +1183,7 @@ def rank_person(person, formula, location,
     vars.update(born=int(person.born), # if we decide to implement ageism
                 gender=person.gender, # if we decide, ...
                                       # oh we already did
-                female=person.female,
+                nonmale=person.nonmale,
                 applied=applied,
                 nationality=person.nationality,
                 affiliation=person.affiliation,
@@ -1228,7 +1228,7 @@ def find_min_max(formula, location,
     choices = dict(
         born=(1900, 2012),
         gender=('M', 'F'),
-        female=(0, 1),
+        nonmale=(0, 1),
         applied=(0, max(applied)),
         nationality=('Nicaragua', 'Československo', location),
         affiliation=('Československo', 'Nicaragua', location),
