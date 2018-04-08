@@ -436,7 +436,7 @@ class Grader(cmd_completer.Cmd_Completer):
           grade formula ...
         where ... is a python expression using the following variables:
           born: int,
-          gender: 'M' or 'F',
+          gender: 'M' or 'F' or 'O',
           nonmale: 0 or 1,
           nationality: str,
           affiliation: str,
@@ -466,7 +466,6 @@ class Grader(cmd_completer.Cmd_Completer):
                                                self.open_source_rating,
                                                self.python_rating,
                                                self._applied_range())
-
 
             printf('formula = {}', self.formula)
             printf('score ∈ [{:6.3f},{:6.3f}]', minsc, maxsc)
@@ -874,36 +873,36 @@ class Grader(cmd_completer.Cmd_Completer):
     def _compute_and_print_stats(self, pool, detailed):
         """ Given a pool of applicants, compute and display some statistics.
         """
-        observables = ['born', 'nonmale', 'nationality', 'affiliation',
+        observables = ['born', 'gender', 'nationality', 'affiliation',
                        'position', 'applied', 'napplied', 'open_source',
                        'programming', 'python', 'vcs']
-        counter = {}
-        for var in observables:
-            counter[var] = collections.Counter(
-                getattr(p, var, NOT_AVAILABLE_LABEL) for p in pool)
-        length = {var: len(counter[var]) for var in observables}
+        counters = {var: collections.Counter(getattr(p, var, NOT_AVAILABLE_LABEL)
+                                             for p in pool)
+                    for var in observables}
+
+        length = {var: len(counters[var]) for var in observables}
         applicants = len(pool)
         FMT_STAT = '{:<24.24} = {:>5d}'
         FMT_STAP = FMT_STAT + ' ({:4.1f}%)'
         printf(FMT_STAT, 'Pool', applicants)
         printf(FMT_STAT, 'Nationalities', length['nationality'])
         printf(FMT_STAT, 'Countries of affiliation', length['affiliation'])
-        printf(FMT_STAP, 'Female/Other', counter['nonmale'][True],
-               counter['nonmale'][True] / applicants * 100)
-        printf(FMT_STAP, 'Male', applicants - counter['nonmale'][True],
-               100 - (counter['nonmale'][True]/applicants*100))
-        for pos in counter['position'].most_common():
+        g = counters['gender']
+        printf(FMT_STAP, 'Female', g['female'], g['female'] / applicants * 100)
+        printf(FMT_STAP, 'Male',   g['male'],   g['male'] / applicants * 100)
+        printf(FMT_STAP, 'Other',  g['other'],  g['other'] / applicants * 100)
+        for pos in counters['position'].most_common():
             printf(FMT_STAP, pos[0], pos[1], pos[1] / applicants * 100)
         if detailed:
             for var in observables:
                 print('--\n'+var.upper())
                 if var in ('born', 'napplied'):
                     # years should be sorted numerically and not by popularity
-                    for n in sorted(counter[var].items(),
+                    for n in sorted(counters[var].items(),
                             key=operator.itemgetter(0)):
                         printf(FMT_STAP, str(n[0]), n[1], n[1] / applicants * 100)
                 else:
-                    for n in sorted(counter[var].items(),
+                    for n in sorted(counters[var].items(),
                                     key=operator.itemgetter(1), reverse=True):
                         printf(FMT_STAP, str(n[0]), n[1], n[1] / applicants * 100)
 
@@ -1168,6 +1167,14 @@ def get_rating(name, dict, key, fallback=None):
         else:
             return fallback
 
+KNOWN_GENDER_LABELS = {
+    'female' : 'F',
+    'male'   : 'M',
+    'other'  : 'O',
+}
+def gender_to_formula_label(label):
+    "Convert a gender label from the survey into a single-letter label"
+    return KNOWN_GENDER_LABELS[label.lower()]
 
 def rank_person(person, formula, location,
                 programming_rating, open_source_rating, python_rating,
@@ -1181,8 +1188,8 @@ def rank_person(person, formula, location,
         value = get_rating(attr, dict, key)
         vars[attr] = value
     vars.update(born=int(person.born), # if we decide to implement ageism
-                gender=person.gender, # if we decide, ...
-                                      # oh we already did
+                gender=gender_to_formula_label(person.gender), # if we decide, …
+                                                               # oh we already did
                 nonmale=person.nonmale,
                 female=person.nonmale, # a compat mapping for old formulas
                 applied=applied,
@@ -1228,7 +1235,7 @@ def find_min_max(formula, location,
     # And we would have to test all combinations of labels, which can be slow.
     choices = dict(
         born=(1900, 2012),
-        gender=('M', 'F'),
+        gender=tuple(KNOWN_GENDER_LABELS.values()),
         nonmale=(0, 1),
         applied=(0, max(applied)),
         nationality=('Nicaragua', 'Československo', location),
