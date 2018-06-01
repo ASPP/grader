@@ -109,7 +109,14 @@ def csv_header_to_fields(header, fields_to_col_names_section):
 @vector.vectorize
 def parse_applications_csv_file(file, fields_to_col_names_section):
     printf("loading '{}'", file.name)
-    reader = csv.reader(file)
+    # let's try to detect the separator
+    csv_dialect = csv.Sniffer().sniff(file.read(1024))
+    # manually set doublequote (the sniffer doesn't get it automatically)
+    csv_dialect.doublequote = True
+    # rewind
+    file.seek(0)
+    # now the CSV reader should be setup
+    reader = csv.reader(file, dialect=csv_dialect)
     csv_header = next(reader)
     fields = csv_header_to_fields(csv_header, fields_to_col_names_section)
     assert len(fields) == len(csv_header)      # sanity check
