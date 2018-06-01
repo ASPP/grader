@@ -123,16 +123,19 @@ def parse_applications_csv_file(file, fields_to_col_names_section):
     assert len(set(fields)) == len(csv_header) # two columns map to the same field
     person_factory = build_person_factory(fields)
     assert len(csv_header) == len(person_factory._fields)
+    count = 0
     while True:
         entry = next(reader)
         if not entry:
             # skip empty line
             continue
+        count += 1
         try:
             yield person_factory(*entry)
-        except Exception:
+        except Exception as exp:
+            print("Exception raised on entry %d:"%count, exp)
+            print('Detected fields:', fields)
             import pdb; pdb.set_trace()
-
 
 class Applications:
 
