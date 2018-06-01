@@ -110,7 +110,7 @@ def csv_header_to_fields(header, fields_to_col_names_section):
 def parse_applications_csv_file(file, fields_to_col_names_section):
     printf("loading '{}'", file.name)
     # let's try to detect the separator
-    csv_dialect = csv.Sniffer().sniff(file.read(1024))
+    csv_dialect = csv.Sniffer().sniff(file.read(32768))
     # manually set doublequote (the sniffer doesn't get it automatically)
     csv_dialect.doublequote = True
     # rewind
