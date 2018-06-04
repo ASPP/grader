@@ -363,6 +363,10 @@ class Grader(cmd_completer.Cmd_Completer):
         open_source_description = ('\n             {}'.format(osd)
                                    if p.open_source_description else '')
         labels = self.applications.get_labels(p.fullname)
+        if format == 'motivation':
+            # hide identifying info from motivation text if in grading mode
+            motivation = motivation.replace(p.name, '–')
+            motivation = motivation.replace(p.lastname, '–')
         if labels:
             labels = '[{}] '.format(labels)
         printf(DUMP_FMTS[format],
