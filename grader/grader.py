@@ -18,6 +18,10 @@ import textwrap
 import token
 import tokenize
 import traceback
+try:
+    import pandas
+except ImportError:
+    pandas = None
 
 from . import cmd_completer
 from .flags import flags as FLAGS
@@ -418,9 +422,18 @@ class Grader(cmd_completer.Cmd_Completer):
                  if re.search(opts.pattern, opts.what(p)))
         self._dump(which, format=opts.format)
 
+
+    def print_grading_stats(self, what, applications):
+        grades = pandas.DataFrame(list(self._gradings(p, what)) for p in applications)
+        stats = grades.apply(pandas.value_counts, dropna=False).fillna(0)
+        stats.rename(index={'nan':'todo', 'NaN':'todo'}, inplace=True)
+        print(stats)
+
     grade_options = cmd_completer.PagedArgumentParser('grade')\
         .add_argument('what', choices=['motivation', 'cv', 'formula', 'location'],
                       help='what to grade | set formula | set location')\
+        .add_argument('-s', '--stat', action='store_true',
+                      help='display statics about the grading process itself')\
         .add_argument('-g', '--graded', type=int,
                       nargs='?', const=all, metavar='SCORE',
                       help='grade already graded too, optionally with specified score')\
@@ -454,8 +467,6 @@ class Grader(cmd_completer.Cmd_Completer):
         Location is set with:
            set location
         """
-        if self.identity is None:
-            raise ValueError('cannot do grading because identity was not set (use -i param or identity verb)')
 
         opts = self.grade_options.parse_args(arg.split())
         if opts.graded is not None and opts.person:
@@ -488,14 +499,12 @@ class Grader(cmd_completer.Cmd_Completer):
             printf('location = {}', self.location)
             return
 
-        printff('Doing grading for identity {}', self.identity)
-        printff('Press ^C or ^D to stop')
-        fullname = ' '.join(opts.person)
-
         if opts.label:
             applications = self.applications.filter(label=opts.label)
         else:
             applications = list(self.applications)
+
+        fullname = ' '.join(opts.person)
 
         if opts.graded is not None:
             todo = [p for p in applications
@@ -524,6 +533,16 @@ class Grader(cmd_completer.Cmd_Completer):
             total = len(todo)
 
         done_already = total - len(todo)
+
+        if opts.stat:
+            self.print_grading_stats(opts.what, applications)
+            return
+
+        if self.identity is None:
+            raise ValueError('cannot do grading because identity was not set (use -i param or identity verb)')
+
+        printff('Doing grading for identity {}', self.identity)
+        printff('Press ^C or ^D to stop')
 
         random.shuffle(todo)
         for num, person in enumerate(todo):
