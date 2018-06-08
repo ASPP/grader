@@ -832,18 +832,15 @@ class Grader(cmd_completer.Cmd_Completer):
 
     stat_options = (
         cmd_completer.PagedArgumentParser('stat')
-            .add_argument('-d', '--detailed', action='store_const',
-                          dest='detailed', const=True, default=False,
+            .add_argument('-d', '--detailed', action='store_true', default=False,
                           help='display detailed statistics')
             .add_argument('--use-labels', action='store_true',
                           help='use labels in ranking (DECLINED at the bottom, etc.)')
-            .add_argument('-L', '--highlanders', action='store_const',
-                          dest='highlanders', const=True, default=False,
+            .add_argument('-L', '--highlanders', action='store_true',
                           help='display statistics only for highlanders')
-            .add_argument('-l', '--label', type=str,
+            .add_argument('-l', '--label',
                           help='display statistics only for people with label')
-            .add_argument('--edition', type=str, dest='edition',
-                          default='current',
+            .add_argument('--edition', default='current',
                           help="edition for which we want the stats, e.g. '2010-trento'. "
                                "'all' means all editions 'current' (default) means the"
                                "latest one")
