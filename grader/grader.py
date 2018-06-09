@@ -513,14 +513,13 @@ class Grader(cmd_completer.Cmd_Completer):
             todo = [p for p in applications
                     if opts.graded is all or self._get_grading(p, opts.what) == opts.graded]
             total = len(todo)
+        elif fullname:
+            todo = [p for p in applications if p.fullname == fullname]
+            total = len(todo)
         else:
             todo = [p for p in applications
                     if self._get_grading(p, opts.what) is None]
             total = len(self.applications)
-
-        if fullname:
-            todo = [p for p in todo if p.fullname == fullname]
-            total = len(todo)
 
         if opts.disagreement is not None:
             if opts.disagreement is all:
