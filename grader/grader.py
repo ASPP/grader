@@ -424,6 +424,9 @@ class Grader(cmd_completer.Cmd_Completer):
 
 
     def print_grading_stats(self, what, applications):
+        if pandas is None:
+            print('need pandas to show stats!')
+            return
         grades = pandas.DataFrame(list(self._gradings(p, what)) for p in applications)
         stats = grades.apply(pandas.value_counts, dropna=False).fillna(0)
         stats.rename(index={'nan':'todo', 'NaN':'todo'}, inplace=True)
