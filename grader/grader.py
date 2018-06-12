@@ -798,8 +798,8 @@ class Grader(cmd_completer.Cmd_Completer):
         ranked = self._ranked(people, use_labels=opts.use_labels)
         fullname_width = min(max(len(field) for field in ranked.fullname), opts.width)
         email_width = max(len(field) for field in ranked.email) + 2
-        institute_width = min(max(len(field) for field in ranked.institute), opts.width)
-        group_width = min(max(len(field) for field in ranked.group), opts.width)
+        institute_width = min(max(len(self._equiv_master(field)) for field in ranked.institute), opts.width)
+        group_width = min(max(len(self._equiv_master(field)) for field in ranked.group), opts.width)
         affiliation_width = min(max(len(field) for field in ranked.affiliation), COUNTRY_WIDTH)
         nationality_width = min(max(len(field) for field in ranked.nationality), COUNTRY_WIDTH)
         labels_width = max(len(str(self.applications.get_labels(field)))
@@ -825,13 +825,17 @@ class Grader(cmd_completer.Cmd_Completer):
                 line_color = COLOR['cyan']
             else:
                 line_color = COLOR['grey']
+
+            group = self._equiv_master(person.group)
+            institute = self._equiv_master(person.institute)
+
             printf(line_color + fmt + COLOR['default'], pos + 1, p=person,
                    email='<{}>'.format(person.email),
                    fullname_width=fullname_width, email_width=email_width,
                    institute='—' if person.samelab else
-                             ellipsize(person.institute, opts.width),
+                             ellipsize(institute, opts.width),
                    institute_width=institute_width,
-                   group=ellipsize(person.group, opts.width),
+                   group=ellipsize(group, opts.width),
                    group_width=group_width,
                    nationality=ellipsize(person.nationality, nationality_width),
                    nationality_width=nationality_width,
