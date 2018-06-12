@@ -509,9 +509,6 @@ class Grader(cmd_completer.Cmd_Completer):
 
         fullname = ' '.join(opts.person)
 
-        if opts.disagreement:
-            opts.graded = True
-
         if opts.graded is not None:
             todo = [p for p in applications
                     if opts.graded is all or self._get_grading(p, opts.what) == opts.graded]
