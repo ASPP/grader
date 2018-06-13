@@ -26,6 +26,7 @@ def our_configfile(filename):
             programming_rating=float,
             open_source_rating=float,
             python_rating=float,
+            vcs_rating=float,
             groups_parameters=int,
             groups_gender_rating=float,
             groups_python_rating=float,

@@ -76,6 +76,7 @@ position: {p.position}{position_other}
 appl.prev.: {p.applied} {p.napplied}
 programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
+vcs: {p.vcs} [{vcs_score}]
 open source: {p.open_source}{open_source_description} [{open_source_score}]
 vcs: {p.vcs}
 '''
@@ -101,6 +102,7 @@ appl.prev.: {p.applied} {p.napplied}
 position: {p.position}{position_other}
 programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
+vcs: {p.vcs} [{vcs_score}]
 open source: {p.open_source}{open_source_description} [{open_source_score}]
 vcs: {p.vcs}
 motivation: %(bold)s{motivation}%(default)s\
@@ -125,6 +127,7 @@ _RANK_FMT_SHORT = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
 _RANK_FMT_DETAILED = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' [{motivation_scores}] [appl: {p.applied} {p.napplied}]'
                  ' [prog: {programming_score}] [python: {python_score}]'
+                 ' [prog: {vcs_score}] [vcs: {vcs_score}]'
                  ' [os: {open_source_score}]'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}')
 _RANK_FMT_COUNTRY = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
@@ -266,6 +269,9 @@ class Grader(cmd_completer.Cmd_Completer):
     @property
     def python_rating(self):
         return self.config['python_rating']
+    @property
+    def vcs_rating(self):
+        return self.config['vcs_rating']
 
     def _complete_name(self, prefix):
         """Return a list of dictionaries {name -> [last-name+]}
@@ -386,6 +392,8 @@ class Grader(cmd_completer.Cmd_Completer):
                               p.open_source, '-'),
                python_score=\
                    get_rating('python', self.python_rating, p.python, '-'),
+               vcs_score=\
+                   get_rating('vcs', self.vcs_rating, p.vcs, '-'),
                cv=cv,
                motivation=motivation,
                motivation_scores=self._gradings(p, 'motivation'),
@@ -483,6 +491,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                                self.programming_rating,
                                                self.open_source_rating,
                                                self.python_rating,
+                                               self.vcs_rating,
                                                self._applied_range())
 
             printf('formula = {}', self.formula)
@@ -713,6 +722,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                            self.programming_rating,
                                            self.open_source_rating,
                                            self.python_rating,
+                                           self.vcs_rating,
                                            self._applied_range())
 
         for person in self.applications:
@@ -722,6 +732,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                        self.programming_rating,
                                        self.open_source_rating,
                                        self.python_rating,
+                                       self.vcs_rating,
                                        self._gradings(person, 'motivation'),
                                        minsc, maxsc,
                                        labels,
@@ -854,6 +865,9 @@ class Grader(cmd_completer.Cmd_Completer):
                    python_score=\
                        get_rating('python', self.python_rating,
                                   person.python, '-'),
+                   vcs_score=\
+                       get_rating('vcs', self.vcs_rating,
+                                  person.vcs, '-'),
                    )
 
     stat_options = (
@@ -1184,7 +1198,7 @@ def get_rating(name, dict, key, fallback=None):
 
     Throws ValueError is rating is not present.
     """
-    key = key.partition('(')[0].partition('/')[0].strip()
+    key = key.partition('(')[0].partition('/')[0].strip().partition(',')[0].strip()
     try:
         return dict[key]
     except KeyError:
@@ -1204,13 +1218,13 @@ def gender_to_formula_label(label):
     return KNOWN_GENDER_LABELS[label.lower()]
 
 def rank_person(person, formula, location,
-                programming_rating, open_source_rating, python_rating,
+                programming_rating, open_source_rating, python_rating, vcs_rating,
                 motivation_scores, minsc, maxsc, labels,
                 applied):
     "Apply formula to person and return score"
     vars = {}
-    for attr, dict in zip(('programming', 'open_source', 'python'),
-                          (programming_rating, open_source_rating, python_rating)):
+    for attr, dict in zip(('programming', 'open_source', 'python', 'vcs'),
+                          (programming_rating, open_source_rating, python_rating, vcs_rating)):
         key = getattr(person, attr)
         value = get_rating(attr, dict, key)
         vars[attr] = value
@@ -1255,7 +1269,7 @@ def find_names(formula):
                       if toknum == token.NAME and not keyword.iskeyword(tokval))
 
 def find_min_max(formula, location,
-                 programming_rating, open_source_rating, python_rating,
+                 programming_rating, open_source_rating, python_rating, vcs_rating,
                  applied):
     # Coordinate with rank_person!
     # Labels are excluded from this list, they add "extra" points.
@@ -1272,6 +1286,7 @@ def find_min_max(formula, location,
         programming=programming_rating.values(),
         open_source=open_source_rating.values(),
         python=python_rating.values(),
+        vcs=vcs_rating.values(),
         labels=())
     needed = list(_yield_values(n, *choices[n]) for n in find_names(formula))
     options = tuple(itertools.product(*needed))
