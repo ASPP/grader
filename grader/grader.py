@@ -927,7 +927,7 @@ class Grader(cmd_completer.Cmd_Completer):
 
         length = {var: len(counters[var]) for var in observables}
         applicants = len(pool)
-        FMT_STAT = '{:<24.24} = {:>5d}'
+        FMT_STAT = '{:<26.26} = {:>5d}'
         FMT_STAP = FMT_STAT + ' ({:4.1f}%)'
         printf(FMT_STAT, 'Pool', applicants)
         printf(FMT_STAT, 'Nationalities', length['nationality'])
@@ -936,12 +936,11 @@ class Grader(cmd_completer.Cmd_Completer):
         # normalise gender counters (old editions used capitalized gender names)
         g['female'] = g['female'] + g['Female']
         g['male'] = g['male'] + g['Male']
+        printf(FMT_STAP, 'Gender: Other',  g['other'],  g['other'] / applicants * 100)
         printf(FMT_STAP, 'Gender: Female', g['female'], g['female'] / applicants * 100)
-        printf(FMT_STAP, 'Female', g['female'], g['female'] / applicants * 100)
-        printf(FMT_STAP, 'Male',   g['male'],   g['male'] / applicants * 100)
-        printf(FMT_STAP, 'Other',  g['other'],  g['other'] / applicants * 100)
+        printf(FMT_STAP, 'Gender: Male', g['male'],   g['male'] / applicants * 100)
         for pos in counters['position'].most_common():
-            printf(FMT_STAP, pos[0], pos[1], pos[1] / applicants * 100)
+            printf(FMT_STAP, 'Position: '+pos[0], pos[1], pos[1] / applicants * 100)
         if detailed:
             for var in observables:
                 print('--\n'+var.upper())
