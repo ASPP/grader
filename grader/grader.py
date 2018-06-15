@@ -88,6 +88,7 @@ born: %(bold)s{p.nationality} {p.born}%(default)s
 cv: {cv}
 motivation: {motivation} [{motivation_scores}]
 rank: {p.rank} {p.score} {p.highlander}
+travel-grant: {p.travel_grant}
 {labels_newline}''' % COLOR
 
 AFFILIATION_FMT = '''\
@@ -129,7 +130,8 @@ _RANK_FMT_DETAILED = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' [prog: {programming_score}] [python: {python_score}]'
                  ' [prog: {vcs_score}] [vcs: {vcs_score}]'
                  ' [os: {open_source_score}]'
-                 ' {p.fullname:{fullname_width}} {email:{email_width}}')
+                 ' {p.fullname:{fullname_width}} {email:{email_width}}'
+                 ' {p.travel_grant}')
 _RANK_FMT_COUNTRY = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' {p.fullname:{fullname_width}}'
                  ' {nationality:{nationality_width}} {affiliation:{affiliation_width}}'
