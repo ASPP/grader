@@ -933,6 +933,10 @@ class Grader(cmd_completer.Cmd_Completer):
         printf(FMT_STAT, 'Nationalities', length['nationality'])
         printf(FMT_STAT, 'Countries of affiliation', length['affiliation'])
         g = counters['gender']
+        # normalise gender counters (old editions used capitalized gender names)
+        g['female'] = g['female'] + g['Female']
+        g['male'] = g['male'] + g['Male']
+        printf(FMT_STAP, 'Gender: Female', g['female'], g['female'] / applicants * 100)
         printf(FMT_STAP, 'Female', g['female'], g['female'] / applicants * 100)
         printf(FMT_STAP, 'Male',   g['male'],   g['male'] / applicants * 100)
         printf(FMT_STAP, 'Other',  g['other'],  g['other'] / applicants * 100)
