@@ -520,6 +520,9 @@ class Grader(cmd_completer.Cmd_Completer):
 
         fullname = ' '.join(opts.person)
 
+        if self.identity is None:
+            raise ValueError('cannot do grading because identity was not set (use -i param or identity verb)')
+
         if opts.graded is not None or opts.disagreement:
             grade = opts.graded if opts.graded is not None else all
             todo = [p for p in applications
@@ -551,9 +554,6 @@ class Grader(cmd_completer.Cmd_Completer):
         if opts.stat:
             self.print_grading_stats(opts.what, applications)
             return
-
-        if self.identity is None:
-            raise ValueError('cannot do grading because identity was not set (use -i param or identity verb)')
 
         printff('Doing grading for identity {}', self.identity)
         printff('Press ^C or ^D to stop')
