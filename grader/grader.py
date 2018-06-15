@@ -795,11 +795,13 @@ class Grader(cmd_completer.Cmd_Completer):
         .add_argument('-s', '--short', action='store_const',
                       dest='format', const='short', default='long',
                       help='show only names and emails')\
-        .add_argument('--use-labels', action='store_true',
+        .add_argument('--use-labels', action='store_true', default=True,
                       help='use labels in ranking (DECLINED at the bottom, etc.)')\
+        .add_argument('-n', '--no-labels', action='store_false', dest='use-labels',
+                      help='don\'t use labels in ranking')\
         .add_argument('-l', '--label', nargs='+', default=(),
                       help='show only people with all of those labels')\
-        .add_argument('--format', choices=RANK_FORMATS.keys(),
+        .add_argument('-f', '--format', choices=RANK_FORMATS.keys(),
                       help='use format')\
         .add_argument('-c', '--column-width',
                       dest='width', type=int, default=20,
