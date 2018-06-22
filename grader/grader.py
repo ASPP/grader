@@ -936,9 +936,9 @@ class Grader(cmd_completer.Cmd_Completer):
         # normalise gender counters (old editions used capitalized gender names)
         g['female'] = g['female'] + g['Female']
         g['male'] = g['male'] + g['Male']
-        printf(FMT_STAP, 'Gender: Other',  g['other'],  g['other'] / applicants * 100)
-        printf(FMT_STAP, 'Gender: Female', g['female'], g['female'] / applicants * 100)
-        printf(FMT_STAP, 'Gender: Male', g['male'],   g['male'] / applicants * 100)
+        printf(FMT_STAP, 'Gender: other',  g['other'],  g['other'] / applicants * 100)
+        printf(FMT_STAP, 'Gender: female', g['female'], g['female'] / applicants * 100)
+        printf(FMT_STAP, 'Gender: male', g['male'],   g['male'] / applicants * 100)
         for pos in counters['position'].most_common():
             printf(FMT_STAP, 'Position: '+pos[0], pos[1], pos[1] / applicants * 100)
         if detailed:
@@ -984,7 +984,7 @@ class Grader(cmd_completer.Cmd_Completer):
         self._wiki_tb_head(('','Applicants', 'Participants'))
 
         # first collect statistics like we do in the do_stat method (DRY ;))))
-        observables = ['born', 'nonmale', 'nationality', 'affiliation',
+        observables = ['born', 'gender', 'nationality', 'affiliation',
                        'position', 'applied', 'napplied', 'open_source',
                        'programming', 'python', 'vcs']
         c_confirmed = {}
@@ -1004,16 +1004,13 @@ class Grader(cmd_completer.Cmd_Completer):
         self._wiki_tb_row(('Countries of affiliation',
                            len(c_applicants['affiliation']),
                            len(c_confirmed['affiliation'])))
-        self._wiki_tb_row(('Female/Other',
-                           self._wiki_pc(c_applicants['nonmale'][True], Na),
-                           self._wiki_pc(c_confirmed['nonmale'][True], Nc)))
-
-        self._wiki_tb_row(('Male',
-                           self._wiki_pc(Na-c_applicants['nonmale'][True], Na),
-                           self._wiki_pc(Nc-c_confirmed['nonmale'][True], Nc)))
+        for gender in ('other', 'female', 'male'):
+            self._wiki_tb_row(('Gender: %s'%gender,
+                               self._wiki_pc(c_applicants['gender'][gender], Na),
+                               self._wiki_pc(c_confirmed['gender'][gender], Nc)))
 
         for pos, count in c_applicants['position'].most_common():
-            self._wiki_tb_row((pos,
+            self._wiki_tb_row(('Position: %s'%pos,
                                self._wiki_pc(count, Na),
                                self._wiki_pc(c_confirmed['position'].get(pos, 0), Nc)))
 
