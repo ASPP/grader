@@ -125,7 +125,10 @@ def parse_applications_csv_file(file, fields_to_col_names_section):
     assert len(csv_header) == len(person_factory._fields)
     count = 0
     while True:
-        entry = next(reader)
+        try:
+            entry = next(reader)
+        except StopIteration:
+            return
         if not entry:
             # skip empty line
             continue
