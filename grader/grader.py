@@ -212,6 +212,9 @@ class Grader(cmd_completer.Cmd_Completer):
             person.applied = 'N'
             person.napplied = 0
             return
+        except IndexError:
+            person.napplied = 0
+            return
         found = 0
         for app_old in self.applications_old.values():
             found += (person.fullname in app_old.applicants.fullname or
