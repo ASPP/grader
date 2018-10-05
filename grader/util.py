@@ -1,7 +1,7 @@
 from . import cmd_completer
 from . import configfile
 
-IDENTITIES = (0, 1, 2)
+IDENTITIES = (0, 1, 2, 3)
 
 section_name = '{}_score-{}'.format
 
