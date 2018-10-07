@@ -275,6 +275,9 @@ class Grader(cmd_completer.Cmd_Completer):
     @property
     def vcs_rating(self):
         return self.config['vcs_rating']
+    @property
+    def underrep_rating(self):
+        return self.config['underrep_rating']
 
     def _complete_name(self, prefix):
         """Return a list of dictionaries {name -> [last-name+]}
@@ -397,6 +400,8 @@ class Grader(cmd_completer.Cmd_Completer):
                    get_rating('python', self.python_rating, p.python, '-'),
                vcs_score=\
                    get_rating('vcs', self.vcs_rating, p.vcs, '-'),
+               underrep_score=\
+                   get_rating('underrep', self.underrep_rating, p.underrep, '-'),
                cv=cv,
                motivation=motivation,
                motivation_scores=self._gradings(p, 'motivation'),
@@ -495,6 +500,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                                self.open_source_rating,
                                                self.python_rating,
                                                self.vcs_rating,
+                                               self.underrep_rating,
                                                self._applied_range())
 
             printf('formula = {}', self.formula)
@@ -570,7 +576,7 @@ class Grader(cmd_completer.Cmd_Completer):
             if not self._grade(person, opts.disagreement is not None):
                 break
 
-    RATING_CATEGORIES = ['programming', 'open_source', 'python']
+    RATING_CATEGORIES = ['programming', 'open_source', 'python', 'underrep']
 
     rate_options = cmd_completer.PagedArgumentParser('rate')\
         .add_argument('-m', '--missing', action='store_true',
@@ -726,6 +732,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                            self.open_source_rating,
                                            self.python_rating,
                                            self.vcs_rating,
+                                           self.underrep_rating,
                                            self._applied_range())
 
         for person in self.applications:
@@ -736,6 +743,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                        self.open_source_rating,
                                        self.python_rating,
                                        self.vcs_rating,
+                                       self.underrep_rating,
                                        self._gradings(person, 'motivation'),
                                        minsc, maxsc,
                                        labels,
@@ -873,6 +881,9 @@ class Grader(cmd_completer.Cmd_Completer):
                    vcs_score=\
                        get_rating('vcs', self.vcs_rating,
                                   person.vcs, '-'),
+                   underrep_score=\
+                       get_rating('underrep', self.underrep_rating,
+                                  person.underrep, '-'),
                    )
 
     stat_options = (
@@ -921,7 +932,7 @@ class Grader(cmd_completer.Cmd_Completer):
         """
         observables = ['born', 'gender', 'nationality', 'affiliation',
                        'position', 'applied', 'napplied', 'open_source',
-                       'programming', 'python', 'vcs']
+                       'programming', 'python', 'vcs', 'underrep']
         counters = {var: collections.Counter(getattr(p, var, NOT_AVAILABLE_LABEL)
                                              for p in pool)
                     for var in observables}
@@ -987,7 +998,7 @@ class Grader(cmd_completer.Cmd_Completer):
         # first collect statistics like we do in the do_stat method (DRY ;))))
         observables = ['born', 'gender', 'nationality', 'affiliation',
                        'position', 'applied', 'napplied', 'open_source',
-                       'programming', 'python', 'vcs']
+                       'programming', 'python', 'vcs', 'underrep']
         c_confirmed = {}
         c_applicants = {}
         for var in observables:
@@ -1227,13 +1238,13 @@ def gender_to_formula_label(label):
     return KNOWN_GENDER_LABELS[label.lower()]
 
 def rank_person(person, formula, location,
-                programming_rating, open_source_rating, python_rating, vcs_rating,
+                programming_rating, open_source_rating, python_rating, vcs_rating, underrep_rating,
                 motivation_scores, minsc, maxsc, labels,
                 applied):
     "Apply formula to person and return score"
     vars = {}
-    for attr, dict in zip(('programming', 'open_source', 'python', 'vcs'),
-                          (programming_rating, open_source_rating, python_rating, vcs_rating)):
+    for attr, dict in zip(('programming', 'open_source', 'python', 'vcs', 'underrep'),
+                          (programming_rating, open_source_rating, python_rating, vcs_rating, underrep_rating)):
         key = getattr(person, attr)
         value = get_rating(attr, dict, key)
         vars[attr] = value
@@ -1278,7 +1289,7 @@ def find_names(formula):
                       if toknum == token.NAME and not keyword.iskeyword(tokval))
 
 def find_min_max(formula, location,
-                 programming_rating, open_source_rating, python_rating, vcs_rating,
+                 programming_rating, open_source_rating, python_rating, vcs_rating, underrep_rating,
                  applied):
     # Coordinate with rank_person!
     # Labels are excluded from this list, they add "extra" points.
@@ -1296,6 +1307,7 @@ def find_min_max(formula, location,
         open_source=open_source_rating.values(),
         python=python_rating.values(),
         vcs=vcs_rating.values(),
+        underrep=underrep_rating.values(),
         labels=())
     needed = list(_yield_values(n, *choices[n]) for n in find_names(formula))
     options = tuple(itertools.product(*needed))
