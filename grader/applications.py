@@ -45,33 +45,6 @@ def build_person_factory(fields):
 
     return Person
 
-def fill_fields_to_col_name_section(fields_section):
-    def add(k, v):
-        fields_section[k] = list_of_equivs(v)
-    for f in """id completed last_page_seen start_language
-                date_last_action date_started
-                ip_address referrer_url
-                gender
-                position institute group nationality
-                python
-                name email
-                token""".split():
-        add(f, f.replace('_', ' '))
-    add('affiliation', "Country of Affiliation")
-    add('position_other', "[Other] Position")
-    add('position_other', "Position [Other]")
-    add('applied', "Did you already apply")
-    add('programming', "estimate your programming skills")
-    add('programming_description', "programming experience")
-    add('open_source', "exposure to open-source")
-    add('open_source_description', "description of your contrib")
-    add('motivation', "appropriate course for your skill profile")
-    add('cv', "curriculum vitae")
-    add('lastname', "Last name")
-    add('born', "Year of birth")
-    add('vcs', "Do you habitually use a Version Control System for your software projects? If yes, which one?")
-    return fields_section
-
 def col_name_to_field(description, fields_to_col_names):
     """Return the name of a field for this description. Must be defined.
 

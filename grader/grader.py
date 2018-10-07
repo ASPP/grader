@@ -28,7 +28,6 @@ from .flags import flags as FLAGS
 from . import vector
 
 from .applications import (
-    fill_fields_to_col_name_section,
     parse_applications_csv_file,
     Applications,
 )
@@ -176,7 +175,7 @@ class Grader(cmd_completer.Cmd_Completer):
 
         fields_to_col_names_section = self.config['fields']
         if len(list(fields_to_col_names_section.keys())) == 0:
-            fill_fields_to_col_name_section(fields_to_col_names_section)
+            raise ValueError('[fields] section is mandatory')
 
         # Load applications for current edition.
         with open_no_newlines(application_filenames[0]) as f:
