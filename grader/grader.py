@@ -1203,7 +1203,10 @@ def get_rating(name, dict, key, fallback=None):
 
     Throws MissingRating if rating is not present.
     """
-    key = key.partition('(')[0].partition('/')[0].strip().partition(',')[0].strip()
+    if key == '':
+        key = '(none)'
+    else:
+        key = key.partition('(')[0].partition('/')[0].strip().partition(',')[0].strip()
     try:
         return dict[key]
     except KeyError:
@@ -1216,6 +1219,7 @@ KNOWN_GENDER_LABELS = {
     'male'      : 'M',
     'other'     : 'O',
     'non-binary': 'O',
+    ''          : 'U', # unknown
     'prefer not to say' : 'U'
 }
 def gender_to_formula_label(label):
@@ -1233,7 +1237,7 @@ def rank_person(person, formula, location,
         key = getattr(person, attr)
         value = get_rating(attr, dict, key)
         vars[attr] = value
-    vars.update(born=int(person.born), # if we decide to implement ageism
+    vars.update(born=int(person.born) if person.born else 0, # if we decide to implement ageism
                 gender=gender_to_formula_label(person.gender), # if we decide, …
                                                                # oh we already did
                 nonmale=person.nonmale,
