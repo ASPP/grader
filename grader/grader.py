@@ -34,7 +34,6 @@ from .applications import (
 from .util import (
     list_of_equivs,
     list_of_float,
-    open_no_newlines,
     our_configfile,
     printf,
     printff,
@@ -178,7 +177,7 @@ class Grader(cmd_completer.Cmd_Completer):
             raise ValueError('[fields] section is mandatory')
 
         # Load applications for current edition.
-        with open_no_newlines(application_filenames[0]) as f:
+        with open(application_filenames[0], newline='') as f:
             applicants = parse_applications_csv_file(
                 f, fields_to_col_names_section)
         self.applications = Applications(applicants, self.config)

@@ -10,7 +10,6 @@ from .util import (
     list_of_equivs,
     printf,
     our_configfile,
-    open_no_newlines
 )
 
 
@@ -141,7 +140,7 @@ class Applications:
             config = None
             printf('Warning: no configuration file {}', config_path)
 
-        with open_no_newlines(csv_path) as f:
+        with open(csv_path, newline='') as f:
             applicants = parse_applications_csv_file(
                 f, fields_to_col_names_section)
 

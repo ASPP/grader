@@ -43,10 +43,6 @@ def our_configfile(filename):
     return config
 
 
-def open_no_newlines(filename):
-    return open(filename, newline='')
-
-
 def printf(fmt, *args, **kwargs):
     print(fmt.format(*args, **kwargs))
 
