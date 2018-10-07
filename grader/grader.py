@@ -1190,8 +1190,8 @@ def eval_formula(formula, vars):
         vars.pop('__builtins__', None)
 
 class MissingRating(KeyError):
-    def __str__(self):
-        return '{} not rated for {}'.format(*self.args)
+    def __str__(self, *args):
+        return '{} not rated for "{}"'.format(*self.args)
     @property
     def key(self):
         return self.args[1]
@@ -1201,17 +1201,15 @@ def get_rating(name, dict, key, fallback=None):
 
     Explanation in () or after / is ignored in the key.
 
-    Throws ValueError is rating is not present.
+    Throws MissingRating if rating is not present.
     """
     key = key.partition('(')[0].partition('/')[0].strip().partition(',')[0].strip()
     try:
         return dict[key]
     except KeyError:
-        if fallback is None:
-            raise MissingRating(name, key)
-            # raise ... from None, when implemented!
-        else:
+        if fallback is not None:
             return fallback
+    raise MissingRating(name, key)
 
 KNOWN_GENDER_LABELS = {
     'female'    : 'F',
