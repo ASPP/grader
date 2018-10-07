@@ -52,30 +52,49 @@ def col_name_to_field(description, fields_to_col_names):
     - [other] position <=> position_other,
     - curriculum vitae <=> Please type in a short curriculum vitae...
     """
+    if description[0] == description[-1] == '"':
+        # why this doesn't get stripped automatically is beyond me
+        description = description[1:-1]
+
+    # Recent versions of limesurvey set the descriptions as "KEY. Blah
+    # blah" or "KEY[other]. Blah blah". Let's match the first part only.
+    desc, _, _ = description.partition('.')
+
+    candidates = set()
     for key, values in fields_to_col_names.items():
-        if description.lower() == key.lower():
+        if desc.lower() == key:
             return key
-    candidates = {}
-    for key, values in fields_to_col_names.items():
         for spelling in values:
-            if spelling.lower() in description.lower():
-                candidates[spelling] = key
-    if candidates:
-        ans = candidates[sorted(candidates.keys(), key=len)[-1]]
-        return ans
+            if spelling == '':
+                continue
+            if desc == spelling:
+                return key
+            if spelling in desc:
+                candidates.add(key)
+                break # don't try other spellings for the same key
+    if len(candidates) == 1:
+        return candidates.pop()
+    if len(candidates) > 1:
+        print(f'TOO MANY CANDIDATES for {description}: {candidates}')
     raise KeyError(description)
 
 @vector.vectorize
 def csv_header_to_fields(header, fields_to_col_names_section):
+    pprint.pprint(list(fields_to_col_names_section.items()))
+
     failed = None
+    seen = {}
     for name in header:
         try:
-            yield col_name_to_field(name, fields_to_col_names_section)
+            conv = col_name_to_field(name, fields_to_col_names_section)
+            if conv in seen:
+                raise ValueError(f'Both "{name}" and "{seen[conv]}" map to "{conv}".')
+            seen[conv] = name
+            yield conv
         except KeyError as e:
-            printf("unknown field: '{}'".format(name))
+            printf(f"unknown field: '{name}'")
             failed = e
     if failed:
-        pprint.pprint(list(fields_to_col_names_section.items()))
         raise failed
 
 @vector.vectorize
