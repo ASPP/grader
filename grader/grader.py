@@ -1214,9 +1214,11 @@ def get_rating(name, dict, key, fallback=None):
             return fallback
 
 KNOWN_GENDER_LABELS = {
-    'female' : 'F',
-    'male'   : 'M',
-    'other'  : 'O',
+    'female'    : 'F',
+    'male'      : 'M',
+    'other'     : 'O',
+    'non-binary': 'O',
+    'prefer not to say' : 'U'
 }
 def gender_to_formula_label(label):
     "Convert a gender label from the survey into a single-letter label"
@@ -1281,7 +1283,7 @@ def find_min_max(formula, location,
     # And we would have to test all combinations of labels, which can be slow.
     choices = dict(
         born=(1900, 2012),
-        gender=tuple(KNOWN_GENDER_LABELS.values()),
+        gender=tuple(set(KNOWN_GENDER_LABELS.values())),
         nonmale=(0, 1),
         applied=(0, max(applied)),
         nationality=('Nicaragua', 'Československo', location),
