@@ -177,7 +177,7 @@ class Grader(cmd_completer.Cmd_Completer):
             raise ValueError('[fields] section is mandatory')
 
         # Load applications for current edition.
-        with open(application_filenames[0], newline='') as f:
+        with open(application_filenames[0], newline='', encoding='utf-8-sig') as f:
             applicants = parse_applications_csv_file(
                 f, fields_to_col_names_section)
         self.applications = Applications(applicants, self.config)

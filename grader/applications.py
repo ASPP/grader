@@ -140,7 +140,7 @@ class Applications:
             config = None
             printf('Warning: no configuration file {}', config_path)
 
-        with open(csv_path, newline='') as f:
+        with open(csv_path, newline='', encoding='utf-8-sig') as f:
             applicants = parse_applications_csv_file(
                 f, fields_to_col_names_section)
 
