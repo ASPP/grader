@@ -7,6 +7,7 @@ import keyword
 import logging
 import math
 import numbers
+import numpy as np
 import operator
 import os
 import pprint
@@ -148,6 +149,17 @@ COUNTRY_WIDTH = 10
 
 NOT_AVAILABLE_LABEL = 'NOT AVAILABLE'
 
+
+def equal(a, b):
+    # Fuck people who designed this nan != nan crap.
+    # Fuck people who implemented it in Python like blind sheep.
+    if isinstance(a, float) and isinstance(b, float):
+        if np.isnan(a) == np.isnan(b):
+            return True
+        if np.isnan(a) != np.isnan(b):
+            return False
+        # use normal comparison otherwise
+    return a == b
 
 class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
@@ -649,6 +661,7 @@ class Grader(cmd_completer.Cmd_Completer):
         default = old_score if old_score is not None else ''
         self._dumpone(person, format='motivation')
         scores = ['%({})s{}%(default)s'.format('bold' if score is None else
+                                               'violet' if np.isnan(score) else
                                                'red' if score < 0 else
                                                'green' if score > 0 else
                                                'bold', score) % COLOR
@@ -661,6 +674,7 @@ class Grader(cmd_completer.Cmd_Completer):
             except EOFError:
                 print()
                 return False
+
             if choice == 's' or choice == '' and default == '':
                 printff('person skipped')
                 return True
@@ -676,19 +690,25 @@ class Grader(cmd_completer.Cmd_Completer):
                 continue
             elif choice == '':
                 choice = default
-            if choice == '+':
+            elif choice == '+':
                 choice = SCORE_RANGE[-1]
             elif choice == '-':
                 choice = SCORE_RANGE[0]
+            elif 'abstain'.startswith(choice) and len(choice) >= 3: # abs…
+                choice = np.nan
+
+            if isinstance(choice, float) and np.isnan(choice):
+                break
+
             try:
                 choice = int(choice)
                 if choice not in SCORE_RANGE:
                     raise ValueError('illegal value: {}'.format(choice))
+                break
             except ValueError as e:
                 printff(str(e))
-            else:
-                break
-        if choice != default:
+
+        if not equal(choice, default):
             self._set_grading(person, 'motivation', choice)
         return True
 

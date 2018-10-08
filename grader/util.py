@@ -1,3 +1,5 @@
+import numpy as np
+
 from . import cmd_completer
 from . import configfile
 
@@ -66,7 +68,7 @@ class list_of_float(list):
         valid = [arg for arg in self if arg is not None]
         if not valid:
             return float('nan')
-        return sum(valid) / len(valid)
+        return np.nanmean(valid)
 
 
 class list_of_str(list):
