@@ -32,7 +32,7 @@ def test_applications_from_paths(tmpdir):
     fields_to_col_names_section = {
         'name': ['First name'],
         'lastname': ['Last name'],
-        'email': ['email'],
+        'email': ['Email address'],
     }
 
     applications = Applications.from_paths(
@@ -158,6 +158,7 @@ def test_applications_get_all_labels():
     applications = Applications(applicants, config)
     assert applications.get_all_labels() == {'VEGAN', 'VIP', 'VIPER'}
 
+
 def test_applications_filter_attributes():
     config_string = dedent("""
     [labels]
@@ -172,11 +173,12 @@ def test_applications_filter_attributes():
 
     applications = Applications(applicants, config)
     assert applications.filter(nationality='Italy') == [mario_rossi, lucia_bianchi]
-    assert applications.filter(nationality='Italy', female=True) == [lucia_bianchi]
+    assert applications.filter(nationality='Italy', nonmale=True) == [lucia_bianchi]
     assert applications.filter(nationality='Germany') == [fritz_lang]
     assert applications.filter(nationality='NoCountryForOldMen') == []
     with raises(AttributeError):
         applications.filter(dummy='Error')
+
 
 def test_applications_filter_labels():
     config_string = dedent("""
@@ -199,6 +201,7 @@ def test_applications_filter_labels():
     assert applications.filter(label=('DELTA', 'MIKE', '-', 'ECHO')) == [mario_rossi]
     assert applications.filter(label=('DELTA', 'MIKE', '-', 'ECHO', 'ALFA')) == []
     assert applications.filter(label='NOLABEL') == []
+
 
 def test_applications_iteration():
     config_string = ""
