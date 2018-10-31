@@ -6,14 +6,16 @@ import pprint
 
 from . import vector
 from .util import (
+    list_of_float,
     list_of_str,
-    list_of_equivs,
-    printf,
     our_configfile,
+    printf,
+    section_name,
+    IDENTITIES,
 )
 
 
-def build_person_factory(fields):
+def build_person_factory(fields, scorers):
     class Person(collections.namedtuple('Person', fields)):
         def __init__(self, *args, **kwargs):
             # tuple fields are already set in __new__
@@ -22,6 +24,7 @@ def build_person_factory(fields):
             self.highlander = None
             self.samelab = False
             self.labels = list_of_str()
+            self.motivation_score = {scorer: None for scorer in scorers}
             try:
                 # manually set applied and napplied attributes,
                 # in case this is the first time we run the school
@@ -41,6 +44,10 @@ def build_person_factory(fields):
         def nonmale(self):
             "Return true if gender is 'female' or 'other'"
             return self.gender.lower() != 'male'
+
+        @property
+        def motivation_scores(self):
+            return list_of_float(self.motivation_score.values())
 
     return Person
 
@@ -78,6 +85,7 @@ def col_name_to_field(description, fields_to_col_names):
         print(f'TOO MANY CANDIDATES for {description}: {candidates}')
     raise KeyError(description)
 
+
 @vector.vectorize
 def csv_header_to_fields(header, fields_to_col_names_section):
     pprint.pprint(list(fields_to_col_names_section.items()))
@@ -97,8 +105,9 @@ def csv_header_to_fields(header, fields_to_col_names_section):
     if failed:
         raise failed
 
+
 @vector.vectorize
-def parse_applications_csv_file(file, fields_to_col_names_section):
+def parse_applications_csv_file(file, fields_to_col_names_section, scorers):
     printf("loading '{}'", file.name)
     # let's try to detect the separator
     csv_dialect = csv.Sniffer().sniff(file.read(32768))
@@ -112,7 +121,7 @@ def parse_applications_csv_file(file, fields_to_col_names_section):
     fields = csv_header_to_fields(csv_header, fields_to_col_names_section)
     assert len(fields) == len(csv_header)      # sanity check
     assert len(set(fields)) == len(csv_header) # two columns map to the same field
-    person_factory = build_person_factory(fields)
+    person_factory = build_person_factory(fields, scorers)
     assert len(csv_header) == len(person_factory._fields)
     count = 0
     while True:
@@ -133,16 +142,23 @@ def parse_applications_csv_file(file, fields_to_col_names_section):
 
 class Applications:
 
-    def __init__(self, applicants, config):
+    def __init__(self, applicants, config, scorers=IDENTITIES):
         self.applicants = applicants
         self.config = config
 
         if config is not None:
-            # Add applicant labels from config file to applicant object
+            # Add applicant labels and motivation scores from config file
+            # to applicant object
             for applicant in applicants:
                 labels = config['labels'].get(applicant.fullname,
                                               list_of_str())
                 applicant.labels = labels
+
+                for scorer in scorers:
+                    motivation_name = section_name('motivation', scorer)
+                    score = config[motivation_name].get(applicant.fullname,
+                                                        None)
+                    applicant.motivation_score[scorer] = score
 
     def __getitem__(self, key):
         """Support basic iteration"""
@@ -152,18 +168,19 @@ class Applications:
         return len(self.applicants)
 
     @classmethod
-    def from_paths(cls, config_path, csv_path, fields_to_col_names_section):
+    def from_paths(cls, config_path, csv_path, fields_to_col_names_section,
+                   scorers=IDENTITIES):
         if os.path.exists(config_path):
-            config = our_configfile(config_path)
+            config = our_configfile(config_path, scorers=scorers)
         else:
             config = None
             printf('Warning: no configuration file {}', config_path)
 
         with open(csv_path, newline='', encoding='utf-8-sig') as f:
             applicants = parse_applications_csv_file(
-                f, fields_to_col_names_section)
+                f, fields_to_col_names_section, scorers)
 
-        applications = cls(applicants, config)
+        applications = cls(applicants, config, scorers)
         return applications
 
     def find_applicant_by_fullname(self, fullname):
@@ -199,6 +216,14 @@ class Applications:
         for applicant in self.applicants:
             labels.update(applicant.labels)
         return labels
+
+    def set_motivation_score(self, fullname, score, scorer):
+        # update applicant
+        applicant = self.find_applicant_by_fullname(fullname)
+        applicant.motivation_score[scorer] = score
+        # update config file
+        section = self.config[section_name('motivation', scorer)]
+        section[fullname] = score
 
     def filter(self, **kwargs):
         """Return an iterator over the applications which match certain criteria:

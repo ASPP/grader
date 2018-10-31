@@ -38,7 +38,6 @@ from .util import (
     our_configfile,
     printf,
     printff,
-    section_name,
     IDENTITIES,
 )
 
@@ -191,7 +190,7 @@ class Grader(cmd_completer.Cmd_Completer):
         # Load applications for current edition.
         with open(application_filenames[0], newline='', encoding='utf-8-sig') as f:
             applicants = parse_applications_csv_file(
-                f, fields_to_col_names_section)
+                f, fields_to_col_names_section, scorers=IDENTITIES)
         self.applications = Applications(applicants, self.config)
 
         # Load applications for previous editions.
@@ -416,7 +415,7 @@ class Grader(cmd_completer.Cmd_Completer):
                    get_rating('underrep', self.underrep_rating, p.underrep, '-'),
                cv=cv,
                motivation=motivation,
-               motivation_scores=self._gradings(p, 'motivation'),
+               motivation_scores=p.motivation_scores,
                labels=labels,
                labels_newline=labels + '\n' if labels else '',
                )
@@ -455,7 +454,7 @@ class Grader(cmd_completer.Cmd_Completer):
         if pandas is None:
             print('need pandas to show stats!')
             return
-        grades = pandas.DataFrame(list(self._gradings(p, what)) for p in applications)
+        grades = pandas.DataFrame(list(p.motivation_score) for p in applications)
         stats = grades.apply(pandas.value_counts, dropna=False).fillna(0)
         stats.rename(index={'nan':'todo', 'NaN':'todo'}, inplace=True)
         print(stats)
@@ -537,35 +536,42 @@ class Grader(cmd_completer.Cmd_Completer):
         else:
             applications = list(self.applications)
 
-        fullname = ' '.join(opts.person)
+        # From here on `what` is either `cv` or `motivation`, except that
+        # `cv` is broken (see issue #12), so we will assume
+        # `what == 'motivation'`
 
-        if self.identity is None:
+        fullname = ' '.join(opts.person)
+        scorer = self.identity
+
+        if scorer is None:
             raise ValueError('cannot do grading because identity was not set (use -i param or identity verb)')
 
         if opts.graded is not None or opts.disagreement:
             grade = opts.graded if opts.graded is not None else all
             todo = [p for p in applications
-                    if grade is all or self._get_grading(p, opts.what) == grade]
+                    if grade is all or p.motivation_score[scorer] == grade]
             total = len(todo)
         elif fullname:
             todo = [p for p in applications if p.fullname == fullname]
             total = len(todo)
         else:
             todo = [p for p in applications
-                    if self._get_grading(p, opts.what) is None]
+                    if p.motivation_score[scorer] is None]
             total = len(self.applications)
 
         if opts.disagreement is not None:
             if opts.disagreement is all:
                 todo = [p for p in todo
-                        if (max(self._gradings(p, opts.what), default=0) -
-                            min(self._gradings(p, opts.what), default=0) > 1)]
+                        if (max(p.motivation_scores, default=0) -
+                            min(p.motivation_scores, default=0) > 1)]
             else:
-                todo = [p for p in todo
-                        if (self._get_grading(p, opts.what) is not None and
-                            self._get_grading(p, opts.what, opts.disagreement) is not None and
-                            abs(self._get_grading(p, opts.what) -
-                                self._get_grading(p, opts.what, opts.disagreement)) > 1)]
+                todo = [
+                    p for p in todo
+                    if (p.motivation_score[scorer] is not None and
+                        p.motivation_score[opts.disagreement] is not None and
+                        abs(p.motivation_score[scorer] -
+                            p.motivation_score[opts.disagreement]) > 1)
+                ]
             total = len(todo)
 
         done_already = total - len(todo)
@@ -574,7 +580,7 @@ class Grader(cmd_completer.Cmd_Completer):
             self.print_grading_stats(opts.what, applications)
             return
 
-        printff('Doing grading for identity {}', self.identity)
+        printff('Doing grading for identity {}', scorer)
         printff('Press ^C or ^D to stop')
 
         random.shuffle(todo)
@@ -633,31 +639,19 @@ class Grader(cmd_completer.Cmd_Completer):
                             current[e.key] = value
                             self.modified = True
 
-    def _get_grading(self, person, what, identity=None):
-        if identity is None:
-            identity = self.identity
-        section = self.config[section_name(what, identity)]
-        return section.get(person.fullname, None)
-
-    def _gradings(self, person, what):
-        gen = (
-            self.config[section_name(what, identity)].get(person.fullname, None)
-            for identity in IDENTITIES)
-        return list_of_float(gen)
-
     def _set_grading(self, person, what, score):
         assert isinstance(score, numbers.Number), score
-        section = self.config[section_name(what, self.identity)]
-        section[person.fullname] = score
+        self.applications.set_motivation_score(
+            fullname=person.fullname, score=score, scorer=self.identity)
         printff('{} score set to {}', what, score)
         self.modified = True
 
     def _grade(self, person, disagreement):
         if disagreement:
-            scores = self._gradings(person, 'motivation')
+            scores = person.motivation_scores
         else:
-            scores = [self._get_grading(person, 'motivation')]
-        old_score = self._get_grading(person, 'motivation')
+            scores = [person.motivation_score[self.identity]]
+        old_score = person.motivation_score[self.identity]
         default = old_score if old_score is not None else ''
         self._dumpone(person, format='motivation')
         scores = ['%({})s{}%(default)s'.format('bold' if score is None else
@@ -764,7 +758,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                        self.python_rating,
                                        self.vcs_rating,
                                        self.underrep_rating,
-                                       self._gradings(person, 'motivation'),
+                                       person.motivation_scores,
                                        minsc, maxsc,
                                        labels,
                                        person.napplied)
@@ -888,7 +882,7 @@ class Grader(cmd_completer.Cmd_Completer):
                    affiliation_width=affiliation_width,
                    labels=', '.join(labels),
                    labels_width=labels_width,
-                   motivation_scores=self._gradings(person, 'motivation'),
+                   motivation_scores=person.motivation_scores,
                    programming_score=\
                        get_rating('programming', self.programming_rating,
                                   person.programming, '-'),
