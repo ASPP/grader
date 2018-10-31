@@ -8,9 +8,7 @@ from . import vector
 from .util import (
     list_of_float,
     list_of_str,
-    list_of_equivs,
     our_configfile,
-    open_no_newlines,
     printf,
     section_name,
     IDENTITIES,
@@ -43,43 +41,15 @@ def build_person_factory(fields, scorers):
             return '{p.name} {p.lastname}'.format(p=self)
 
         @property
-        def female(self):
-            return self.gender == 'Female'
+        def nonmale(self):
+            "Return true if gender is 'female' or 'other'"
+            return self.gender.lower() != 'male'
 
         @property
         def motivation_scores(self):
             return list_of_float(self.motivation_score.values())
 
     return Person
-
-
-def fill_fields_to_col_name_section(fields_section):
-    def add(k, v):
-        fields_section[k] = list_of_equivs(v)
-    for f in """id completed last_page_seen start_language
-                date_last_action date_started
-                ip_address referrer_url
-                gender
-                position institute group nationality
-                python
-                name email
-                token""".split():
-        add(f, f.replace('_', ' '))
-    add('affiliation', "Country of Affiliation")
-    add('position_other', "[Other] Position")
-    add('position_other', "Position [Other]")
-    add('applied', "Did you already apply")
-    add('programming', "estimate your programming skills")
-    add('programming_description', "programming experience")
-    add('open_source', "exposure to open-source")
-    add('open_source_description', "description of your contrib")
-    add('motivation', "appropriate course for your skill profile")
-    add('cv', "curriculum vitae")
-    add('lastname', "Last name")
-    add('born', "Year of birth")
-    add('vcs', "Do you habitually use a Version Control System for your software projects? If yes, which one?")
-    return fields_section
-
 
 def col_name_to_field(description, fields_to_col_names):
     """Return the name of a field for this description. Must be defined.
@@ -89,45 +59,86 @@ def col_name_to_field(description, fields_to_col_names):
     - [other] position <=> position_other,
     - curriculum vitae <=> Please type in a short curriculum vitae...
     """
+    if description[0] == description[-1] == '"':
+        # why this doesn't get stripped automatically is beyond me
+        description = description[1:-1]
+
+    # Recent versions of limesurvey set the descriptions as "KEY. Blah
+    # blah" or "KEY[other]. Blah blah". Let's match the first part only.
+    desc, _, _ = description.partition('.')
+
+    candidates = set()
     for key, values in fields_to_col_names.items():
-        if description.lower() == key.lower():
+        if desc.lower() == key:
             return key
-    candidates = {}
-    for key, values in fields_to_col_names.items():
         for spelling in values:
-            if spelling.lower() in description.lower():
-                candidates[spelling] = key
-    if candidates:
-        ans = candidates[sorted(candidates.keys(), key=len)[-1]]
-        return ans
+            if spelling == '':
+                continue
+            if desc == spelling:
+                return key
+            if spelling in desc:
+                candidates.add(key)
+                break # don't try other spellings for the same key
+    if len(candidates) == 1:
+        return candidates.pop()
+    if len(candidates) > 1:
+        print(f'TOO MANY CANDIDATES for {description}: {candidates}')
     raise KeyError(description)
+
+
+@vector.vectorize
+def csv_header_to_fields(header, fields_to_col_names_section):
+    pprint.pprint(list(fields_to_col_names_section.items()))
+
+    failed = None
+    seen = {}
+    for name in header:
+        try:
+            conv = col_name_to_field(name, fields_to_col_names_section)
+            if conv in seen:
+                raise ValueError(f'Both "{name}" and "{seen[conv]}" map to "{conv}".')
+            seen[conv] = name
+            yield conv
+        except KeyError as e:
+            printf(f"unknown field: '{name}'")
+            failed = e
+    if failed:
+        raise failed
 
 
 @vector.vectorize
 def parse_applications_csv_file(file, fields_to_col_names_section, scorers):
     printf("loading '{}'", file.name)
-    reader = csv.reader(file)
+    # let's try to detect the separator
+    csv_dialect = csv.Sniffer().sniff(file.read(32768))
+    # manually set doublequote (the sniffer doesn't get it automatically)
+    csv_dialect.doublequote = True
+    # rewind
+    file.seek(0)
+    # now the CSV reader should be setup
+    reader = csv.reader(file, dialect=csv_dialect)
     csv_header = next(reader)
     fields = csv_header_to_fields(csv_header, fields_to_col_names_section)
+    assert len(fields) == len(csv_header)      # sanity check
+    assert len(set(fields)) == len(csv_header) # two columns map to the same field
     person_factory = build_person_factory(fields, scorers)
     assert len(csv_header) == len(person_factory._fields)
+    count = 0
     while True:
-        yield person_factory(*next(reader))
-
-
-@vector.vectorize
-def csv_header_to_fields(header, fields_to_col_names_section):
-    failed = None
-    for name in header:
         try:
-            yield col_name_to_field(name, fields_to_col_names_section)
-        except KeyError as e:
-            printf("unknown field: '{}'".format(name))
-            failed = e
-    if failed:
-        pprint.pprint(list(fields_to_col_names_section.items()))
-        raise failed
-
+            entry = next(reader)
+        except StopIteration:
+            return
+        if not entry:
+            # skip empty line
+            continue
+        count += 1
+        try:
+            yield person_factory(*entry)
+        except Exception as exp:
+            print("Exception raised on entry %d:"%count, exp)
+            print('Detected fields:', fields)
+            import pdb; pdb.set_trace()
 
 class Applications:
 
@@ -163,9 +174,9 @@ class Applications:
             config = our_configfile(config_path, scorers=scorers)
         else:
             config = None
-            printf('Warning: no configuration file found in {}', config_path)
+            printf('Warning: no configuration file {}', config_path)
 
-        with open_no_newlines(csv_path) as f:
+        with open(csv_path, newline='', encoding='utf-8-sig') as f:
             applicants = parse_applications_csv_file(
                 f, fields_to_col_names_section, scorers)
 

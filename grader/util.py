@@ -1,7 +1,9 @@
+import numpy as np
+
 from . import cmd_completer
 from . import configfile
 
-IDENTITIES = (0, 1, 2)
+IDENTITIES = (0, 1, 2, 3)
 
 section_name = '{}_score-{}'.format
 
@@ -26,6 +28,8 @@ def our_configfile(filename, scorers=IDENTITIES):
             programming_rating=float,
             open_source_rating=float,
             python_rating=float,
+            vcs_rating=float,
+            underrep_rating=float,
             groups_parameters=int,
             groups_gender_rating=float,
             groups_python_rating=float,
@@ -40,10 +44,6 @@ def our_configfile(filename, scorers=IDENTITIES):
             **kw,
         )
     return config
-
-
-def open_no_newlines(filename):
-    return open(filename, newline='')
 
 
 def printf(fmt, *args, **kwargs):
@@ -68,7 +68,7 @@ class list_of_float(list):
         valid = [arg for arg in self if arg is not None]
         if not valid:
             return float('nan')
-        return sum(valid) / len(valid)
+        return np.nanmean(valid)
 
 
 class list_of_str(list):

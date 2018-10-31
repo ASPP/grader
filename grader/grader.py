@@ -7,6 +7,7 @@ import keyword
 import logging
 import math
 import numbers
+import numpy as np
 import operator
 import os
 import pprint
@@ -18,19 +19,22 @@ import textwrap
 import token
 import tokenize
 import traceback
+try:
+    import pandas
+except ImportError:
+    pandas = None
 
 from . import cmd_completer
 from .flags import flags as FLAGS
 from . import vector
 
 from .applications import (
-    fill_fields_to_col_name_section,
     parse_applications_csv_file,
     Applications,
 )
 from .util import (
     list_of_equivs,
-    open_no_newlines,
+    list_of_float,
     our_configfile,
     printf,
     printff,
@@ -70,6 +74,7 @@ position: {p.position}{position_other}
 appl.prev.: {p.applied} {p.napplied}
 programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
+vcs: {p.vcs} [{vcs_score}]
 open source: {p.open_source}{open_source_description} [{open_source_score}]
 vcs: {p.vcs}
 '''
@@ -81,6 +86,7 @@ born: %(bold)s{p.nationality} {p.born}%(default)s
 cv: {cv}
 motivation: {motivation} [{motivation_scores}]
 rank: {p.rank} {p.score} {p.highlander}
+travel-grant: {p.travel_grant}
 {labels_newline}''' % COLOR
 
 AFFILIATION_FMT = '''\
@@ -91,11 +97,11 @@ rank: {p.rank} {p.score} {p.highlander}
 ''' % COLOR
 
 MOTIVATION_DUMP_FMT = '''\
-cv: {cv}
 appl.prev.: {p.applied} {p.napplied}
 position: {p.position}{position_other}
 programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
+vcs: {p.vcs} [{vcs_score}]
 open source: {p.open_source}{open_source_description} [{open_source_score}]
 vcs: {p.vcs}
 motivation: %(bold)s{motivation}%(default)s\
@@ -120,8 +126,10 @@ _RANK_FMT_SHORT = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
 _RANK_FMT_DETAILED = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' [{motivation_scores}] [appl: {p.applied} {p.napplied}]'
                  ' [prog: {programming_score}] [python: {python_score}]'
+                 ' [prog: {vcs_score}] [vcs: {vcs_score}]'
                  ' [os: {open_source_score}]'
-                 ' {p.fullname:{fullname_width}} {email:{email_width}}')
+                 ' {p.fullname:{fullname_width}} {email:{email_width}}'
+                 ' {p.travel_grant}')
 _RANK_FMT_COUNTRY = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' {p.fullname:{fullname_width}}'
                  ' {nationality:{nationality_width}} {affiliation:{affiliation_width}}'
@@ -140,6 +148,17 @@ COUNTRY_WIDTH = 10
 
 NOT_AVAILABLE_LABEL = 'NOT AVAILABLE'
 
+
+def equal(a, b):
+    # Fuck people who designed this nan != nan crap.
+    # Fuck people who implemented it in Python like blind sheep.
+    if isinstance(a, float) and isinstance(b, float):
+        if np.isnan(a) == np.isnan(b):
+            return True
+        if np.isnan(a) != np.isnan(b):
+            return False
+        # use normal comparison otherwise
+    return a == b
 
 class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
@@ -166,10 +185,10 @@ class Grader(cmd_completer.Cmd_Completer):
 
         fields_to_col_names_section = self.config['fields']
         if len(list(fields_to_col_names_section.keys())) == 0:
-            fill_fields_to_col_name_section(fields_to_col_names_section)
+            raise ValueError('[fields] section is mandatory')
 
         # Load applications for current edition.
-        with open_no_newlines(application_filenames[0]) as f:
+        with open(application_filenames[0], newline='', encoding='utf-8-sig') as f:
             applicants = parse_applications_csv_file(
                 f, fields_to_col_names_section, scorers=IDENTITIES)
         self.applications = Applications(applicants, self.config)
@@ -200,6 +219,9 @@ class Grader(cmd_completer.Cmd_Completer):
             # this is the first instance of the school and we did not
             # ask about previous participation
             person.applied = 'N'
+            person.napplied = 0
+            return
+        except IndexError:
             person.napplied = 0
             return
         found = 0
@@ -261,6 +283,12 @@ class Grader(cmd_completer.Cmd_Completer):
     @property
     def python_rating(self):
         return self.config['python_rating']
+    @property
+    def vcs_rating(self):
+        return self.config['vcs_rating']
+    @property
+    def underrep_rating(self):
+        return self.config['underrep_rating']
 
     def _complete_name(self, prefix):
         """Return a list of dictionaries {name -> [last-name+]}
@@ -362,6 +390,10 @@ class Grader(cmd_completer.Cmd_Completer):
         open_source_description = ('\n             {}'.format(osd)
                                    if p.open_source_description else '')
         labels = self.applications.get_labels(p.fullname)
+        if format == 'motivation':
+            # hide identifying info from motivation text if in grading mode
+            motivation = motivation.replace(p.name, '–')
+            motivation = motivation.replace(p.lastname, '–')
         if labels:
             labels = '[{}] '.format(labels)
         printf(DUMP_FMTS[format],
@@ -377,6 +409,10 @@ class Grader(cmd_completer.Cmd_Completer):
                               p.open_source, '-'),
                python_score=\
                    get_rating('python', self.python_rating, p.python, '-'),
+               vcs_score=\
+                   get_rating('vcs', self.vcs_rating, p.vcs, '-'),
+               underrep_score=\
+                   get_rating('underrep', self.underrep_rating, p.underrep, '-'),
                cv=cv,
                motivation=motivation,
                motivation_scores=p.motivation_scores,
@@ -413,9 +449,21 @@ class Grader(cmd_completer.Cmd_Completer):
                  if re.search(opts.pattern, opts.what(p)))
         self._dump(which, format=opts.format)
 
+
+    def print_grading_stats(self, what, applications):
+        if pandas is None:
+            print('need pandas to show stats!')
+            return
+        grades = pandas.DataFrame(list(p.motivation_score) for p in applications)
+        stats = grades.apply(pandas.value_counts, dropna=False).fillna(0)
+        stats.rename(index={'nan':'todo', 'NaN':'todo'}, inplace=True)
+        print(stats)
+
     grade_options = cmd_completer.PagedArgumentParser('grade')\
         .add_argument('what', choices=['motivation', 'cv', 'formula', 'location'],
                       help='what to grade | set formula | set location')\
+        .add_argument('-s', '--stat', action='store_true',
+                      help='display statics about the grading process itself')\
         .add_argument('-g', '--graded', type=int,
                       nargs='?', const=all, metavar='SCORE',
                       help='grade already graded too, optionally with specified score')\
@@ -435,8 +483,8 @@ class Grader(cmd_completer.Cmd_Completer):
           grade formula ...
         where ... is a python expression using the following variables:
           born: int,
-          gender: 'M' or 'F',
-          female: 0 or 1,
+          gender: 'M' or 'F' or 'O',
+          nonmale: 0 or 1,
           nationality: str,
           affiliation: str,
           motivation: float,
@@ -449,8 +497,6 @@ class Grader(cmd_completer.Cmd_Completer):
         Location is set with:
            set location
         """
-        if self.identity is None:
-            raise ValueError('cannot do grading because identity was not set (use -i param or identity verb)')
 
         opts = self.grade_options.parse_args(arg.split())
         if opts.graded is not None and opts.person:
@@ -464,6 +510,8 @@ class Grader(cmd_completer.Cmd_Completer):
                                                self.programming_rating,
                                                self.open_source_rating,
                                                self.python_rating,
+                                               self.vcs_rating,
+                                               self.underrep_rating,
                                                self._applied_range())
 
             printf('formula = {}', self.formula)
@@ -483,33 +531,33 @@ class Grader(cmd_completer.Cmd_Completer):
             printf('location = {}', self.location)
             return
 
-        # From here on `what` is either `cv` or `motivation`, except that
-        # `cv` is broken (see issue #12), so we will assume
-        # `what == 'motivation'`
-
-        printff('Doing grading for identity {}', self.identity)
-        printff('Press ^C or ^D to stop')
-        fullname = ' '.join(opts.person)
-        scorer = self.identity
-
         if opts.label:
             applications = self.applications.filter(label=opts.label)
         else:
             applications = list(self.applications)
 
-        if opts.graded is not None:
+        # From here on `what` is either `cv` or `motivation`, except that
+        # `cv` is broken (see issue #12), so we will assume
+        # `what == 'motivation'`
+
+        fullname = ' '.join(opts.person)
+        scorer = self.identity
+
+        if scorer is None:
+            raise ValueError('cannot do grading because identity was not set (use -i param or identity verb)')
+
+        if opts.graded is not None or opts.disagreement:
+            grade = opts.graded if opts.graded is not None else all
             todo = [p for p in applications
-                    if opts.graded is all
-                        or p.motivation_score[scorer] == opts.graded]
+                    if grade is all or p.motivation_score[scorer] == grade]
+            total = len(todo)
+        elif fullname:
+            todo = [p for p in applications if p.fullname == fullname]
             total = len(todo)
         else:
             todo = [p for p in applications
                     if p.motivation_score[scorer] is None]
             total = len(self.applications)
-
-        if fullname:
-            todo = [p for p in todo if p.fullname == fullname]
-            total = len(todo)
 
         if opts.disagreement is not None:
             if opts.disagreement is all:
@@ -528,6 +576,13 @@ class Grader(cmd_completer.Cmd_Completer):
 
         done_already = total - len(todo)
 
+        if opts.stat:
+            self.print_grading_stats(opts.what, applications)
+            return
+
+        printff('Doing grading for identity {}', scorer)
+        printff('Press ^C or ^D to stop')
+
         random.shuffle(todo)
         for num, person in enumerate(todo):
             progress = '┃ {:.1%} done, {} left to go ┃'.format((num + done_already) / total,
@@ -539,7 +594,7 @@ class Grader(cmd_completer.Cmd_Completer):
             if not self._grade(person, opts.disagreement is not None):
                 break
 
-    RATING_CATEGORIES = ['programming', 'open_source', 'python']
+    RATING_CATEGORIES = ['programming', 'open_source', 'python', 'underrep']
 
     rate_options = cmd_completer.PagedArgumentParser('rate')\
         .add_argument('-m', '--missing', action='store_true',
@@ -600,6 +655,7 @@ class Grader(cmd_completer.Cmd_Completer):
         default = old_score if old_score is not None else ''
         self._dumpone(person, format='motivation')
         scores = ['%({})s{}%(default)s'.format('bold' if score is None else
+                                               'violet' if np.isnan(score) else
                                                'red' if score < 0 else
                                                'green' if score > 0 else
                                                'bold', score) % COLOR
@@ -612,6 +668,7 @@ class Grader(cmd_completer.Cmd_Completer):
             except EOFError:
                 print()
                 return False
+
             if choice == 's' or choice == '' and default == '':
                 printff('person skipped')
                 return True
@@ -627,19 +684,25 @@ class Grader(cmd_completer.Cmd_Completer):
                 continue
             elif choice == '':
                 choice = default
-            if choice == '+':
+            elif choice == '+':
                 choice = SCORE_RANGE[-1]
             elif choice == '-':
                 choice = SCORE_RANGE[0]
+            elif 'abstain'.startswith(choice) and len(choice) >= 3: # abs…
+                choice = np.nan
+
+            if isinstance(choice, float) and np.isnan(choice):
+                break
+
             try:
                 choice = int(choice)
                 if choice not in SCORE_RANGE:
                     raise ValueError('illegal value: {}'.format(choice))
+                break
             except ValueError as e:
                 printff(str(e))
-            else:
-                break
-        if choice != default:
+
+        if not equal(choice, default):
             self._set_grading(person, 'motivation', choice)
         return True
 
@@ -682,6 +745,8 @@ class Grader(cmd_completer.Cmd_Completer):
                                            self.programming_rating,
                                            self.open_source_rating,
                                            self.python_rating,
+                                           self.vcs_rating,
+                                           self.underrep_rating,
                                            self._applied_range())
 
         for person in self.applications:
@@ -691,6 +756,8 @@ class Grader(cmd_completer.Cmd_Completer):
                                        self.programming_rating,
                                        self.open_source_rating,
                                        self.python_rating,
+                                       self.vcs_rating,
+                                       self.underrep_rating,
                                        person.motivation_scores,
                                        minsc, maxsc,
                                        labels,
@@ -751,11 +818,13 @@ class Grader(cmd_completer.Cmd_Completer):
         .add_argument('-s', '--short', action='store_const',
                       dest='format', const='short', default='long',
                       help='show only names and emails')\
-        .add_argument('--use-labels', action='store_true',
+        .add_argument('--use-labels', action='store_true', default=True,
                       help='use labels in ranking (DECLINED at the bottom, etc.)')\
+        .add_argument('-n', '--no-labels', action='store_false', dest='use-labels',
+                      help='don\'t use labels in ranking')\
         .add_argument('-l', '--label', nargs='+', default=(),
                       help='show only people with all of those labels')\
-        .add_argument('--format', choices=RANK_FORMATS.keys(),
+        .add_argument('-f', '--format', choices=RANK_FORMATS.keys(),
                       help='use format')\
         .add_argument('-c', '--column-width',
                       dest='width', type=int, default=20,
@@ -768,8 +837,8 @@ class Grader(cmd_completer.Cmd_Completer):
         ranked = self._ranked(people, use_labels=opts.use_labels)
         fullname_width = min(max(len(field) for field in ranked.fullname), opts.width)
         email_width = max(len(field) for field in ranked.email) + 2
-        institute_width = min(max(len(field) for field in ranked.institute), opts.width)
-        group_width = min(max(len(field) for field in ranked.group), opts.width)
+        institute_width = min(max(len(self._equiv_master(field)) for field in ranked.institute), opts.width)
+        group_width = min(max(len(self._equiv_master(field)) for field in ranked.group), opts.width)
         affiliation_width = min(max(len(field) for field in ranked.affiliation), COUNTRY_WIDTH)
         nationality_width = min(max(len(field) for field in ranked.nationality), COUNTRY_WIDTH)
         labels_width = max(len(str(self.applications.get_labels(field)))
@@ -795,13 +864,17 @@ class Grader(cmd_completer.Cmd_Completer):
                 line_color = COLOR['cyan']
             else:
                 line_color = COLOR['grey']
+
+            group = self._equiv_master(person.group)
+            institute = self._equiv_master(person.institute)
+
             printf(line_color + fmt + COLOR['default'], pos + 1, p=person,
                    email='<{}>'.format(person.email),
                    fullname_width=fullname_width, email_width=email_width,
                    institute='—' if person.samelab else
-                             ellipsize(person.institute, opts.width),
+                             ellipsize(institute, opts.width),
                    institute_width=institute_width,
-                   group=ellipsize(person.group, opts.width),
+                   group=ellipsize(group, opts.width),
                    group_width=group_width,
                    nationality=ellipsize(person.nationality, nationality_width),
                    nationality_width=nationality_width,
@@ -819,22 +892,25 @@ class Grader(cmd_completer.Cmd_Completer):
                    python_score=\
                        get_rating('python', self.python_rating,
                                   person.python, '-'),
+                   vcs_score=\
+                       get_rating('vcs', self.vcs_rating,
+                                  person.vcs, '-'),
+                   underrep_score=\
+                       get_rating('underrep', self.underrep_rating,
+                                  person.underrep, '-'),
                    )
 
     stat_options = (
         cmd_completer.PagedArgumentParser('stat')
-            .add_argument('-d', '--detailed', action='store_const',
-                          dest='detailed', const=True, default=False,
+            .add_argument('-d', '--detailed', action='store_true', default=False,
                           help='display detailed statistics')
             .add_argument('--use-labels', action='store_true',
                           help='use labels in ranking (DECLINED at the bottom, etc.)')
-            .add_argument('-L', '--highlanders', action='store_const',
-                          dest='highlanders', const=True, default=False,
+            .add_argument('-L', '--highlanders', action='store_true',
                           help='display statistics only for highlanders')
-            .add_argument('-l', '--label', type=str,
+            .add_argument('-l', '--label',
                           help='display statistics only for people with label')
-            .add_argument('--edition', type=str, dest='edition',
-                          default='current',
+            .add_argument('--edition', default='current',
                           help="edition for which we want the stats, e.g. '2010-trento'. "
                                "'all' means all editions 'current' (default) means the"
                                "latest one")
@@ -868,36 +944,39 @@ class Grader(cmd_completer.Cmd_Completer):
     def _compute_and_print_stats(self, pool, detailed):
         """ Given a pool of applicants, compute and display some statistics.
         """
-        observables = ['born', 'female', 'nationality', 'affiliation',
+        observables = ['born', 'gender', 'nationality', 'affiliation',
                        'position', 'applied', 'napplied', 'open_source',
-                       'programming', 'python', 'vcs']
-        counter = {}
-        for var in observables:
-            counter[var] = collections.Counter(
-                getattr(p, var, NOT_AVAILABLE_LABEL) for p in pool)
-        length = {var: len(counter[var]) for var in observables}
+                       'programming', 'python', 'vcs', 'underrep']
+        counters = {var: collections.Counter(getattr(p, var, NOT_AVAILABLE_LABEL)
+                                             for p in pool)
+                    for var in observables}
+
+        length = {var: len(counters[var]) for var in observables}
         applicants = len(pool)
-        FMT_STAT = '{:<24.24} = {:>5d}'
+        FMT_STAT = '{:<26.26} = {:>5d}'
         FMT_STAP = FMT_STAT + ' ({:4.1f}%)'
         printf(FMT_STAT, 'Pool', applicants)
         printf(FMT_STAT, 'Nationalities', length['nationality'])
         printf(FMT_STAT, 'Countries of affiliation', length['affiliation'])
-        printf(FMT_STAP, 'Females', counter['female'][True],
-               counter['female'][True] / applicants * 100)
-        printf(FMT_STAP, 'Males', applicants - counter['female'][True],
-               100 - (counter['female'][True]/applicants*100))
-        for pos in counter['position'].most_common():
-            printf(FMT_STAP, pos[0], pos[1], pos[1] / applicants * 100)
+        g = counters['gender']
+        # normalise gender counters (old editions used capitalized gender names)
+        g['female'] = g['female'] + g['Female']
+        g['male'] = g['male'] + g['Male']
+        printf(FMT_STAP, 'Gender: other',  g['other'],  g['other'] / applicants * 100)
+        printf(FMT_STAP, 'Gender: female', g['female'], g['female'] / applicants * 100)
+        printf(FMT_STAP, 'Gender: male', g['male'],   g['male'] / applicants * 100)
+        for pos in counters['position'].most_common():
+            printf(FMT_STAP, 'Position: '+pos[0], pos[1], pos[1] / applicants * 100)
         if detailed:
             for var in observables:
                 print('--\n'+var.upper())
                 if var in ('born', 'napplied'):
                     # years should be sorted numerically and not by popularity
-                    for n in sorted(counter[var].items(),
+                    for n in sorted(counters[var].items(),
                             key=operator.itemgetter(0)):
                         printf(FMT_STAP, str(n[0]), n[1], n[1] / applicants * 100)
                 else:
-                    for n in sorted(counter[var].items(),
+                    for n in sorted(counters[var].items(),
                                     key=operator.itemgetter(1), reverse=True):
                         printf(FMT_STAP, str(n[0]), n[1], n[1] / applicants * 100)
 
@@ -931,9 +1010,9 @@ class Grader(cmd_completer.Cmd_Completer):
         self._wiki_tb_head(('','Applicants', 'Participants'))
 
         # first collect statistics like we do in the do_stat method (DRY ;))))
-        observables = ['born', 'female', 'nationality', 'affiliation',
+        observables = ['born', 'gender', 'nationality', 'affiliation',
                        'position', 'applied', 'napplied', 'open_source',
-                       'programming', 'python', 'vcs']
+                       'programming', 'python', 'vcs', 'underrep']
         c_confirmed = {}
         c_applicants = {}
         for var in observables:
@@ -951,16 +1030,13 @@ class Grader(cmd_completer.Cmd_Completer):
         self._wiki_tb_row(('Countries of affiliation',
                            len(c_applicants['affiliation']),
                            len(c_confirmed['affiliation'])))
-        self._wiki_tb_row(('Females',
-                           self._wiki_pc(c_applicants['female'][True], Na),
-                           self._wiki_pc(c_confirmed['female'][True], Nc)))
-
-        self._wiki_tb_row(('Males',
-                           self._wiki_pc(Na-c_applicants['female'][True], Na),
-                           self._wiki_pc(Nc-c_confirmed['female'][True], Nc)))
+        for gender in ('other', 'female', 'male'):
+            self._wiki_tb_row(('Gender: %s'%gender,
+                               self._wiki_pc(c_applicants['gender'][gender], Na),
+                               self._wiki_pc(c_confirmed['gender'][gender], Nc)))
 
         for pos, count in c_applicants['position'].most_common():
-            self._wiki_tb_row((pos,
+            self._wiki_tb_row(('Position: %s'%pos,
                                self._wiki_pc(count, Na),
                                self._wiki_pc(c_confirmed['position'].get(pos, 0), Nc)))
 
@@ -1139,8 +1215,8 @@ def eval_formula(formula, vars):
         vars.pop('__builtins__', None)
 
 class MissingRating(KeyError):
-    def __str__(self):
-        return '{} not rated for {}'.format(*self.args)
+    def __str__(self, *args):
+        return '{} not rated for "{}"'.format(*self.args)
     @property
     def key(self):
         return self.args[1]
@@ -1150,34 +1226,47 @@ def get_rating(name, dict, key, fallback=None):
 
     Explanation in () or after / is ignored in the key.
 
-    Throws ValueError is rating is not present.
+    Throws MissingRating if rating is not present.
     """
-    key = key.partition('(')[0].partition('/')[0].strip()
+    if key == '':
+        key = '(none)'
+    else:
+        key = key.partition('(')[0].partition('/')[0].strip().partition(',')[0].strip()
     try:
         return dict[key]
     except KeyError:
-        if fallback is None:
-            raise MissingRating(name, key)
-            # raise ... from None, when implemented!
-        else:
+        if fallback is not None:
             return fallback
+    raise MissingRating(name, key)
 
+KNOWN_GENDER_LABELS = {
+    'female'    : 'F',
+    'male'      : 'M',
+    'other'     : 'O',
+    'non-binary': 'O',
+    ''          : 'U', # unknown
+    'prefer not to say' : 'U'
+}
+def gender_to_formula_label(label):
+    "Convert a gender label from the survey into a single-letter label"
+    return KNOWN_GENDER_LABELS[label.lower()]
 
 def rank_person(person, formula, location,
-                programming_rating, open_source_rating, python_rating,
+                programming_rating, open_source_rating, python_rating, vcs_rating, underrep_rating,
                 motivation_scores, minsc, maxsc, labels,
                 applied):
     "Apply formula to person and return score"
     vars = {}
-    for attr, dict in zip(('programming', 'open_source', 'python'),
-                          (programming_rating, open_source_rating, python_rating)):
+    for attr, dict in zip(('programming', 'open_source', 'python', 'vcs', 'underrep'),
+                          (programming_rating, open_source_rating, python_rating, vcs_rating, underrep_rating)):
         key = getattr(person, attr)
         value = get_rating(attr, dict, key)
         vars[attr] = value
-    vars.update(born=int(person.born), # if we decide to implement ageism
-                gender=person.gender, # if we decide, ...
-                                      # oh we already did
-                female=person.female,
+    vars.update(born=int(person.born) if person.born else 0, # if we decide to implement ageism
+                gender=gender_to_formula_label(person.gender), # if we decide, …
+                                                               # oh we already did
+                nonmale=person.nonmale,
+                female=person.nonmale, # a compat mapping for old formulas
                 applied=applied,
                 nationality=person.nationality,
                 affiliation=person.affiliation,
@@ -1214,15 +1303,15 @@ def find_names(formula):
                       if toknum == token.NAME and not keyword.iskeyword(tokval))
 
 def find_min_max(formula, location,
-                 programming_rating, open_source_rating, python_rating,
+                 programming_rating, open_source_rating, python_rating, vcs_rating, underrep_rating,
                  applied):
     # Coordinate with rank_person!
     # Labels are excluded from this list, they add "extra" points.
     # And we would have to test all combinations of labels, which can be slow.
     choices = dict(
         born=(1900, 2012),
-        gender=('M', 'F'),
-        female=(0, 1),
+        gender=tuple(set(KNOWN_GENDER_LABELS.values())),
+        nonmale=(0, 1),
         applied=(0, max(applied)),
         nationality=('Nicaragua', 'Československo', location),
         affiliation=('Československo', 'Nicaragua', location),
@@ -1231,6 +1320,8 @@ def find_min_max(formula, location,
         programming=programming_rating.values(),
         open_source=open_source_rating.values(),
         python=python_rating.values(),
+        vcs=vcs_rating.values(),
+        underrep=underrep_rating.values(),
         labels=())
     needed = list(_yield_values(n, *choices[n]) for n in find_names(formula))
     options = tuple(itertools.product(*needed))
