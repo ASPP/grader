@@ -108,3 +108,14 @@ def test_grader_rank_labels_filter(tmpdir, capsys):
     out, err = capsys.readouterr()
     output_lines = out.replace('-', '').strip().split('\n')[-1:]
     assert 'John Doe' in output_lines[0]
+
+def test_grader_global_conf(tmpdir):
+    localconfig_tmpfile, csv_tmpfile = _tmp_application_files(
+        tmpdir, CONF, CSV_APPLICATIONS)
+    config = our_configfile(localconfig_tmpfile.strpath)
+    # load default config
+    grader = Grader(identity=1,
+                    config=config,
+                    applications=[csv_tmpfile.strpath],
+                    )
+

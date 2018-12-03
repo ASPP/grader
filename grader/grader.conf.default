@@ -1,0 +1,104 @@
+[fields]
+id = id
+completed = completed
+last_page_seen = last page seen
+start_language = start language
+date_last_action = date last action
+date_started = date started
+ip_address = ip address
+referrer_url = referrer url = referring url
+gender = gender
+position = position
+institute = institute = AFF-UNI = INSTITUTION
+group = group = AFF-GROUP
+nationality = nationality = NAT
+python = python
+name = name = FIRST NAME
+email = email
+token = token
+affiliation = Country of Affiliation = AFF-STATE = INSTIT LOC
+position_other = [Other] Position = Position [Other]
+applied = Did you already apply = PREV-APPLICATION
+programming = estimate your programming skills = PROGRAMMING
+programming_description = programming experience
+open_source = exposure to open-source = OPEN SOURCE = OPENSOURCE
+open_source_description = description of your contrib
+motivation = appropriate course for your skill profile = MOTIVATION
+cv = curriculum vitae
+lastname = Last name = SURNAME
+born = Year of birth
+international = international
+neuroscience = NEUROSCIENCE
+vcs = habitually use a Version Control System
+
+[application_lists]
+name = applications.csv
+
+[programming_rating]
+competent = 0.0
+expert = 0.0
+novice = 0.0 
+
+[open_source_rating]
+never used = 0.0
+minor contributions = 0.0
+major contributions = 0.0
+user = 0.0
+project membership = 0.0
+minor contributions (bug reports, mailing lists, ...) = 0.0
+
+[python_rating]
+competent = 0.0
+none = 0.0
+expert = 0.0
+novice = 0.0
+
+[vcs_rating]
+no = 0
+other = 0.0
+git = 0
+
+[formula]
+formula = motivation*0.5 - vcs*.2
+accept_count = 30
+location = Peru
+
+[groups_parameters]
+group_size = 6
+
+[groups_random_seed]
+seed = Lima 2038
+
+[groups_gender_rating]
+male = 1
+female = 1
+other = 1
+
+[groups_python_rating]
+none = 0.0
+novice = 0.0     
+competent = 0.0     
+expert = 0.
+
+[groups_programming_rating]
+novice = 0.0
+competent = 0.0
+expert = 0.0
+
+[groups_vcs_rating]
+no = 0.0
+cvs = 0.0
+subversion = 0.0
+other = 0.0
+git = 0.0
+
+[groups_open_source_rating]
+never = 0.0
+user = 0.0     
+minor = 0.0     
+major = 0.
+project = 0.
+
+
+
+

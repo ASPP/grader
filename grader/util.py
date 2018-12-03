@@ -1,5 +1,8 @@
+import pkg_resources
+
 from . import cmd_completer
 from . import configfile
+
 
 IDENTITIES = (0, 1, 2)
 
@@ -19,26 +22,28 @@ class list_of_equivs(list):
 def our_configfile(filename):
     kw = {section_name('motivation', ident):float
           for ident in IDENTITIES}
-    with open(filename, 'r') as fileobj:
-        config = configfile.ConfigFile(
-            fileobj,
-            application_lists=str,
-            programming_rating=float,
-            open_source_rating=float,
-            python_rating=float,
-            vcs_rating=float,
-            groups_parameters=int,
-            groups_gender_rating=float,
-            groups_python_rating=float,
-            groups_vcs_rating=float,
-            groups_open_source_rating=float,
-            groups_programming_rating=float,
-            groups_random_seed=str,
-            formula=str,
-            equivs=list_of_equivs,
-            labels=list_of_str,
-            fields=list_of_equivs,
-            **kw,
+    # first locate the default config file
+    defaults = pkg_resources.resource_filename('grader', 'grader.conf.default')
+    # this will be merged with the local config file given in filename
+    config = configfile.ConfigFile(
+        (defaults, filename),
+        application_lists=str,
+        programming_rating=float,
+        open_source_rating=float,
+        python_rating=float,
+        vcs_rating=float,
+        groups_parameters=int,
+        groups_gender_rating=float,
+        groups_python_rating=float,
+        groups_vcs_rating=float,
+        groups_open_source_rating=float,
+        groups_programming_rating=float,
+        groups_random_seed=str,
+        formula=str,
+        equivs=list_of_equivs,
+        labels=list_of_str,
+        fields=list_of_equivs,
+        **kw,
         )
     return config
 

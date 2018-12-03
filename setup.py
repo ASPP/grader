@@ -43,7 +43,7 @@ setup(
     packages=find_packages(),
     install_requires=['pytest'],
     package_data={
-        #'sample': ['package_data.dat'],
+        'grader': ['grader.conf.default'],
     },
     entry_points={
         'console_scripts': [
