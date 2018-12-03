@@ -166,13 +166,13 @@ def test_applications_filter_attributes():
 
     person_factory = build_person_factory(['name', 'lastname', 'nationality', 'gender'])
     mario_rossi = person_factory('Mario', 'Rossi', 'Italy', 'Male')
-    lucia_bianchi = person_factory('Lucia', 'Bianchi', 'Italy', 'Female')
+    lucia_bianchi = person_factory('Lucia', 'Bianchi', 'Italy', 'Other')
     fritz_lang = person_factory('Fritz', 'Lang', 'Germany', 'Male')
     applicants = [mario_rossi, fritz_lang, lucia_bianchi]
 
     applications = Applications(applicants, config)
     assert applications.filter(nationality='Italy') == [mario_rossi, lucia_bianchi]
-    assert applications.filter(nationality='Italy', female=True) == [lucia_bianchi]
+    assert applications.filter(nationality='Italy', gender='Other') == [lucia_bianchi]
     assert applications.filter(nationality='Germany') == [fritz_lang]
     assert applications.filter(nationality='NoCountryForOldMen') == []
     with raises(AttributeError):
