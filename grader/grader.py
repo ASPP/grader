@@ -154,10 +154,9 @@ NOT_AVAILABLE_LABEL = 'NOT AVAILABLE'
 class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
     set_completions = cmd_completer.Cmd_Completer.set_completions
-    HISTFILE = '~/.grader_history'
 
-    def __init__(self, identity, config, applications):
-        super().__init__(histfile=self.HISTFILE)
+    def __init__(self, identity, config, applications, history_file=None):
+        super().__init__(histfile=history_file)
 
         self.identity = identity
         self.config = config
@@ -1322,6 +1321,9 @@ grader_options = cmd_completer.ModArgumentParser('grader')\
     .add_argument('-i', '--identity', type=int,
                   choices=IDENTITIES,
                   help='Index of person grading applications')\
+    .add_argument('--history-file', type=str,
+                  default=os.path.join(os.path.expanduser("~"), ".grader_history"),
+                  help='File to record typed in commands')\
     .add_argument('config', type=our_configfile, nargs='?',
                   default=os.path.join(os.getcwd(), 'grader.conf'))\
     .add_argument('applications', type=str, nargs='*',
@@ -1333,7 +1335,7 @@ def main():
     logging.basicConfig(level=logging.INFO)
 
     opts = grader_options.parse_args()
-    cmd = Grader(opts.identity, opts.config, opts.applications)
+    cmd = Grader(opts.identity, opts.config, opts.applications, history_file=opts.history_file)
 
     if sys.stdin.isatty():
         while True:
