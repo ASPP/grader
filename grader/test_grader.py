@@ -3,9 +3,9 @@ from .util import our_configfile
 
 
 CSV_APPLICATIONS = """
-"First name","Last name","Nationality","Affiliation","programming","open_source","applied","python","born","gender","email","group","institute"
-"John","Doe","Italy","Italy","competent","user","No","competent","1978","Male","john.doe@gmail.com","Group A","Institute A"
-"Mary Jane","Smith","Germany","UK","expert","minor contributions","No","competent","1999","Female","mary99@gmail.com","Group B","Institute B"
+"First name","Last name","Nationality","Affiliation","programming","open_source","applied","python","born","gender","email","group","institute","vcs"
+"John","Doe","Italy","Italy","competent","user","No","competent","1978","Male","john.doe@gmail.com","Group A","Institute A","git"
+"Mary Jane","Smith","Germany","UK","expert","minor contributions","No","competent","1999","Female","mary99@gmail.com","Group B","Institute B","other"
 """.strip()
 
 
@@ -17,6 +17,11 @@ formula = (nationality!=affiliation)
 competent = 1.0
 expert = 0.0
 novice = 0.0
+
+[vcs_rating]
+no = 0
+other = 0.5
+git = 1
 
 [open_source_rating]
 never used = 0.0
