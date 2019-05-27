@@ -217,11 +217,11 @@ class Grader(cmd_completer.Cmd_Completer):
             found += (person.fullname in app_old.applicants.fullname or
                       person.email in app_old.applicants.email)
         if found and not declared:
-            printf('warning: person found in list says not applied prev.: {}',
-                   person.fullname)
+            printf('warning: person found in list says not applied prev.: {} <{}>',
+                   person.fullname, person.email)
         if declared and not found:
-            printf('warning: person applied prev. not found on lists: {}',
-                   person.fullname)
+            printf('warning: person applied prev. not found on lists: {} <{}>',
+                   person.fullname, person.email)
         person.napplied = max(declared, found)
 
     def _applied_range(self):
