@@ -88,7 +88,6 @@ born: %(bold)s{p.nationality} {p.born}%(default)s
 cv: {cv}
 motivation: {motivation} [{motivation_scores}]
 rank: {p.rank} {p.score} {p.highlander}
-travel-grant: {p.travel_grant}
 {labels_newline}''' % COLOR
 
 AFFILIATION_FMT = '''\
