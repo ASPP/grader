@@ -886,9 +886,14 @@ class Grader(cmd_completer.Cmd_Completer):
                           'underrep':    self.underrep_rating}
             cat_scores = categorical_scores(person, categories)
 
+            # share the space for name and email to avoid overflows
+            name_width_adj = min(len(person.fullname) - fullname_width, email_width - len(person.email) - 2)
+            name_width_adj = max(name_width_adj, 0)
+
             printf(line_color + fmt + COLOR['default'], pos + 1, p=person,
                    email='<{}>'.format(person.email),
-                   fullname_width=fullname_width, email_width=email_width,
+                   fullname_width=fullname_width + name_width_adj,
+                   email_width=email_width - name_width_adj,
                    institute='—' if person.samelab else
                              ellipsize(institute, opts.width),
                    institute_width=institute_width,
