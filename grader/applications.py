@@ -3,6 +3,7 @@ import csv
 import itertools
 import os
 import pprint
+import re
 
 from . import vector
 from .util import (
@@ -44,6 +45,8 @@ def build_person_factory(fields):
 
     return Person
 
+DEBUG_MAPPINGS = False
+
 def col_name_to_field(description, fields_to_col_names):
     """Return the name of a field for this description. Must be defined.
 
@@ -56,37 +59,72 @@ def col_name_to_field(description, fields_to_col_names):
         # why this doesn't get stripped automatically is beyond me
         description = description[1:-1]
 
+    # E.g. "Country of Affiliation:" or "Position: [Other]"
+    description = description.replace(':', '')
+
     # Recent versions of limesurvey set the descriptions as "KEY. Blah
     # blah" or "KEY[other]. Blah blah". Let's match the first part only.
     desc, _, _ = description.partition('.')
+    desc = desc.lower()
 
-    candidates = set()
+    m = re.match('(.*)\s*\[other\]', desc)
+    if m:
+        desc = m.group(1)
+        other = '_other'
+    else:
+        other = ''
+
+    if DEBUG_MAPPINGS:
+        print(f'looking for {desc!r}')
+
+    candidates = {}
     for key, values in fields_to_col_names.items():
-        if desc.lower() == key:
-            return key
+        if desc == key:
+            if DEBUG_MAPPINGS:
+                print('mapped exact key:', key)
+            return key + other
         for spelling in values:
             if spelling == '':
                 continue
-            if desc == spelling:
-                return key
-            if spelling in desc:
-                candidates.add(key)
+            if desc == spelling.lower():
+                if DEBUG_MAPPINGS:
+                    print('mapped spelling:', spelling)
+                return key + other
+            if spelling.lower() in description.lower():
+                candidates[key] = len(spelling)
                 break # don't try other spellings for the same key
+
+    if not candidates:
+        if DEBUG_MAPPINGS:
+            print(f'NO CANDIDATE for {description}')
+        raise KeyError(description)
+
     if len(candidates) == 1:
-        return candidates.pop()
-    if len(candidates) > 1:
-        print(f'TOO MANY CANDIDATES for {description}: {candidates}')
+        if DEBUG_MAPPINGS:
+            print('one spelling:', candidates)
+        return list(candidates)[0] + other
+
+    best = sorted(candidates, key=lambda k: -candidates[k])
+    if candidates[best[0]] > candidates[best[1]] + 10:
+        if DEBUG_MAPPINGS:
+            print('best spelling:', candidates)
+        return best[0] + other
+
+    print(f'NO CLEARLY BEST CANDIDATE for {description}: {candidates}')
     raise KeyError(description)
 
 @vector.vectorize
 def csv_header_to_fields(header, fields_to_col_names_section):
-    pprint.pprint(list(fields_to_col_names_section.items()))
+    if DEBUG_MAPPINGS:
+        pprint.pprint(list(fields_to_col_names_section.items()))
 
     failed = None
     seen = {}
     for name in header:
         try:
             conv = col_name_to_field(name, fields_to_col_names_section)
+            if DEBUG_MAPPINGS:
+                print(f'MAPPING: {name} → {conv}\n')
             if conv in seen:
                 raise ValueError(f'Both "{name}" and "{seen[conv]}" map to "{conv}".')
             seen[conv] = name
