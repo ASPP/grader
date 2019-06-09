@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import collections
 import contextlib
 import io
@@ -830,9 +831,9 @@ class Grader(cmd_completer.Cmd_Completer):
                       dest='format', const='short', default='long',
                       help='show only names and emails')\
         .add_argument('--use-labels', action='store_true', default=True,
-                      help='use labels in ranking (DECLINED at the bottom, etc.)')\
-        .add_argument('-n', '--no-labels', action='store_false', dest='use-labels',
-                      help='don\'t use labels in ranking')\
+                      help=argparse.SUPPRESS)\
+        .add_argument('-n', '--no-labels', action='store_false', dest='use_labels',
+                      help="don't use labels in ranking")\
         .add_argument('-l', '--label', nargs='+', default=(),
                       help='show only people with all of those labels')\
         .add_argument('-f', '--format', choices=RANK_FORMATS.keys(),
