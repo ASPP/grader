@@ -397,29 +397,26 @@ class Grader(cmd_completer.Cmd_Completer):
             motivation = motivation.replace(p.lastname, '–')
         if labels:
             labels = '[{}] '.format(labels)
+
+        categories = {'programming': self.programming_rating,
+                      'open_source': self.open_source_rating,
+                      'python':      self.python_rating,
+                      'vcs':         self.vcs_rating,
+                      'underrep':    self.underrep_rating}
+        cat_scores = categorical_scores(p, categories)
+        cat_scores = {f'{k}_score':v for k,v in cat_scores.items()}
+
         printf(DUMP_FMTS[format],
                p=p,
                position_other=position_other,
                programming_description=programming_description,
                open_source_description=open_source_description,
-               programming_score=\
-                   get_rating('programming', self.programming_rating,
-                              p.programming, '-'),
-               open_source_score=\
-                   get_rating('open_source', self.open_source_rating,
-                              p.open_source, '-'),
-               python_score=\
-                   get_rating('python', self.python_rating, p.python, '-'),
-               vcs_score=\
-                   get_rating('vcs', self.vcs_rating, p.vcs, '-'),
-               underrep_score=\
-                   get_rating('underrep', self.underrep_rating, p.underrep, '-'),
                cv=cv,
                motivation=motivation,
                motivation_scores=self._gradings(p, 'motivation'),
                labels=labels,
                labels_newline=labels + '\n' if labels else '',
-               )
+               **cat_scores)
 
     grep_options = cmd_completer.PagedArgumentParser('grep')\
         .add_argument('-n', '--fullname', dest='what', action='store_const',
@@ -588,7 +585,7 @@ class Grader(cmd_completer.Cmd_Completer):
             if not self._grade(person, opts.disagreement is not None):
                 break
 
-    RATING_CATEGORIES = ['programming', 'open_source', 'python', 'underrep']
+    RATING_CATEGORIES = ['programming', 'open_source', 'python', 'vcs', 'underrep']
 
     rate_options = cmd_completer.PagedArgumentParser('rate')\
         .add_argument('-m', '--missing', action='store_true',
@@ -755,15 +752,17 @@ class Grader(cmd_completer.Cmd_Completer):
                                            self.underrep_rating,
                                            self._applied_range())
 
+        categories = {'programming': self.programming_rating,
+                      'open_source': self.open_source_rating,
+                      'python':      self.python_rating,
+                      'vcs':         self.vcs_rating,
+                      'underrep':    self.underrep_rating}
+
         for person in self.applications:
             labels = self.applications.get_labels(person.fullname)
             person.score = rank_person(person,
                                        self.formula, self.location,
-                                       self.programming_rating,
-                                       self.open_source_rating,
-                                       self.python_rating,
-                                       self.vcs_rating,
-                                       self.underrep_rating,
+                                       categories,
                                        self._gradings(person, 'motivation'),
                                        minsc, maxsc,
                                        labels,
@@ -874,6 +873,13 @@ class Grader(cmd_completer.Cmd_Completer):
             group = self._equiv_master(person.group)
             institute = self._equiv_master(person.institute)
 
+            categories = {'programming': self.programming_rating,
+                          'open_source': self.open_source_rating,
+                          'python':      self.python_rating,
+                          'vcs':         self.vcs_rating,
+                          'underrep':    self.underrep_rating}
+            cat_scores = categorical_scores(person, categories)
+
             printf(line_color + fmt + COLOR['default'], pos + 1, p=person,
                    email='<{}>'.format(person.email),
                    fullname_width=fullname_width, email_width=email_width,
@@ -889,22 +895,7 @@ class Grader(cmd_completer.Cmd_Completer):
                    labels=', '.join(labels),
                    labels_width=labels_width,
                    motivation_scores=self._gradings(person, 'motivation'),
-                   programming_score=\
-                       get_rating('programming', self.programming_rating,
-                                  person.programming, '-'),
-                   open_source_score=\
-                       get_rating('open_source', self.open_source_rating,
-                                  person.open_source, '-'),
-                   python_score=\
-                       get_rating('python', self.python_rating,
-                                  person.python, '-'),
-                   vcs_score=\
-                       get_rating('vcs', self.vcs_rating,
-                                  person.vcs, '-'),
-                   underrep_score=\
-                       get_rating('underrep', self.underrep_rating,
-                                  person.underrep, '-'),
-                   )
+                   **cat_scores)
 
     stat_options = (
         cmd_completer.PagedArgumentParser('stat')
@@ -1257,17 +1248,27 @@ def gender_to_formula_label(label):
     "Convert a gender label from the survey into a single-letter label"
     return KNOWN_GENDER_LABELS[label.lower()]
 
-def rank_person(person, formula, location,
-                programming_rating, open_source_rating, python_rating, vcs_rating, underrep_rating,
+def categorical_scores(person, categories):
+    vars = {}
+    for attr, dict in categories.items():
+        # Some attributes might not be defined by Person. Let's not define the
+        # variable in that case. This will cause the formula evaluation to fail
+        # if it refers to one of the undefined attributes.
+        try:
+            key = getattr(person, attr)
+        except AttributeError:
+            pass
+        else:
+            value = get_rating(attr, dict, key)
+            vars[attr] = value
+    return vars
+
+def rank_person(person, formula, location, categories,
                 motivation_scores, minsc, maxsc, labels,
                 applied):
     "Apply formula to person and return score"
-    vars = {}
-    for attr, dict in zip(('programming', 'open_source', 'python', 'vcs', 'underrep'),
-                          (programming_rating, open_source_rating, python_rating, vcs_rating, underrep_rating)):
-        key = getattr(person, attr)
-        value = get_rating(attr, dict, key)
-        vars[attr] = value
+    vars = categorical_scores(person, categories)
+
     vars.update(born=int(person.born) if person.born else 0, # if we decide to implement ageism
                 gender=gender_to_formula_label(person.gender), # if we decide, …
                                                                # oh we already did
