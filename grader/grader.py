@@ -149,6 +149,18 @@ COUNTRY_WIDTH = 10
 
 NOT_AVAILABLE_LABEL = 'NOT AVAILABLE'
 
+LABEL_VALUES = {
+    'VIP': 1000,
+    'CONFIRMED': 2000,
+    'INVITE': 600,
+    'INVITESL': 200,
+    'SHORTLIST': 100,
+    '__nan__': -500, # put people without score near the end of the list, but above those we
+                     # explicitly reject
+    'DECLINED': -650,
+    'WITHDRAWN': -650,
+    'OVERQUALIFIED': -650,
+}
 
 def equal(a, b):
     # Fuck people who designed this nan != nan crap.
@@ -712,22 +724,13 @@ class Grader(cmd_completer.Cmd_Completer):
     def _score_with_labels(self, p, use_labels=False):
         if not use_labels:
             return p.score
-        labels = p.labels
-        lb_val = {'VIP': 1000,
-                  'CONFIRMED': 2000,
-                  'INVITE': 600,
-                  'INVITESL': 200,
-                  'SHORTLIST': 100,
-                  'DECLINED': -650,
-                  'WITHDRAWN': -650,
-                  'OVERQUALIFIED': -650,
-                  }
+
         add_score = 0
-        for label in lb_val:
-            if label in labels:
-                add_score += lb_val[label]
-            elif label=='INVITESL' and any('INVITESL' in l for l in labels):
-                add_score += lb_val[label]
+        for label, value in LABEL_VALUES.items():
+            if label in p.labels:
+                add_score += value
+            elif label=='INVITESL' and any('INVITESL' in l for l in p.labels):
+                add_score += value
         return p.score + add_score
 
     def _group_institute(self, person):
@@ -767,8 +770,11 @@ class Grader(cmd_completer.Cmd_Completer):
                                        minsc, maxsc,
                                        labels,
                                        person.napplied)
-        ordered = sorted(self.applications, key=lambda x: \
-                         self._score_with_labels(x, use_labels=use_labels),
+
+        nan_to_value = lambda n: LABEL_VALUES['__nan__'] if np.isnan(n) else n
+
+        ordered = sorted(self.applications,
+                         key=lambda x: nan_to_value(self._score_with_labels(x, use_labels=use_labels)),
                          reverse=True)
 
         rank, prevscore = 0, 10000
