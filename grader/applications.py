@@ -141,6 +141,9 @@ def csv_header_to_fields(header, fields_to_col_names_section):
     if failed:
         raise failed
 
+def _drop_whitespace(s):
+    return ' '.join(s.split())
+
 @vector.vectorize
 def parse_applications_csv_file(file, fields_to_col_names_section):
     printf("loading '{}'", file.name)
@@ -156,6 +159,7 @@ def parse_applications_csv_file(file, fields_to_col_names_section):
     fields = csv_header_to_fields(csv_header, fields_to_col_names_section)
     assert len(fields) == len(csv_header)      # sanity check
     assert len(set(fields)) == len(csv_header) # two columns map to the same field
+
     person_factory = build_person_factory(fields)
     assert len(csv_header) == len(person_factory._fields)
     count = 0
@@ -168,6 +172,12 @@ def parse_applications_csv_file(file, fields_to_col_names_section):
             # skip empty line
             continue
         count += 1
+
+        # strip extraneous whitespace from around and within the name
+        # This should be moved the the factory initializer, but it's hard with namedtuples
+        entry[fields.index('name')] = _drop_whitespace(entry[fields.index('name')])
+        entry[fields.index('lastname')] = _drop_whitespace(entry[fields.index('lastname')])
+
         try:
             yield person_factory(*entry)
         except Exception as exp:
