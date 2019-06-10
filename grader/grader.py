@@ -550,7 +550,7 @@ class Grader(cmd_completer.Cmd_Completer):
         if self.identity is None:
             raise ValueError('cannot do grading because identity was not set (use -i param or identity verb)')
 
-        if opts.graded is not None or opts.disagreement:
+        if opts.graded is not None or opts.disagreement is not None:
             grade = opts.graded if opts.graded is not None else all
             todo = [p for p in applications
                     if grade is all or self._get_grading(p, opts.what) == grade]
