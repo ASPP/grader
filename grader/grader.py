@@ -78,7 +78,6 @@ programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
 vcs: {p.vcs} [{vcs_score}]
 open source: {p.open_source}{open_source_description} [{open_source_score}]
-vcs: {p.vcs}
 '''
 
 DUMP_FMT = '''\
@@ -105,7 +104,6 @@ programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
 vcs: {p.vcs} [{vcs_score}]
 open source: {p.open_source}{open_source_description} [{open_source_score}]
-vcs: {p.vcs}
 motivation: %(bold)s{motivation}%(default)s\
 {labels_newline}''' % COLOR
 
