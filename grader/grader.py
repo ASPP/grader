@@ -483,6 +483,7 @@ class Grader(cmd_completer.Cmd_Completer):
         .add_argument('person', nargs='*')
 
     @set_completions('formula',
+                     'location',
                      motivation=_complete_name)
     def do_grade(self, arg):
         """Assign points to motivation statements or set formula/location
