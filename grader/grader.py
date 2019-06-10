@@ -884,6 +884,7 @@ class Grader(cmd_completer.Cmd_Completer):
                           'vcs':         self.vcs_rating,
                           'underrep':    self.underrep_rating}
             cat_scores = categorical_scores(person, categories)
+            cat_scores = {f'{k}_score':v for k,v in cat_scores.items()}
 
             # share the space for name and email to avoid overflows
             name_width_adj = min(len(person.fullname) - fullname_width, email_width - len(person.email) - 2)
