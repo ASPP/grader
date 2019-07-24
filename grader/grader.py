@@ -1021,11 +1021,12 @@ class Grader(cmd_completer.Cmd_Completer):
         observables = ['born', 'gender', 'nationality', 'affiliation',
                        'position', 'applied', 'napplied', 'open_source',
                        'programming', 'python', 'vcs', 'underrep']
-        c_confirmed = {}
-        c_applicants = {}
-        for var in observables:
-            c_confirmed[var] = collections.Counter(getattr(p, var) for p in confirmed)
-            c_applicants[var] = collections.Counter(getattr(p, var) for p in applicants)
+        c_confirmed = {var: collections.Counter(getattr(p, var, NOT_AVAILABLE_LABEL)
+                                                for p in confirmed)
+                       for var in observables}
+        c_applicants = {var: collections.Counter(getattr(p, var, NOT_AVAILABLE_LABEL)
+                                                 for p in applicants)
+                       for var in observables}
 
         Na = len(applicants)
         Nc = len(confirmed)
