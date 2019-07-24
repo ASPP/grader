@@ -912,8 +912,10 @@ class Grader(cmd_completer.Cmd_Completer):
         cmd_completer.PagedArgumentParser('stat')
             .add_argument('-d', '--detailed', action='store_true', default=False,
                           help='display detailed statistics')
-            .add_argument('--use-labels', action='store_true',
-                          help='use labels in ranking (DECLINED at the bottom, etc.)')
+            .add_argument('--use-labels', action='store_true', default=True,
+                          help=argparse.SUPPRESS)
+            .add_argument('-n', '--no-labels', action='store_false', dest='use_labels',
+                          help="don't use labels in ranking")
             .add_argument('-L', '--highlanders', action='store_true',
                           help='display statistics only for highlanders')
             .add_argument('-l', '--label',
