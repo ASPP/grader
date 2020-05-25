@@ -1099,7 +1099,7 @@ class Grader(cmd_completer.Cmd_Completer):
 
         if '=' in args:
             fullname, *labels = [item.strip() for item in args.split('=')
-                                 if item is not '']
+                                 if item != '']
             if labels:
                 applications.add_labels(fullname, labels)
             else:
