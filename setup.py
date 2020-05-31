@@ -39,7 +39,7 @@ setup(
     ],
     keywords='grading applications',
     packages=find_packages(),
-    install_requires=['pytest'],
+    install_requires=['pytest', 'numpy'],
     entry_points={
         'console_scripts': [
             'grader=grader.grader:main',
