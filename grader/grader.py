@@ -565,9 +565,12 @@ class Grader(cmd_completer.Cmd_Completer):
 
         if opts.disagreement is not None:
             if opts.disagreement is all:
-                todo = [p for p in todo
-                        if (max(self._gradings(p, opts.what), default=0) -
-                            min(self._gradings(p, opts.what), default=0) > 1)]
+                dis_todo = []
+                for p in todo:
+                    gradings = [g if g is not None else 0 for g in self._gradings(p, opts.what)]
+                    if (max(gradings) - min(gradings)) > 1:
+                        dis_todo.append(p)
+                todo = dis_todo
             else:
                 todo = [p for p in todo
                         if (self._get_grading(p, opts.what) is not None and
