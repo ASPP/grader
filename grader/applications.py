@@ -14,6 +14,8 @@ from .util import (
 )
 
 
+PERSON_FACTORY = None
+
 def build_person_factory(fields):
     class Person(collections.namedtuple('Person', fields)):
         def __init__(self, *args, **kwargs):
@@ -161,6 +163,9 @@ def parse_applications_csv_file(file, fields_to_col_names_section):
     assert len(set(fields)) == len(csv_header) # two columns map to the same field
 
     person_factory = build_person_factory(fields)
+    global PERSON_FACTORY
+    if PERSON_FACTORY is None:
+        PERSON_FACTORY = person_factory
     assert len(csv_header) == len(person_factory._fields)
     count = 0
     while True:
@@ -192,6 +197,18 @@ class Applications:
         self.config = config
 
         if config is not None:
+            # Add overrides from config
+            for section in config.sections:
+                if section.endswith('_overrides'):
+                    field = section[0:-len('_overrides')]
+                    for fullname, value in config[section].items():
+                        for idx, person in enumerate(applicants):
+                            if person.fullname.lower() == fullname:
+                                item = {field : value}
+                                new_fields = person._replace(**item)
+                                new_person = PERSON_FACTORY(**new_fields._asdict())
+                                applicants[idx] = new_person
+
             # Add applicant labels from config file to applicant object
             for applicant in applicants:
                 labels = config['labels'].get(applicant.fullname,

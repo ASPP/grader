@@ -21,6 +21,10 @@ class list_of_equivs(list):
 def our_configfile(filename):
     kw = {section_name('motivation', ident):float
           for ident in IDENTITIES}
+    field_overrides = ('open_source', 'programming', 'python')
+    for field in field_overrides:
+        kw.update({field+'_overrides' : str})
+
     with open(filename, 'r') as fileobj:
         config = configfile.ConfigFile(
             fileobj,
