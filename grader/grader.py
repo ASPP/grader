@@ -189,7 +189,7 @@ class Grader(cmd_completer.Cmd_Completer):
         section = self.config['application_lists']
         if application_filenames:
             section.clear()
-            for i, filename in zip('abcdefghijkl', application_filenames):
+            for i, filename in zip('abcdefghijklm', application_filenames):
                 section[i] = filename
         else:
             application_filenames = list(section.values())
