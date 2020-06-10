@@ -129,7 +129,9 @@ _RANK_FMT_DETAILED = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' [prog: {vcs_score}] [vcs: {vcs_score}]'
                  ' [os: {open_source_score}]'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}'
-                 ' {p.travel_grant}')
+                 ' {p.travel_grant}'
+                 ' {nationality:{nationality_width}} {affiliation:{affiliation_width}}'
+                 ' {institute:{institute_width}} / {group:{group_width}}')
 _RANK_FMT_COUNTRY = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' {p.fullname:{fullname_width}}'
                  ' {nationality:{nationality_width}} {affiliation:{affiliation_width}}'
