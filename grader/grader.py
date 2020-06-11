@@ -67,6 +67,18 @@ COLOR = {
     'bold'   : '\x1b[1m',
     }
 
+def score_color(score):
+    color = ('bold' if score is None else
+             'violet' if np.isnan(score) else
+             'red' if score < 0 else
+             'green' if score > 0 else
+             'bold')
+    return COLOR[color]
+
+def colored_scores(scores):
+    return ', '.join('{}{}{}'.format(score_color(score), score, COLOR["default"])
+                     for score in scores)
+
 ALMOST_DUMP_FMT = '''\
 gender: {p.gender}
 institute: {p.institute}
@@ -124,7 +136,7 @@ _RANK_FMT_LONG = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
 _RANK_FMT_SHORT = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}')
 _RANK_FMT_DETAILED = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
-                 ' [{motivation_scores}] [appl: {p.applied} {p.napplied}]'
+                 ' [{motivation_scores}] [appl: {p.applied:.1} {p.napplied}]'
                  ' [prog: {programming_score}] [python: {python_score}]'
                  ' [git: {vcs_score}] [vcs: {vcs_score}]'
                  ' [os: {open_source_score}]'
@@ -425,7 +437,7 @@ class Grader(cmd_completer.Cmd_Completer):
                open_source_description=open_source_description,
                cv=cv,
                motivation=motivation,
-               motivation_scores=self._gradings(p, 'motivation'),
+               motivation_scores=colored_scores(self._gradings(p, 'motivation')),
                labels=labels,
                labels_newline=labels + '\n' if labels else '',
                **cat_scores)
@@ -673,13 +685,8 @@ class Grader(cmd_completer.Cmd_Completer):
         old_score = self._get_grading(person, 'motivation')
         default = old_score if old_score is not None else ''
         self._dumpone(person, format='motivation')
-        scores = ['%({})s{}%(default)s'.format('bold' if score is None else
-                                               'violet' if np.isnan(score) else
-                                               'red' if score < 0 else
-                                               'green' if score > 0 else
-                                               'bold', score) % COLOR
-                  for score in scores]
-        printff('Old score was {}', ', '.join(scores))
+
+        printff(f'Old score was {colored_scores(scores)}')
         while True:
             prompt = 'Your choice {}/s/d/l LABEL [{}]? '.format(SCORE_RANGE, default)
             try:
@@ -910,7 +917,7 @@ class Grader(cmd_completer.Cmd_Completer):
                    affiliation_width=affiliation_width,
                    labels=', '.join(labels),
                    labels_width=labels_width,
-                   motivation_scores=self._gradings(person, 'motivation'),
+                   motivation_scores=colored_scores(self._gradings(person, 'motivation')),
                    **cat_scores)
 
     stat_options = (
