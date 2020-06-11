@@ -225,6 +225,11 @@ class Grader(cmd_completer.Cmd_Completer):
                 f, fields_to_col_names_section)
         self.applications = Applications(applicants, self.config)
 
+        # set some global values
+        # Get all possible nationalities
+        self.all_nationalities = tuple(set(p.nationality for p in self.applications))
+        self.all_affiliations = tuple(set(p.affiliation for p in self.applications))
+
         # Load applications for previous editions.
         self.applications_old = {}
         for filename in application_filenames:
@@ -569,7 +574,9 @@ class Grader(cmd_completer.Cmd_Completer):
                                                self.python_rating,
                                                self.vcs_rating,
                                                self.underrep_rating,
-                                               self._applied_range())
+                                               self._applied_range(),
+                                               self.all_nationalities,
+                                               self.all_affiliations)
 
             printf('formula = {}', self.formula)
             printf('score ∈ [{:6.3f},{:6.3f}]', minsc, maxsc)
@@ -798,7 +805,9 @@ class Grader(cmd_completer.Cmd_Completer):
                                            self.python_rating,
                                            self.vcs_rating,
                                            self.underrep_rating,
-                                           self._applied_range())
+                                           self._applied_range(),
+                                           self.all_nationalities,
+                                           self.all_affiliations)
 
         categories = {'programming': self.programming_rating,
                       'open_source': self.open_source_rating,
@@ -1373,17 +1382,42 @@ def find_names(formula):
 
 def find_min_max(formula, location,
                  programming_rating, open_source_rating, python_rating, vcs_rating, underrep_rating,
-                 applied):
+                 applied, all_nationalities, all_affiliations):
     # Coordinate with rank_person!
     # Labels are excluded from this list, they add "extra" points.
     # And we would have to test all combinations of labels, which can be slow.
+
+    # Limit the list of nationalities and affiliations by picking only the ones
+    # that are indeed used in the formula. Note that to estimate the contributions
+    # of terms in the formula that explicitly reference one country, for example
+    # nationality=='Egypt' if we want to favour Egyptians applicants, we really
+    # need to have this string in the list of possible nationalities and affiliation
+    # to evaluate the formula on.
+    # We need to initialize with at least two non existing countries so that, in
+    # case the formula does not contain any explicitly named country,  we still
+    # have something to compare with and to differentiate among, for example for
+    # terms like  nationality=!affiliation.
+    # Also add location so that we take care of terms like nationality!=location
+    nationalities = ['NOWHERE', 'NOWHERE2', location]
+    affiliations = ['NOWHERE', 'NOWHERE2', location]
+    for country in set(all_nationalities + all_affiliations):
+        country_str = (f"'{country}'", '"{country}"')
+        found = False
+        for test_str in country_str:
+            if test_str in formula:
+                found = True
+        if found and (country != location):
+            # no need to add location again
+            nationalities.append(country)
+            affiliations.append(country)
+
     choices = dict(
         born=(1900, 2012),
         gender=tuple(set(KNOWN_GENDER_LABELS.values())),
         nonmale=(0, 1),
         applied=(0, max(applied)),
-        nationality=('Nicaragua', 'Československo', location),
-        affiliation=('Československo', 'Nicaragua', location),
+        nationality=nationalities,
+        affiliation=affiliations,
         location=(location,),
         motivation=SCORE_RANGE,
         programming=programming_rating.values(),
