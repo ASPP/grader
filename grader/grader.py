@@ -79,13 +79,20 @@ def colored_scores(scores):
     return ', '.join('{}{}{}'.format(score_color(score), score, COLOR["default"])
                      for score in scores)
 
+def format_have_applied(person, width=3):
+    yes = person.applied in 'yY' or person.napplied > 0  # we assume people forget to check the box
+    return '{}{:.{}} {}{}'.format(COLOR['bold'] if yes else '',
+                                  person.applied, width,
+                                  person.napplied,
+                                  COLOR['default'] if yes else '')
+
 ALMOST_DUMP_FMT = '''\
 gender: {p.gender}
 institute: {p.institute}
 group: {p.group}
 affiliation: {p.affiliation}
 position: {p.position}{position_other}
-appl.prev.: {p.applied} {p.napplied}
+appl.prev.: have_applied,
 programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
 vcs: {p.vcs} [{vcs_score}]
@@ -110,7 +117,7 @@ rank: {p.rank} {p.score} {p.highlander}
 ''' % COLOR
 
 MOTIVATION_DUMP_FMT = '''\
-appl.prev.: {p.applied} {p.napplied}
+appl.prev.: {have_applied}
 position: {p.position}{position_other}
 programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
@@ -136,7 +143,7 @@ _RANK_FMT_LONG = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
 _RANK_FMT_SHORT = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}')
 _RANK_FMT_DETAILED = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
-                 ' [{motivation_scores}] [appl: {p.applied:.1} {p.napplied}]'
+                 ' [{motivation_scores}] [appl: {have_applied}]'
                  ' [prog: {programming_score}] [python: {python_score}]'
                  ' [git: {vcs_score}] [vcs: {vcs_score}]'
                  ' [os: {open_source_score}]'
@@ -432,6 +439,7 @@ class Grader(cmd_completer.Cmd_Completer):
 
         printf(DUMP_FMTS[format],
                p=p,
+               have_applied=format_have_applied(p),
                position_other=position_other,
                programming_description=programming_description,
                open_source_description=open_source_description,
@@ -904,6 +912,7 @@ class Grader(cmd_completer.Cmd_Completer):
 
             printf(line_color + fmt + COLOR['default'], pos + 1, p=person,
                    email='<{}>'.format(person.email),
+                   have_applied=format_have_applied(person, 1),
                    fullname_width=fullname_width + name_width_adj,
                    email_width=email_width - name_width_adj,
                    institute='—' if person.samelab else
