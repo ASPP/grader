@@ -351,6 +351,32 @@ class Grader(cmd_completer.Cmd_Completer):
         opts = self.exception_options.parse_args(args.split())
         raise getattr(__builtins__, opts.exception[0])
 
+    autolabel_options = cmd_completer.PagedArgumentParser('autolabel')\
+            .add_argument('N', type=int, help='length of SHORTLIST')
+
+    def do_autolabel(self, args):
+        """Automatically label highlanders as INVITE and the next N as SHORTLIST
+
+        Note: the last ranking is used to sort applications"""
+        opts = self.autolabel_options.parse_args(args.split())
+        N = opts.N
+        applications = self.applications
+        try:
+            ranked = self.last_ranking
+        except AttributeError:
+            printff('You need to rank applications first!')
+            return
+        counter = 0
+        for person in ranked:
+            if person.highlander:
+                applications.add_labels(person.fullname, ['INVITE'])
+            else:
+                counter += 1
+                if counter <= N:
+                    applications.add_labels(person.fullname, ['SHORTLIST'])
+                else:
+                    return
+
     dump_options = cmd_completer.PagedArgumentParser('dump')\
         .add_argument('-d', '--detailed', action='store_const',
                       dest='format', const='long', default='short',
@@ -865,6 +891,7 @@ class Grader(cmd_completer.Cmd_Completer):
         opts = self.rank_options.parse_args(args.split())
         people = self.applications.filter(label=opts.label)
         ranked = self._ranked(people, use_labels=opts.use_labels)
+        self.last_ranking = ranked
         fullname_width = min(max(len(field) for field in ranked.fullname), opts.width)
         email_width = max(len(field) for field in ranked.email) + 2
         institute_width = min(max(len(self._equiv_master(field)) for field in ranked.institute), opts.width)
