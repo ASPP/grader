@@ -92,7 +92,7 @@ institute: {p.institute}
 group: {p.group}
 affiliation: {p.affiliation}
 position: {p.position}{position_other}
-appl.prev.: have_applied,
+appl.prev.: {have_applied}
 programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
 vcs: {p.vcs} [{vcs_score}]
