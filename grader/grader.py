@@ -872,15 +872,18 @@ class Grader(cmd_completer.Cmd_Completer):
             person.rank = finalrank
             person.highlander = highlander
             prevscore = person.score
+        return ordered
 
     def _ranked(self, applicants=None, use_labels=False):
-        self._assign_rankings(use_labels=use_labels)
+        ranked = self._assign_rankings(use_labels=use_labels)
 
-        if applicants is None:
-            applicants = list(self.applications)
+        if applicants is not None:
+            applicants_names = [p.fullname for p in applicants]
+            ranked_applications = [p for p in ranked if p.fullname in applicants_names]
+        else:
+            ranked_applications = ranked
 
-        ranked = sorted(applicants, key=lambda p: (p.rank, self._group_institute(p)))
-        return vector.vector(ranked)
+        return vector.vector(ranked_applications)
 
     def _equiv_master(self, variant):
         "Return the key for equiv canocalization"
