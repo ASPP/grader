@@ -396,9 +396,9 @@ class Grader(cmd_completer.Cmd_Completer):
                       help='print applications only for highlanders')\
         .add_argument('-l', '--label', type=str, nargs='+', default=(),
                       help='print applications only for people with label')\
-        .add_argument('-a', '--attribute', type=str, nargs=2, metavar=('ATTRNAME', 'ATTRVALUE'),
+        .add_argument('-a', '--attribute', nargs='+', metavar='ATTRNAME ATTRVALUE', action='append',
                       help='print applications only for people with matching attributes'
-                      ', e.g. -a napplied 3. Call "-a list list" to get a list of attributes.')\
+                      ', e.g. -a napplied 3 -a . Call "-a list" to get a list of attributes.')\
         .add_argument('persons', nargs='*',
                       help='name fragments of people to display')
 
@@ -414,18 +414,29 @@ class Grader(cmd_completer.Cmd_Completer):
         if opts.sorted:
             persons = self._ranked(persons)
         if opts.attribute:
-            attributes = persons[0]._fields
-            if opts.attribute == ['list', 'list']:
-                print('List of attributes:', attributes)
+            if opts.attribute == [['list']]:
+                # generate list of attributes
+                attributes = []
+                for attr in dir(persons[0]):
+                    if attr.startswith('_'):
+                        continue
+                    attr_value = getattr(persons[0], attr)
+                    class_name = type(attr_value).__name__
+                    attributes.append((attr, class_name))
+                print('List of attributes:', sorted(attributes))
                 persons = ()
-            # we need to consume all persons to see the final list of all attributes,
-            # because persons[0] may not have all of them. e.g. napplied...
-            # maybe not worth just to display an error message...
-            #elif opts.attribute[0] not in attributes:
-            #    print('Attribute', opts.attribute[0], 'not known!')
-            #    persons = ()
             else:
-                persons = (p for p in persons if str(getattr(p, opts.attribute[0])) == opts.attribute[1])
+                filtered_persons = []
+                for p in persons:
+                    match = True
+                    for attr, value in opts.attribute:
+                        if str(getattr(p, attr)) != value:
+                            match = False
+                            break
+                    if match:
+                        filtered_persons.append(p)
+
+                persons = filtered_persons
 
         self._dump(persons, format=opts.format)
 
