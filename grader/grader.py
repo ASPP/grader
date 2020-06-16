@@ -145,7 +145,7 @@ _RANK_FMT_SHORT = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
 _RANK_FMT_DETAILED = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' [{motivation_scores}] [appl: {have_applied}]'
                  ' [prog: {programming_score}] [python: {python_score}]'
-                 ' [git: {vcs_score}] [vcs: {vcs_score}]'
+                 ' [{gender:^{gender_width}}] [git: {vcs_score}]'
                  ' [os: {open_source_score}]'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}'
                  ' {p.travel_grant}'
@@ -960,6 +960,8 @@ class Grader(cmd_completer.Cmd_Completer):
             printf(line_color + fmt + COLOR['default'], pos + 1, p=person,
                    email='<{}>'.format(person.email),
                    have_applied=format_have_applied(person, 1),
+                   gender=person.gender,
+                   gender_width=len('female'),
                    fullname_width=fullname_width + name_width_adj,
                    email_width=email_width - name_width_adj,
                    institute='—' if person.samelab else
