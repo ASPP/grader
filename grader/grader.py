@@ -991,8 +991,9 @@ class Grader(cmd_completer.Cmd_Completer):
                           help="don't use labels in ranking")
             .add_argument('-L', '--highlanders', action='store_true',
                           help='display statistics only for highlanders')
-            .add_argument('-l', '--label',
-                          help='display statistics only for people with label')
+            .add_argument('-l', '--labels',
+                          help='display statistics only for people with label(s).'+
+                               'Multiple labels: INVITE,CONFIRMED or INVITE,-,DECLINED')
             .add_argument('--edition', default='current',
                           help="edition for which we want the stats, e.g. '2010-trento'. "
                                "'all' means all editions 'current' (default) means the"
@@ -1019,8 +1020,10 @@ class Grader(cmd_completer.Cmd_Completer):
         else:
             pool = applicants
 
-        if opts.label:
-            pool = [p for p in pool if opts.label in p.labels]
+        if opts.labels:
+            # create label filter tuple
+            labels = opts.labels.split(',')
+            pool = self.applications.filter(label=labels)
 
         self._compute_and_print_stats(pool, opts.detailed)
 
