@@ -1082,7 +1082,7 @@ class Grader(cmd_completer.Cmd_Completer):
         "Dump statistics of CONFIRMED people for the Wiki."
         confirmed = tuple(self.applications.filter(label=('CONFIRMED')))
         applicants = list(self.applications)
-        print('====== Students ======')
+        print('==== Students ====')
         # we want first a list of confirmed with names/nationality/affiliations
         self._wiki_tb_head(('Firstname', 'Lastname', 'Nationality', 'Affiliation'))
         for person in sorted(confirmed, key=operator.attrgetter('name')):
@@ -1092,7 +1092,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                natflag+' '+person.nationality,
                                affflag+' '+person.affiliation))
 
-        print('\n\n===== Statistics =====')
+        print('\n\n=== Statistics ===')
         self._wiki_tb_head(('','Applicants', 'Participants'))
 
         # first collect statistics like we do in the do_stat method (DRY ;))))
@@ -1127,7 +1127,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                self._wiki_pc(count, Na),
                                self._wiki_pc(c_confirmed['position'].get(pos, 0), Nc)))
 
-        print('\n\n===Details for Participants===')
+        print('\n\n== Details for Participants ==')
         for var in observables:
             self._wiki_tb_head((var.upper(), 'Count'))
             if var in ('born', 'napplied'):
