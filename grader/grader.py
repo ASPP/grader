@@ -178,6 +178,7 @@ LABEL_VALUES = {
     '__nan__': -500, # put people without score near the end of the list, but above those we
                      # explicitly reject
     'DECLINED': -650,
+    'NEXT-YEAR': -650,
     'WITHDRAWN': -650,
     'OVERQUALIFIED': -650,
 }
@@ -934,6 +935,8 @@ class Grader(cmd_completer.Cmd_Completer):
             labels = person.labels
             if 'CONFIRMED' in labels:
                 line_color = COLOR['bold']
+            elif 'NEXT-YEAR' in labels:
+                line_color = COLOR['red']
             elif 'DECLINED' in labels:
                 line_color = COLOR['red']
             elif 'INVITE' in labels and 'CONFIRMED' not in labels:
@@ -1229,12 +1232,12 @@ class Grader(cmd_completer.Cmd_Completer):
         applications = self.applications
 
         _write_file('list_confirmed.csv',
-                    applications.filter(label=('CONFIRMED', '-', 'DECLINED')))
+                    applications.filter(label=('CONFIRMED', '-', 'DECLINED', 'NEXT-YEAR')))
 
         _write_file('list_invite.csv',
-                    applications.filter(label=('INVITE', '-', 'DECLINED', 'CONFIRMED')))
+                    applications.filter(label=('INVITE', '-', 'DECLINED', 'CONFIRMED', 'NEXT-YEAR')))
         _write_file('list_invite_reminder.csv',
-                    applications.filter(label=('INVITE', '-', 'DECLINED', 'CONFIRMED')))
+                    applications.filter(label=('INVITE', '-', 'DECLINED', 'CONFIRMED', 'NEXT-YEAR')))
         _write_file('list_overqualified.csv',
                     applications.filter(label=('OVERQUALIFIED', '-', 'CUSTOM-ANSWER')))
         _write_file('list_custom_answer.csv',
@@ -1246,15 +1249,15 @@ class Grader(cmd_completer.Cmd_Completer):
         for i, sl_label in enumerate(invitesl):
             _write_file_samelab(
                 'list_same_lab%d.csv'%(i+1),
-                applications.filter(label=(sl_label,'-', 'CONFIRMED', 'DECLINED')))
+                applications.filter(label=(sl_label,'-', 'CONFIRMED', 'DECLINED', 'NEXT-YEAR')))
         _write_file('list_shortlist.csv',
-                    applications.filter(label=('SHORTLIST', '-', 'DECLINED', 'CONFIRMED', 'INVITE', *invitesl)))
+                    applications.filter(label=('SHORTLIST', '-', 'DECLINED', 'NEXT-YEAR', 'CONFIRMED', 'INVITE', *invitesl)))
         _write_file('list_rejected.csv',
                     applications.filter(
-                        label=('-', 'DECLINED', 'CONFIRMED', 'INVITE', 'SHORTLIST',
+                        label=('-', 'DECLINED', 'NEXT-YEAR', 'CONFIRMED', 'INVITE', 'SHORTLIST',
                                'OVERQUALIFIED', 'CUSTOM-ANSWER', *invitesl)))
-        _write_file('list_declined_invite_nextyear.csv',
-                    applications.filter(label=('DECLINED')))
+        _write_file('list_invite_nextyear.csv',
+                    applications.filter(label=('NEXT-YEAR')))
 
 def _write_file(filename, persons):
     header = '$NAME$;$SURNAME$;$EMAIL$'
