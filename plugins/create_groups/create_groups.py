@@ -257,7 +257,7 @@ def main():
     # open CSV output
     with open(CSV, 'wt') as csv:
         # write header
-        csv.write('$NAME$;$SURNAME$;$EMAIL$;$GITHUB$$GROUP$\n')
+        csv.write('$NAME$;$SURNAME$;$EMAIL$;$GITHUB$;$GROUP$\n')
         for i in range(NGROUPS):
             print('Group %d:'%i, best[group(i), 1:].mean(axis=0).round(7))
             for member in best[group(i),0]:
