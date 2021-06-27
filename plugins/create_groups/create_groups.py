@@ -1,6 +1,8 @@
 # This script must be run within grader using the command "loadpy"
 import collections
 import hashlib
+import os
+import csv
 import numpy as np
 
 # Here we define how to weight different contributions to the total
@@ -28,6 +30,8 @@ MAX_REJECTIONS = 200
 RTOL, ATOL = 0.001, 1e-10
 # Output file
 CSV = 'list_groups.csv'
+# GITHUB FILE
+GITHUB = 'list_github.csv'
 
 ### DO NOT NEED TO CHANGE BELOW THIS LINE ###
 
@@ -59,15 +63,40 @@ RANDOM_SEED = bytes(RANDOM_SEED, encoding='utf8')
 RANDOM_SEED = np.fromstring(hashlib.sha512(RANDOM_SEED).digest(),
                             dtype=np.uint32).sum(dtype=np.uint32)
 
+def get_github_db():
+    # try to match with github accounts if available
+    github_db = {}
+    if os.path.exists(GITHUB):
+        with open(GITHUB, 'r') as github:
+            # guess the CSV format
+            csv_dialect = csv.Sniffer().sniff(github.read())
+            # rewind the file pointer
+            github.seek(0)
+            reader = csv.reader(github, dialect=csv_dialect)
+            csv_header = next(reader)
+            # convert header fields
+            header = [field[1:-1].lower() for field in csv_header]
+            # let's check the header is correct
+            if ['name', 'surname', 'email', 'github'] != header:
+                raise Exception(f'github file is broken: {header=}')
+            for person in reader:
+                github_db[(person[0], person[1])] = (person[3])
+        return github_db
 
 def participants():
     """Generator that returns persons labeled CONFIRMED"""
+    github_db = get_github_db()
     for person in applications.applicants:
         try:
             labels = person.labels
         except Exception:
             continue
         if 'CONFIRMED' in labels:
+            # of this person is in confirmed, now let's try to get their github
+            # account, if any
+            if github_db:
+                account = github_db[(person.name, person.lastname)]
+                person.github_account = account
             yield person
 
 
@@ -90,7 +119,7 @@ def extract_data():
                 attr = attr.split(splitchar)[0]
             rate = value[attr]
             rates.append(rate)
-        people[person.fullname] = rates
+        people[(person.name, person.lastname, person.email, person.github_account)] = rates
 
     # security check
     assert(len(people) == NSTUDENTS)
@@ -99,9 +128,9 @@ def extract_data():
 
 def name(idx, people):
     """Return a name given an index in the people database"""
-    for name, skill in people.items():
+    for (name, lastname, email, github_account), skill in people.items():
         if skill[0] == idx:
-            return name
+            return (name, lastname, email, github_account)
 
 def group(i):
     """Return a slice object that represents group i in the dataset"""
@@ -226,15 +255,14 @@ def main():
     opt_skills_dev = in_data.std(axis=0)[1:]
     print('Optimal:', opt_skills.round(7))
     # open CSV output
-    #names = {people[name][0]:name for name in people}
     with open(CSV, 'wt') as csv:
         # write header
-        csv.write('$FULLNAME$;$GROUP$\n')
+        csv.write('$NAME$;$SURNAME$;$EMAIL$;$GITHUB$$GROUP$\n')
         for i in range(NGROUPS):
             print('Group %d:'%i, best[group(i), 1:].mean(axis=0).round(7))
             for member in best[group(i),0]:
                 # write member line
-                csv.write(name(member, people)+';'+str(i)+'\n')
+                csv.write(';'.join(name(member, people))+';'+str(i)+'\n')
 
     # print relative deviation from optimal skills
     print('Deviation from optimal skills (percent):')
