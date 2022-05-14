@@ -2,6 +2,9 @@ import dataclasses
 from functools import cached_property
 import datetime
 
+# List of valid values for fields in the Person object
+# The values need to match with what is used in the application form
+
 VALID_GENDER = (
     'male',
     'female',
@@ -49,24 +52,26 @@ class Person:
     gender: str
     institute : str
     group: str
-    affiliation: str
-    position: str
+    affiliation: str       # this is the affiliation country
+    position: str          # employment or educational status
     position_other: str    # non-empty if position=='Other'
-    programming: str
-    programming_description: str
-    python: str
-    vcs: str = 'N/A'
-    open_source: str
+    programming: str       # programming experience level
+    programming_description: str # description of programming experience
+    python: str            # python experience level
+    vcs: str = 'N/A'       # used VCS (git, other, ...)
+    open_source: str       # experience with open source
     open_source_description: str
     cv: str
     motivation: str
-    born: int
+    born: int              # birth year
     nationality: str
-    applied: bool
+    applied: bool          # already applied? (self-reported)
 
     labels : [str] = dataclasses.field(default_factory=list)
 
     # internal attribute signaling relaxed checking
+    # needed to relax value checks for old application files [should not be
+    # necessary for new application files
     _relaxed: bool = dataclasses.field(default=False, repr=False)
 
     @cached_property
@@ -78,11 +83,13 @@ class Person:
             return self.gender.lower() != 'male'
 
     def __post_init__(self):
-        # strip extraneous whitespace from around and within the name
+        # strip extraneous whitespace from around and within names and emails
         self.name = ' '.join(self.name.split())
         self.lastname = ' '.join(self.lastname.split())
         self.email = self.email.strip()
+        # the birth year must be an integer
         self.born = int(self.born)
+        # transform applied to a boolean
         self.applied = self.applied[0] not in 'nN'
 
         # only run the checks if we are in strict mode
@@ -97,13 +104,17 @@ class Person:
             if value not in globals()[f'VALID_{field.upper()}']:
                 raise ValueError(f'Bad {field} value: {value}')
 
+    # this is to be used when we want to create a Person from a CSV file,
+    # automatically loading unknown/unprocessed fields
     @classmethod
     def new(cls, fields, values, relaxed=False):
+        # first instantiate a Person with the known/required fields
         known_fields = [item.name for item in dataclasses.fields(cls)]
-        parta = {field:value for (field, value) in zip(fields, values)
-                 if field in known_fields}
-        person = cls(**parta, _relaxed=relaxed)
+        hard_coded = {field:value for (field, value) in zip(fields, values)
+                                  if field in known_fields}
+        person = cls(**hard_coded, _relaxed=relaxed)
 
+        # add all the unknown/unprocessed fields
         for (field, value) in zip(fields, values):
             if field not in known_fields:
                 setattr(person, field, value)
