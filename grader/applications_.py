@@ -5,11 +5,11 @@ import re
 from . import vector
 from .person import Person
 
-DEBUG_MAPPINGS = True
+DEBUG_MAPPINGS = False
 
 KNOWN_FIELDS = {
     # 'field-name' : ('alias1', 'alias2', …)
-
+    'email' :        ('email address',),
     'institute' :    ('aff-uni',
                       'institution',
                       'affiliation[uni]',
@@ -46,7 +46,8 @@ def col_name_to_field(description, overrides):
     - [other] position <=> position_other,
     - curriculum vitae <=> Please type in a short curriculum vitae...
     """
-    description = description.lower()
+    # normalize to lowercase and get rid of extraneous whitespace
+    description = ' '.join(description.lower().split())
 
     if description[0] == description[-1] == '"':
         # why this doesn't get stripped automatically is beyond me
@@ -59,9 +60,9 @@ def col_name_to_field(description, overrides):
     # blah" or "KEY[other]. Blah blah". Let's match the first part only.
     desc, _, _ = description.partition('.')
 
-    m = re.match(r'(.*)\s*\[other\]', desc)
+    m = re.match(r'(.+?)\s*\[other\] | \[other\]\s*(.+)', desc, re.VERBOSE)
     if m:
-        desc = m.group(1)
+        desc = m.group(1) or m.group(2)
         other = '_other'
     else:
         other = ''
@@ -132,7 +133,7 @@ def csv_header_to_fields(header, overrides):
 
 
 @vector.vectorize
-def load(file, field_name_overrides={}):
+def load(file, field_name_overrides={}, relaxed=False):
     if not hasattr(file, 'read'):
         file = open(file, encoding='utf-8-sig')
 
@@ -152,13 +153,14 @@ def load(file, field_name_overrides={}):
 
     count = 0
     for entry in reader:
-        if not entry:
-            # skip empty line
+        if (not entry) or len(set(entry)) <= 1:
+            # first match: empty line at the beginning or at the end of the file
+            # second match: empty line in the middle of the file
             continue
         count += 1
 
         try:
-            yield Person.new(fields, entry)
+            yield Person.new(fields, entry, relaxed=relaxed)
         except Exception as exp:
             print(f'Exception raised on entry {count}:', entry)
             print('Detected fields:\n', fields)

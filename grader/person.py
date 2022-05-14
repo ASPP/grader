@@ -55,7 +55,7 @@ class Person:
     programming: str
     programming_description: str
     python: str
-    vcs: str
+    vcs: str = 'N/A'
     open_source: str
     open_source_description: str
     cv: str
@@ -65,6 +65,9 @@ class Person:
     applied: bool
 
     labels : [str] = dataclasses.field(default_factory=list)
+
+    # internal attribute signaling relaxed checking
+    _relaxed: bool = dataclasses.field(default=False, repr=False)
 
     @cached_property
     def fullname(self) -> str:
@@ -79,12 +82,15 @@ class Person:
         self.name = ' '.join(self.name.split())
         self.lastname = ' '.join(self.lastname.split())
         self.email = self.email.strip()
-
         self.born = int(self.born)
-        if not (1900 < self.born < _year_now):
-            raise ValueError(f'Bad birth year {self.born}')
-
         self.applied = self.applied[0] not in 'nN'
+
+        # only run the checks if we are in strict mode
+        if self._relaxed:
+            return
+
+        if not (1900 <= self.born <= _year_now):
+            raise ValueError(f'Bad birth year {self.born}')
 
         for field in ('gender', 'programming', 'python', 'position'):
             value = getattr(self, field).lower()
@@ -92,11 +98,11 @@ class Person:
                 raise ValueError(f'Bad {field} value: {value}')
 
     @classmethod
-    def new(cls, fields, values):
+    def new(cls, fields, values, relaxed=False):
         known_fields = [item.name for item in dataclasses.fields(cls)]
         parta = {field:value for (field, value) in zip(fields, values)
                  if field in known_fields}
-        person = cls(**parta)
+        person = cls(**parta, _relaxed=relaxed)
 
         for (field, value) in zip(fields, values):
             if field not in known_fields:
