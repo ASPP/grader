@@ -1,12 +1,16 @@
+import configparser
 import csv
+import fnmatch
 import pprint
 import re
 
 from . import vector
 from .person import Person
+from . import util
 
 DEBUG_MAPPINGS = False
 
+# CSV-file:
 # List of field names and their aliases used to match the columns in the header
 # of the CSV files
 KNOWN_FIELDS = {
@@ -39,6 +43,15 @@ KNOWN_FIELDS = {
     'travel_grant' : ('travel grants', 'grants'),
 }
 
+# INI-file:
+# the type of the values for the items in the sections of the applications.ini file
+SECTION_TYPES = {
+        'labels' : util.list_of_str,
+        '*_rating' : float, # all sections ending with _rating are going to be floats
+        'groups_parameters' : int,
+        'fields' : util.list_of_equivs,
+        'motivation_score-*' : int,
+        }
 
 # this function does the real hard-work of parsing the CSV file
 def col_name_to_field(description, overrides):
@@ -197,3 +210,161 @@ def load(file, field_name_overrides={}, relaxed=False):
             print(f'Exception raised on entry {count}:', entry)
             print('Detected fields:\n', fields)
             raise
+
+class ApplicationsIni:
+    def __init__(self, filename):
+        cp = self.config_parser()
+        cp.read_file(open(filename))
+        self.filename = filename
+
+        # this keeps all the data from the INI file, ex:
+        # 'motivation_score-0' : {'firstname lastname' : -1}
+        self.data = {name: self.convert_section(name, section)
+                     for name, section in cp.items()}
+
+    @staticmethod
+    def config_parser():
+        return configparser.ConfigParser(comment_prefixes='#',
+                                         inline_comment_prefixes='#')
+
+    def convert_section(self, name, section):
+        # convert section item values to the proper type
+        for pattern, conv in SECTION_TYPES.items():
+            # find the proper type for the section naming matching pattern
+            if fnmatch.fnmatch(name, pattern):
+                break
+        else:
+            # just return as-is if we don't know the type for this section
+            conv = lambda x: x
+        return {key:conv(value) for key, value in section.items()}
+
+    def save(self):
+        cp = self.config_parser()
+        cp.read_dict(self.data)
+        with open(self.filename, 'w') as fh:
+            cp.write(fh)
+
+class Applications:
+    def __init__(self, applicants, config):
+        self.applicants = applicants
+        self.config = config
+
+        if config is not None:
+            # Add overrides from config
+            for section in config.sections:
+                if section.endswith('_overrides'):
+                    field = section[0:-len('_overrides')]
+                    for fullname, value in config[section].items():
+                        for idx, person in enumerate(applicants):
+                            if person.fullname.lower() == fullname:
+                                item = {field : value}
+                                new_fields = person._replace(**item)
+                                new_person = PERSON_FACTORY(**new_fields._asdict())
+                                applicants[idx] = new_person
+
+            # Add applicant labels from config file to applicant object
+            for applicant in applicants:
+                labels = config['labels'].get(applicant.fullname,
+                                              list_of_str())
+                applicant.labels = labels
+
+    def __getitem__(self, key):
+        """Support basic iteration"""
+        return self.applicants[key]
+
+    def __len__(self):
+        return len(self.applicants)
+
+    @classmethod
+    def from_paths(cls, config_path, csv_path, fields_to_col_names_section):
+        if os.path.exists(config_path):
+            config = our_configfile(config_path)
+        else:
+            config = None
+            printf('Warning: no configuration file {}', config_path)
+
+        with open(csv_path, newline='', encoding='utf-8-sig') as f:
+            applicants = parse_applications_csv_file(
+                f, fields_to_col_names_section)
+
+        applications = cls(applicants, config)
+        return applications
+
+    def find_applicant_by_fullname(self, fullname):
+        for applicant in self.applicants:
+            if applicant.fullname.lower() == fullname.lower():
+                return applicant
+        else:
+            raise ValueError('Applicant "{}" not found'.format(fullname))
+
+    def add_labels(self, fullname, labels):
+        # update applicant
+        applicant = self.find_applicant_by_fullname(fullname)
+        applicant.labels.extend(labels)
+        # update config file
+        section = self.config['labels']
+        saved = section.get(fullname, list_of_str())
+        saved.extend(labels)
+        section[fullname] = saved
+
+    def clear_labels(self, fullname):
+        # update applicant
+        applicant = self.find_applicant_by_fullname(fullname)
+        applicant.labels = []
+        # update config file
+        self.config['labels'].clear(fullname)
+
+    def get_labels(self, fullname):
+        applicant = self.find_applicant_by_fullname(fullname)
+        return applicant.labels
+
+    def get_all_labels(self):
+        labels = set()
+        for applicant in self.applicants:
+            labels.update(applicant.labels)
+        return labels
+
+    def filter(self, **kwargs):
+        """Return an iterator over the applications which match certain criteria:
+
+        Examples:
+
+        applications.filter(nationality='Italy') -->
+                            applicants where person.nationality=='Italy'
+
+        applications.filter(label='XXX') -->
+                            applicants labeled XXX
+
+        applications.filter(label=('XXX', 'YYY')) -->
+                            applicants labeled XXX and YYY
+
+        applications.filter(label=('XXX', 'YYY', '-', 'ZZZ')) -->
+                            applicants labeled XXX and YYY but not ZZZ
+
+        applications.filter(label=('XXX', 'YYY', '-', 'ZZZ', 'WWW')) -->
+                            applicants labeled XXX and YYY
+                            but nor ZZZ neither WWW
+
+        Note: returns all applications when called without arguments
+        """
+        # first match labels
+        labels = kwargs.pop('label', None)
+        if labels is not None:
+            matching = []
+            labels = iter((labels, )) if type(labels) == str else iter(labels)
+            accept = frozenset(itertools.takewhile(lambda x: x!='-', labels))
+            deny = frozenset(labels)
+            for p in self.applicants:
+                labels = set(p.labels)
+                if not (accept - labels) and not (labels & deny):
+                    matching.append(p)
+        else:
+            matching = self.applicants[:]
+
+        # now filter through attributes
+        for attr, value in kwargs.items():
+            matching = [p for p in matching if getattr(p, attr) == value]
+
+        return matching
+
+

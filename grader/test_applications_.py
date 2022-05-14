@@ -19,3 +19,11 @@ def test_all_years(path):
     # years before 2012 are to be treated less strictly
     relaxed = any(f'{year}-' in str(path) for year in range(2009,2012))
     grader.applications_.load(path, relaxed=relaxed)
+
+def test_applications_ini():
+    import pprint
+    inifile = '/home/tiziano/git/pythonschool/applications/grader.conf'
+    ini = grader.applications_.ApplicationsIni(inifile)
+    pprint.pprint(ini.data, sort_dicts=False)
+    ini.data['groups_programming_rating']['project'] = 10.0
+    ini.save()
