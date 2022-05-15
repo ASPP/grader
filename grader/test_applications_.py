@@ -116,7 +116,7 @@ def test_applications_ini_file_missing(tmp_path):
     ini = ApplicationsIni(tmp_path / 'missing.ini')
 
     assert ini.get_motivation_score('Person One', identity='other') == None
-    
+
     ini.set_motivation_score('Person One', 2, identity='other')
     assert ini.get_motivation_score('Person One', identity='other') == 2
 
@@ -129,10 +129,10 @@ def test_applications_ini_read(tmp_path):
     ini = get_ini(tmp_path)
 
     assert ini.get_motivation_score('Person One', identity='other') == -1
-    
+
     ini.set_motivation_score('Person One', 2, identity='other')
     assert ini.get_motivation_score('Person One', identity='other') == 2
-    
+
 def test_applications_ini_save(tmp_path):
     ini = get_ini(tmp_path)
 
@@ -216,3 +216,18 @@ def test_applications_object(tmp_path):
     byyear = app.filter(born=1980)
     assert len(byyear) == 1
     byyear.name == ['Jędrzej Marcin']
+
+def test_applications_getitem(tmp_path):
+    csv = get_applications_csv(tmp_path)
+    ini = get_ini(tmp_path).filename
+
+    app = Applications(csv, ini)
+
+    assert len(app) == 3
+    assert app['Person One'].fullname == 'Person One'
+    assert app['person one'].fullname == 'Person One'
+    assert app[1].fullname == 'Person One'
+    with pytest.raises(TypeError):
+        app[3.0]
+    with pytest.raises(IndexError):
+        app['Unkown Person']

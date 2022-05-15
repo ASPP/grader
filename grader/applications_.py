@@ -239,7 +239,7 @@ class ApplicationsIni:
 
 
     def _motivation_section_name(self, identity):
-        return 
+        return
 
     @vector.vectorize
     def identities(self):
@@ -311,11 +311,11 @@ class ApplicationsIni:
         section_name = f'motivation_score-{identity}'
         key = fullname.lower()
         self[f'{section_name}.{key}'] = value
-   
+
     def get_labels(self, fullname):
         key = fullname.lower()
         return self[f'labels.{key}'] or []
-        
+
     def set_labels(self, fullname, labels):
         key = fullname.lower()
 
@@ -336,8 +336,14 @@ class Applications:
                                             relaxed=relaxed)
 
     def __getitem__(self, key):
-        """Get people by numerical index"""
-        return self.people[key]
+        """Get people by numerical index or by fullname"""
+        match key:
+            case int(key):
+                return self.people[key]
+            case str(key):
+                return self.filter(fullname=f'^{key.lower()}$')[0]
+            case _:
+                raise TypeError
 
     def __len__(self):
         return len(self.people)

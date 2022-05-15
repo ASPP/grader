@@ -1469,8 +1469,9 @@ import click
                               path_type=pathlib.Path))
 def main(identity, csv_file):
     logging.basicConfig(level=logging.INFO)
+    history = pathlib.Path.home() / '.grader_history'
 
-    cmd = Grader(identity=identity, csv_file=csv_file)
+    cmd = Grader(identity=identity, csv_file=csv_file, history_file=history)
 
     if sys.stdin.isatty():
         while True:
