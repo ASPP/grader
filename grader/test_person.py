@@ -1,4 +1,4 @@
-from grader.person import Person
+from grader.person import (Person, FormulaProxy)
 from grader.applications_ import ApplicationsIni
 
 import pytest
@@ -75,7 +75,7 @@ def test_person_applied():
 
 def test_person_with_ini(tmp_path):
     ini = get_ini(tmp_path)
-    
+
     p = Person(**MARCIN, _ini=ini)
 
     assert p.motivation_scores == [1, None]
@@ -141,3 +141,19 @@ def test_person_not_in_ini(tmp_path):
 
     # check that we don't an empty key assignment in [labels]
     assert 'name unset =\n' not in out.read_text()
+
+def test_formula_proxy(tmp_path):
+    ini = get_ini(tmp_path)
+    p = Person(**MARCIN, _ini=ini)
+    p.cooking = 'paleo'
+
+    f = FormulaProxy(p)
+
+    assert f['gender'] == 'other'
+    assert f['nonmale'] == 1
+    assert f['programming'] == 0.0
+    assert f['cooking'] == -1
+    assert f['location'] == 'Nicaragua'
+
+    formula = '(nationality!=affiliation)*0.4 + programming*0.2 + cooking*0.2 + nonmale*0.2'
+    assert f.eval(formula) == 0.4 + 0 + -1*0.2 + 0.2

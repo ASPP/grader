@@ -31,7 +31,16 @@ key_str = value
 key_num = 111.5
 
 [cooking_rating]
-key = 5.0
+paleo = -1.0
+vegan = 2.0
+
+[programming_rating]
+competent = 1.0
+expert = 0.0
+novice = 0.0
+
+[formula]
+location = Nicaragua
 
 [motivation_score-zbyszek]
 person one = 1
@@ -146,7 +155,7 @@ def test_applications_ini_save(tmp_path):
     # so we get '6.0' when reading the data back again.
     ini['cooking_rating.key'] = 6
     ini.save(out)
-    assert '[cooking_rating]\nkey = 6.0\n' in out.read_text()
+    assert '[cooking_rating]\npaleo = -1.0\n' in out.read_text()
 
     # Add a key to an exisiting section
     ini['cooking_rating.some_long_key'] = 7

@@ -2,6 +2,7 @@ import configparser
 import csv
 from fnmatch import fnmatch
 import itertools
+import functools
 import pprint
 import re
 import os
@@ -205,7 +206,7 @@ def load_applications_csv(file, field_name_overrides={}, relaxed=False, ini=None
         count += 1
 
         try:
-            yield person.Person.new(fields, entry, relaxed=relaxed, ini=ini)
+            yield person.Person.from_row(fields, entry, relaxed=relaxed, ini=ini)
         except Exception as exp:
             print(f'Exception raised on entry {count}:', entry)
             print('Detected fields:\n', fields)
@@ -237,16 +238,24 @@ class ApplicationsIni:
         self.data = {name: self.convert_section(name, section)
                      for name, section in cp.items()}
 
-
-    def _motivation_section_name(self, identity):
-        return
-
+    @functools.cache
     @vector.vectorize
     def identities(self):
+        """Return a vector of all identities used in the ini file"""
         for section_name, section in self.data.items():
             match section_name.split('-', maxsplit=1):
                case ('motivation_score', identity):
                     yield identity
+
+    @functools.cache
+    @vector.dictify
+    def ratings(self):
+        """Return a dictionary of mappings: {field → {value → rating}}"""
+        for section_name, section in self.data.items():
+            match section_name.rsplit('_', maxsplit=1):
+               case (field, 'rating'):
+                   # section is already a dictionary, so we just yield it
+                   yield field, section
 
     @staticmethod
     def config_parser():

@@ -50,3 +50,8 @@ def vectorize(generator_func):
     def wrapper(*args, **kwargs):
         return vector(generator_func(*args, **kwargs))
     return functools.update_wrapper(wrapper, generator_func)
+
+def dictify(generator_func):
+    def wrapper(*args, **kwargs):
+        return dict(generator_func(*args, **kwargs))
+    return functools.update_wrapper(wrapper, generator_func)

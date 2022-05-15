@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import datetime
+import re
 
 from . import applications_ as applications
 
@@ -196,7 +197,7 @@ class Person:
     # this is to be used when we want to create a Person from a CSV file,
     # automatically loading unknown/unprocessed fields
     @classmethod
-    def new(cls, fields, values, relaxed=False, ini=None):
+    def from_row(cls, fields, values, relaxed=False, ini=None):
         # first instantiate a Person with the known/required fields
         known_fields = [item.name for item in dataclasses.fields(cls)]
         hard_coded = {field:value for (field, value) in zip(fields, values)
@@ -236,3 +237,27 @@ class Person:
             self.applied = False
 
         self.n_applied = found
+
+class FormulaProxy:
+    def __init__(self, person):
+        self.person = person
+        self.rankings = person._ini.ratings()
+
+    def __getitem__(self, name):
+        try:
+            val = getattr(self.person, name)
+        except AttributeError:
+            val = self.person._ini[f'formula.{name}']
+
+        if name in self.rankings:
+            # Explanation in () or after / is ignored in the key
+            key = re.match(r'(.+?)\s*(?:[(/,]|$)', val).group(1).lower()
+            try:
+                val = self.rankings[name][key]
+            except KeyError:
+                raise KeyError(f'{name} not rated for {key!r}')
+
+        return val
+
+    def eval(self, formula):
+        return eval(formula, {}, self)
