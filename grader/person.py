@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 import dataclasses
 from functools import cached_property
 import datetime
+
+from . import applications_ as applications
 
 # List of valid values for fields in the Person object
 # The values need to match with what is used in the application form
@@ -67,12 +71,55 @@ class Person:
     nationality: str
     applied: bool          # already applied? (self-reported)
 
-    labels : [str] = dataclasses.field(default_factory=list)
-
     # internal attribute signaling relaxed checking
     # needed to relax value checks for old application files [should not be
     # necessary for new application files
     _relaxed: bool = dataclasses.field(default=False, repr=False)
+
+    # internal attribute keeping a reference to the application.ini file
+    _ini: applications.ApplicationIni = \
+        dataclasses.field(default=None, repr=False)
+
+    @property
+    def motivation_scores(self):
+        if self._ini is None:
+            return []
+        return self._ini.get_motivation_scores(self.fullname)
+
+    def set_motivation_score(self, value, identity):
+        if self._ini is None:
+            raise ValueError
+
+        self._ini.set_motivation_score(
+            self.fullname, value, identity=identity)
+        
+    @property
+    def labels(self):
+        if self._ini is None:
+            return []
+        return self._ini.get_labels(self.fullname)
+
+    def add_label(self, label):
+        if self._ini is None:
+            raise ValueError
+
+        labels = self.labels
+        if label in self.labels:
+            return
+
+        labels = sorted(labels + [label])
+        self._ini.set_labels(self.fullname, labels)
+
+    def remove_label(self, label):
+        if self._ini is None:
+            raise ValueError
+
+        labels = self.labels
+        if label not in self.labels:
+            return
+
+        labels.remove(label)
+        self._ini.set_labels(self.fullname, labels)
 
     @cached_property
     def fullname(self) -> str:
@@ -107,12 +154,12 @@ class Person:
     # this is to be used when we want to create a Person from a CSV file,
     # automatically loading unknown/unprocessed fields
     @classmethod
-    def new(cls, fields, values, relaxed=False):
+    def new(cls, fields, values, relaxed=False, ini=None):
         # first instantiate a Person with the known/required fields
         known_fields = [item.name for item in dataclasses.fields(cls)]
         hard_coded = {field:value for (field, value) in zip(fields, values)
                                   if field in known_fields}
-        person = cls(**hard_coded, _relaxed=relaxed)
+        person = cls(**hard_coded, _relaxed=relaxed, _ini=ini)
 
         # add all the unknown/unprocessed fields
         for (field, value) in zip(fields, values):

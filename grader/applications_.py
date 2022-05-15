@@ -1,12 +1,12 @@
 import configparser
 import csv
-import fnmatch
+from fnmatch import fnmatch
+import itertools
 import pprint
 import re
+import os
 
-from . import vector
-from .person import Person
-from . import util
+from . import (person, vector, util)
 
 DEBUG_MAPPINGS = False
 
@@ -172,10 +172,10 @@ def csv_header_to_fields(header, overrides):
 
 # vectorize consumes the generator and returns a special list, which allows
 # vectorized attribute access to the list elements, for example
-# applications = load(file)
+# applications = load_applications_csv(file)
 # applications.name -> ['Marcus', 'Lukas', 'Giovanni', ...]
 @vector.vectorize
-def load(file, field_name_overrides={}, relaxed=False):
+def load_applications_csv(file, field_name_overrides={}, relaxed=False, ini=None):
     # support both file objects and path-strings
     if not hasattr(file, 'read'):
         file = open(file, encoding='utf-8-sig') ### support for CSV file with BOM
@@ -205,27 +205,48 @@ def load(file, field_name_overrides={}, relaxed=False):
         count += 1
 
         try:
-            yield Person.new(fields, entry, relaxed=relaxed)
+            yield person.Person.new(fields, entry, relaxed=relaxed, ini=ini)
         except Exception as exp:
             print(f'Exception raised on entry {count}:', entry)
             print('Detected fields:\n', fields)
             raise
 
+
 class ApplicationsIni:
     def __init__(self, file):
-        if not hasattr(file, 'read'):
-            self.filename = file
-            file = open(file)
-        else:
+        if hasattr(file, 'read'):
+            # file is already open
             self.filename = file.name
+        else:
+            self.filename = file
+            # open the file for reading, if it exists
+            try:
+                file = open(file)
+            except FileNotFoundError as e:
+                # if the file doesn't exist yet, we'll create it when writing
+                print(f'warning: {e}')
+                file = None
 
         cp = self.config_parser()
-        cp.read_file(file)
+
+        if file is not None:
+            cp.read_file(file)
 
         # this keeps all the data from the INI file, ex:
         # 'motivation_score-0' : {'firstname lastname' : -1}
         self.data = {name: self.convert_section(name, section)
                      for name, section in cp.items()}
+
+
+    def _motivation_section_name(self, identity):
+        return 
+
+    @vector.vectorize
+    def identities(self):
+        for section_name, section in self.data.items():
+            match section_name.split('-', maxsplit=1):
+               case ('motivation_score', identity):
+                    yield identity
 
     @staticmethod
     def config_parser():
@@ -236,7 +257,7 @@ class ApplicationsIni:
         # find the appropriate converter for a given section
         for pattern, conv in SECTION_TYPES.items():
             # find the proper type for the section naming matching pattern
-            if fnmatch.fnmatch(section_name, pattern):
+            if fnmatch(section_name, pattern):
                 return conv
         # just return as-is if we don't know the type for this section
         return lambda x: x
@@ -260,101 +281,57 @@ class ApplicationsIni:
     def __setitem__(self, key, value):
         section_name, key_name = key.split('.')
         conv = self._find_conv(section_name)
+
+        if section_name not in self.data:
+            self.data[section_name] = {}
         self.data[section_name][key_name] = conv(value)
 
     def __getitem__(self, key):
         # The key is split into two parts: section and key name.
         # The key names are allowed to contain dots (this is what maxsplit is for).
-        a, b = key.split('.', maxsplit=1)
-        return self.data[a][b]
+        section_name, key = key.split('.', maxsplit=1)
+        section = self.data.get(section_name)
+        if section is None:
+            return None
+        return section.get(key)
 
-    def label_append(self, key, value):
-        v = self[key].append(value)
-        if v is None:
-            v = []
-        v += [value]
-        self[key] = v
+    @vector.vectorize
+    def get_motivation_scores(self, fullname):
+        key = fullname.lower()
+        for ident in self.identities():
+            section_name = f'motivation_score-{ident}'
+            yield self[f'{section_name}.{key}']
+
+    def get_motivation_score(self, fullname, identity):
+        section_name = f'motivation_score-{identity}'
+        key = fullname.lower()
+        return self[f'{section_name}.{key}']
+
+    def set_motivation_score(self, fullname, value, identity):
+        section_name = f'motivation_score-{identity}'
+        key = fullname.lower()
+        self[f'{section_name}.{key}'] = value
+   
+    def get_labels(self, fullname):
+        key = fullname.lower()
+        return self[f'labels.{key}'] or []
+        
+    def set_labels(self, fullname, labels):
+        key = fullname.lower()
+
+        if not labels:
+            self.data['labels'].pop(key)
+        else:
+            self[f'labels.{key}'] = labels
 
 
 class Applications:
-    def __init__(self, applicants, config):
-        self.applicants = applicants
-        self.config = config
-
-        if config is not None:
-            # Add overrides from config
-            for section in config.sections:
-                if section.endswith('_overrides'):
-                    field = section[0:-len('_overrides')]
-                    for fullname, value in config[section].items():
-                        for idx, person in enumerate(applicants):
-                            if person.fullname.lower() == fullname:
-                                item = {field : value}
-                                new_fields = person._replace(**item)
-                                new_person = PERSON_FACTORY(**new_fields._asdict())
-                                applicants[idx] = new_person
-
-            # Add applicant labels from config file to applicant object
-            for applicant in applicants:
-                labels = config['labels'].get(applicant.fullname,
-                                              list_of_str())
-                applicant.labels = labels
-
-    def __getitem__(self, key):
-        """Support basic iteration"""
-        return self.applicants[key]
+    def __init__(self, csv_file, ini_file):
+        self.ini = ApplicationsIni(ini_file)
+        self.people = load_applications_csv(csv_file, ini=self.ini)
 
     def __len__(self):
-        return len(self.applicants)
-
-    @classmethod
-    def from_paths(cls, config_path, csv_path, fields_to_col_names_section):
-        if os.path.exists(config_path):
-            config = our_configfile(config_path)
-        else:
-            config = None
-            printf('Warning: no configuration file {}', config_path)
-
-        with open(csv_path, newline='', encoding='utf-8-sig') as f:
-            applicants = parse_applications_csv_file(
-                f, fields_to_col_names_section)
-
-        applications = cls(applicants, config)
-        return applications
-
-    def find_applicant_by_fullname(self, fullname):
-        for applicant in self.applicants:
-            if applicant.fullname.lower() == fullname.lower():
-                return applicant
-        else:
-            raise ValueError('Applicant "{}" not found'.format(fullname))
-
-    def add_labels(self, fullname, labels):
-        # update applicant
-        applicant = self.find_applicant_by_fullname(fullname)
-        applicant.labels.extend(labels)
-        # update config file
-        section = self.config['labels']
-        saved = section.get(fullname, list_of_str())
-        saved.extend(labels)
-        section[fullname] = saved
-
-    def clear_labels(self, fullname):
-        # update applicant
-        applicant = self.find_applicant_by_fullname(fullname)
-        applicant.labels = []
-        # update config file
-        self.config['labels'].clear(fullname)
-
-    def get_labels(self, fullname):
-        applicant = self.find_applicant_by_fullname(fullname)
-        return applicant.labels
-
-    def get_all_labels(self):
-        labels = set()
-        for applicant in self.applicants:
-            labels.update(applicant.labels)
-        return labels
+        return len(self.people)
 
     def filter(self, **kwargs):
         """Return an iterator over the applications which match certain criteria:
@@ -377,6 +354,9 @@ class Applications:
                             applicants labeled XXX and YYY
                             but nor ZZZ neither WWW
 
+        Labels are checked exactly, and other attributes are interpreted
+        as a case-insensitive regexp.
+
         Note: returns all applications when called without arguments
         """
         # first match labels
@@ -386,17 +366,17 @@ class Applications:
             labels = iter((labels, )) if type(labels) == str else iter(labels)
             accept = frozenset(itertools.takewhile(lambda x: x!='-', labels))
             deny = frozenset(labels)
-            for p in self.applicants:
+            for p in self.people:
                 labels = set(p.labels)
                 if not (accept - labels) and not (labels & deny):
                     matching.append(p)
         else:
-            matching = self.applicants[:]
+            matching = self.people[:]
 
         # now filter through attributes
         for attr, value in kwargs.items():
-            matching = [p for p in matching if getattr(p, attr) == value]
+            matching = [p for p in matching
+                        if re.search(value, getattr(p, attr),
+                                     re.IGNORECASE)]
 
-        return matching
-
-
+        return vector.vector(matching)

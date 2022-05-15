@@ -77,9 +77,10 @@ class list_of_float(list):
 
 class list_of_str(list):
     def __init__(self, arg=None):
-        equivs = ((item.strip() for item in arg.split(','))
-                  if arg is not None else ())
-        super().__init__(equivs)
+        if not isinstance(arg, list):
+            arg = ((item.strip() for item in arg.split(','))
+                   if arg is not None else ())
+        super().__init__(arg)
 
     def __str__(self):
         return ', '.join(self)
