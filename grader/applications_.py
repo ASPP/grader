@@ -74,7 +74,7 @@ def col_name_to_field(description, overrides):
 
     # Recent versions of limesurvey set the descriptions as "KEY. Blah
     # blah" or "KEY[other]. Blah blah". Let's match the first part only.
-    desc, _, _ = description.partition('.')
+    desc = description.split('.', maxsplit=1)[0]
 
     # match based on the different ways limesurvey implemented the 'other' value
     # in specific fields. Ex: 'Position [Other]', '[Other] Position'
