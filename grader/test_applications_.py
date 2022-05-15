@@ -12,13 +12,12 @@ import pytest
 APPLICATIONS_ROOT = (os.getenv('APPLICATIONS_ROOT') or
                      '/home/zbyszek/pythonschool/pythonschool/')
 
-APPLICATIONS = pathlib.Path(APPLICATIONS_ROOT).glob('**/applications.csv')
-APPLICATIONS_ORIGINAL = list(pathlib.Path(APPLICATIONS_ROOT).glob('**/applications_original.csv'))
-APPLICATIONS = sorted(APPLICATIONS_ORIGINAL +
-                      [p for p in APPLICATIONS
-                       if p.with_name('applications_original.csv') not in APPLICATIONS_ORIGINAL], reverse=True)
+APPLICATIONS = sorted(
+    pathlib.Path(APPLICATIONS_ROOT).glob('**/applications.csv'),
+    reverse=True)
 
-@pytest.mark.parametrize('path', APPLICATIONS)
+@pytest.mark.parametrize('path', APPLICATIONS,
+                         ids=(lambda path: path.parent.name))
 def test_all_years(path):
     # years before 2012 are to be treated less strictly
     relaxed = any(f'{year}-' in str(path) for year in range(2009,2012))
@@ -64,12 +63,14 @@ def get_applications_csv(tmp_path):
     person_one = MARCIN | dict(
         name = 'Person',
         lastname = 'One',
-        affiliation = 'Paleolithic 1')
+        affiliation = 'Paleolithic 1',
+        born=1981)
 
     person_two = MARCIN | dict(
         name = 'Person',
         lastname = 'Two',
-        affiliation = 'Completely Modern 1')
+        affiliation = 'Completely Modern 1',
+        born=1982)
 
     csv = '\n'.join((';'.join(f'"{key}"' for key in MARCIN.keys()),
                      ';'.join(f'"{val}"' for val in MARCIN.values()),
@@ -210,3 +211,8 @@ def test_applications_object(tmp_path):
 
     with pytest.raises(AttributeError):
         app.filter(unknown_attr = '11')
+
+    # non-string match
+    byyear = app.filter(born=1980)
+    assert len(byyear) == 1
+    byyear.name == ['Jędrzej Marcin']

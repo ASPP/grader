@@ -71,6 +71,8 @@ class Person:
     nationality: str
     applied: bool          # already applied? (self-reported)
 
+    n_applied: int = 0
+
     # internal attribute signaling relaxed checking
     # needed to relax value checks for old application files [should not be
     # necessary for new application files
@@ -92,7 +94,7 @@ class Person:
 
         self._ini.set_motivation_score(
             self.fullname, value, identity=identity)
-        
+
     @property
     def labels(self):
         if self._ini is None:
@@ -167,3 +169,27 @@ class Person:
                 setattr(person, field, value)
 
         return person
+
+    def set_n_applied(self, archive):
+        found = 0
+        for year in archive:
+            candidates = year.filter(fullname=f'^{self.fullname}$')
+            if not candidates:
+                candidates = year.filter(email=self.email)
+
+            assert len(candidates) <= 1
+            if candidates:
+                found += 1
+
+        assert isinstance(self.applied, bool)
+
+        if found and not self.applied:
+            print(f'warning: person found in archive says not applied: '
+                  f'{self.fullname} <{self.email}>')
+            self.applied = True
+        if not found and self.applied:
+            print('warning: person says they applied, but not found in archive: '
+                  f'{self.fullname} <{self.email}>')
+            self.applied = False
+
+        self.n_applied = found

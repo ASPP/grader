@@ -313,5 +313,3 @@ class Applications:
             matching = [p for p in matching if getattr(p, attr) == value]
 
         return matching
-
-

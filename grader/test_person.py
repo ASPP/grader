@@ -38,6 +38,7 @@ def test_person():
     assert p.born == 1980
     assert isinstance(p.born, int)
     assert p.applied is False
+    assert p.n_applied == 0
 
     assert p.labels == []
     assert p.nonmale is True
@@ -64,6 +65,13 @@ def test_person_unknown_field():
     args = MARCIN | dict(unkwown_field='123')
     with pytest.raises(TypeError):
         p = Person(**args)
+
+def test_person_applied():
+    args = MARCIN | dict(applied='Yes')
+    p = Person(**args)
+
+    assert p.applied is True
+    assert p.n_applied == 0
 
 def test_person_with_ini(tmp_path):
     ini = get_ini(tmp_path)

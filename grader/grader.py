@@ -11,6 +11,7 @@ import numbers
 import numpy as np
 import operator
 import os
+import pathlib
 import pprint
 import random
 import re
@@ -33,6 +34,9 @@ from .applications import (
     parse_applications_csv_file,
     Applications,
 )
+
+from .applications_ import Applications
+
 from .util import (
     list_of_equivs,
     list_of_float,
@@ -42,7 +46,6 @@ from .util import (
     section_name,
     IDENTITIES,
 )
-
 
 @contextlib.contextmanager
 def Umask(umask):
@@ -198,56 +201,23 @@ class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
     set_completions = cmd_completer.Cmd_Completer.set_completions
 
-    def __init__(self, identity, config, applications, history_file=None):
+    def __init__(self, identity, csv_file, history_file=None):
         super().__init__(histfile=history_file)
 
         self.identity = identity
-        self.config = config
-        self._init_applications(applications)
-        self.modified = False
-        self.ranking_done = False
+        self.applications = Applications(csv_file=csv_file)
+        self.archive = []
 
-    def _init_applications(self, application_filenames):
-        section = self.config['application_lists']
-        if application_filenames:
-            section.clear()
-            for i, filename in zip('abcdefghijklm', application_filenames):
-                section[i] = filename
-        else:
-            application_filenames = list(section.values())
+        for path in sorted(csv_file.parent.glob('*/applications.csv'),
+                              reverse=True):
+            # years before 2012 are to be treated less strictly
+            relaxed = any(f'{year}-' in str(path) for year in range(2009,2012))
+            old = Applications(csv_file=path, relaxed=relaxed)
+            self.archive.append(old)
 
-        fields_to_col_names_section = self.config['fields']
-        if len(list(fields_to_col_names_section.keys())) == 0:
-            raise ValueError('[fields] section is mandatory')
+        for person in self.applications:
+            person.set_n_applied(self.archive)
 
-        # Load applications for current edition.
-        with open(application_filenames[0], newline='', encoding='utf-8-sig') as f:
-            applicants = parse_applications_csv_file(
-                f, fields_to_col_names_section)
-        self.applications = Applications(applicants, self.config)
-
-        # set some global values
-        # Get all possible nationalities
-        self.all_nationalities = tuple(set(p.nationality for p in self.applications))
-        self.all_affiliations = tuple(set(p.affiliation for p in self.applications))
-
-        # Load applications for previous editions.
-        self.applications_old = {}
-        for filename in application_filenames:
-            if filename == 'applications.csv':
-                continue
-
-            path = filename.split('/')[0]
-            config_path = os.path.join(path, 'grader.conf')
-            app = Applications.from_paths(
-                config_path=config_path,
-                csv_path=filename,
-                fields_to_col_names_section=fields_to_col_names_section,
-            )
-            self.applications_old[path] = app
-
-        for applicant in self.applications:
-            self._set_applied(applicant)
 
     def _set_applied(self, person):
         "Return the number of times a person applied"
@@ -1488,11 +1458,19 @@ grader_options = cmd_completer.ModArgumentParser('grader')\
                           The first is current, subsequent are from previous years.
                        ''')
 
-def main():
+
+import click
+
+@click.command()
+@click.option('-i', '--identity')
+@click.option('--csv-file',
+              default='applications.csv',
+              type=click.Path(dir_okay=False,
+                              path_type=pathlib.Path))
+def main(identity, csv_file):
     logging.basicConfig(level=logging.INFO)
 
-    opts = grader_options.parse_args()
-    cmd = Grader(opts.identity, opts.config, opts.applications, history_file=opts.history_file)
+    cmd = Grader(identity=identity, csv_file=csv_file)
 
     if sys.stdin.isatty():
         while True:

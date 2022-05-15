@@ -326,9 +326,18 @@ class ApplicationsIni:
 
 
 class Applications:
-    def __init__(self, csv_file, ini_file):
+    def __init__(self, csv_file, ini_file=None, relaxed=False):
+        if ini_file is None:
+            ini_file = csv_file.with_suffix('.ini')
         self.ini = ApplicationsIni(ini_file)
-        self.people = load_applications_csv(csv_file, ini=self.ini)
+
+        self.people = load_applications_csv(csv_file,
+                                            ini=self.ini,
+                                            relaxed=relaxed)
+
+    def __getitem__(self, key):
+        """Get people by numerical index"""
+        return self.people[key]
 
     def __len__(self):
         return len(self.people)
@@ -340,6 +349,9 @@ class Applications:
 
         applications.filter(nationality='Italy') -->
                             applicants where person.nationality=='Italy'
+
+        applications.filter(applied=True) -->
+                            people who declared that they applied already
 
         applications.filter(label='XXX') -->
                             applicants labeled XXX
@@ -375,8 +387,12 @@ class Applications:
 
         # now filter through attributes
         for attr, value in kwargs.items():
-            matching = [p for p in matching
-                        if re.search(value, getattr(p, attr),
-                                     re.IGNORECASE)]
+            if isinstance(value, str):
+                matching = [p for p in matching
+                            if re.search(value, getattr(p, attr),
+                                         re.IGNORECASE)]
+            else:
+                matching = [p for p in matching
+                            if value == getattr(p, attr)]
 
         return vector.vector(matching)
