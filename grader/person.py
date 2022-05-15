@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import dataclasses
-from functools import cached_property
 import datetime
 
 from . import applications_ as applications
@@ -48,6 +47,15 @@ VALID_VCS = (
 
 _year_now = datetime.datetime.now().year
 
+def convert_bool(value):
+    """Convert "booleany" strings to bool"""
+    if isinstance(value, str):
+        return value[0] in 'yY'
+    elif isinstance(value, (bool, int)):
+        return bool(value)
+    else:
+        raise ValueError(f'cannot convert {value} of type {type(value)} to bool')
+
 @dataclasses.dataclass(kw_only=True, order=False)
 class Person:
     name: str
@@ -79,7 +87,7 @@ class Person:
     _relaxed: bool = dataclasses.field(default=False, repr=False)
 
     # internal attribute keeping a reference to the application.ini file
-    _ini: applications.ApplicationIni = \
+    _ini: applications.ApplicationsIni = \
         dataclasses.field(default=None, repr=False)
 
     @property
@@ -123,11 +131,11 @@ class Person:
         labels.remove(label)
         self._ini.set_labels(self.fullname, labels)
 
-    @cached_property
+    @property
     def fullname(self) -> str:
             return f'{self.name} {self.lastname}'
 
-    @cached_property
+    @property
     def nonmale(self) -> str:
             return self.gender.lower() != 'male'
 
@@ -135,11 +143,10 @@ class Person:
         # strip extraneous whitespace from around and within names and emails
         self.name = ' '.join(self.name.split())
         self.lastname = ' '.join(self.lastname.split())
+
+        self._apply_overrides()
+
         self.email = self.email.strip()
-        # the birth year must be an integer
-        self.born = int(self.born)
-        # transform applied to a boolean
-        self.applied = self.applied[0] not in 'nN'
 
         # only run the checks if we are in strict mode
         if self._relaxed:
@@ -152,6 +159,39 @@ class Person:
             value = getattr(self, field).lower()
             if value not in globals()[f'VALID_{field.upper()}']:
                 raise ValueError(f'Bad {field} value: {value}')
+
+    # type-aware setattr
+    def __setattr__(self, attr, value):
+        # we only try to normalize the types of attributes with safe types
+        allowed_types = dict(str=str,
+                            bool=convert_bool,
+                            float=float,
+                            int=int)
+        # find the type of the attr from the type annotations
+        for field in dataclasses.fields(self):
+            if field.name == attr:
+                if typ := allowed_types.get(field.type):
+                    value = typ(value)
+                break
+        super().__setattr__(attr, value)
+
+
+    def _apply_override(self, attr):
+        if not self._ini:
+            return
+
+        key = f'{attr}_overrides.{self.fullname.lower()}'
+        if override := self._ini[key]:
+            print(f'INFO: {self.fullname}: found override, setting {attr}={override}')
+            setattr(self, attr, override)
+            return True
+
+    def _apply_overrides(self):
+        for attr in dir(self):
+            obj = getattr(self, attr)
+            if callable(obj):
+                continue
+            self._apply_override(attr)
 
     # this is to be used when we want to create a Person from a CSV file,
     # automatically loading unknown/unprocessed fields
@@ -171,6 +211,10 @@ class Person:
         return person
 
     def set_n_applied(self, archive):
+        if self._apply_override('n_applied'):
+            # we don't count manually, if an override was found
+            return
+
         found = 0
         for year in archive:
             candidates = year.filter(fullname=f'^{self.fullname}$')
@@ -184,11 +228,10 @@ class Person:
         assert isinstance(self.applied, bool)
 
         if found and not self.applied:
-            print(f'warning: person found in archive says not applied: '
-                  f'{self.fullname} <{self.email}>')
+            print(f'INFO: {self.fullname}: n_applied={found}, setting applied=yes')
             self.applied = True
         if not found and self.applied:
-            print('warning: person says they applied, but not found in archive: '
+            print('WARNING: person says they applied, but not found in archive: '
                   f'{self.fullname} <{self.email}>')
             self.applied = False
 
