@@ -182,6 +182,11 @@ def test_applications_object(tmp_path):
     byname.name == ['Person', 'Person']
     byname.lastname = ['One', 'Two']
 
+    byname_and_l = app.filter(name = 'Person', label=['-','PALEO'])
+    assert len(byname_and_l) == 1
+    byname_and_l.name == ['Person']
+    byname_and_l.lastname = ['Two']
+
     byname = app.filter(name = 'Person', affiliation='Paleolithic 1')
     assert len(byname) == 1
     byname.fullname == ['Person One']
