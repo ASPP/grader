@@ -212,10 +212,15 @@ def load(file, field_name_overrides={}, relaxed=False):
             raise
 
 class ApplicationsIni:
-    def __init__(self, filename):
+    def __init__(self, file):
+        if not hasattr(file, 'read'):
+            self.filename = file
+            file = open(file)
+        else:
+            self.filename = file.name
+
         cp = self.config_parser()
-        cp.read_file(open(filename))
-        self.filename = filename
+        cp.read_file(file)
 
         # this keeps all the data from the INI file, ex:
         # 'motivation_score-0' : {'firstname lastname' : -1}
@@ -227,22 +232,49 @@ class ApplicationsIni:
         return configparser.ConfigParser(comment_prefixes='#',
                                          inline_comment_prefixes='#')
 
-    def convert_section(self, name, section):
-        # convert section item values to the proper type
+    def _find_conv(self, section_name):
+        # find the appropriate converter for a given section
         for pattern, conv in SECTION_TYPES.items():
             # find the proper type for the section naming matching pattern
-            if fnmatch.fnmatch(name, pattern):
-                break
-        else:
-            # just return as-is if we don't know the type for this section
-            conv = lambda x: x
+            if fnmatch.fnmatch(section_name, pattern):
+                return conv
+        # just return as-is if we don't know the type for this section
+        return lambda x: x
+
+    def convert_section(self, section_name, section):
+        conv = self._find_conv(section_name)
+        # convert section item values to the proper type
         return {key:conv(value) for key, value in section.items()}
 
-    def save(self):
+    def save(self, file=None):
         cp = self.config_parser()
         cp.read_dict(self.data)
-        with open(self.filename, 'w') as fh:
+
+        file = file or self.filename
+        if not hasattr(file, 'write'):
+            file = open(file, 'w')
+
+        with file as fh:
             cp.write(fh)
+
+    def __setitem__(self, key, value):
+        section_name, key_name = key.split('.')
+        conv = self._find_conv(section_name)
+        self.data[section_name][key_name] = conv(value)
+
+    def __getitem__(self, key):
+        # The key is split into two parts: section and key name.
+        # The key names are allowed to contain dots (this is what maxsplit is for).
+        a, b = key.split('.', maxsplit=1)
+        return self.data[a][b]
+
+    def label_append(self, key, value):
+        v = self[key].append(value)
+        if v is None:
+            v = []
+        v += [value]
+        self[key] = v
+
 
 class Applications:
     def __init__(self, applicants, config):
