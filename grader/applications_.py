@@ -238,6 +238,11 @@ class ApplicationsIni:
         self.data = {name: self.convert_section(name, section)
                      for name, section in cp.items()}
 
+        # Track modifications to the global state, i.e. the parameters
+        # that apply to all people. Per-person state is changed
+        # through Person, and it'll keep track of invalidation itself.
+        self.generation = 0
+
     @functools.cache
     @vector.vectorize
     def identities(self):
@@ -295,6 +300,14 @@ class ApplicationsIni:
             self.data[section_name] = {}
         self.data[section_name][key_name] = conv(value)
 
+        if not section_name.startswith(('motivation-', 'labels')):
+            # We increase the generation number, for modifications of the state,
+            # but not for the per-person settings in [motivation-*] and [labels],
+            # because those modifications increase the generation number in Person,
+            # and if we increased the generation here, we would trigger recalculation
+            # of scores of all people whenever one person's score or labels were modified.
+            self.generation += 1
+
     def __getitem__(self, key):
         # The key is split into two parts: section and key name.
         # The key names are allowed to contain dots (this is what maxsplit is for).
@@ -332,6 +345,14 @@ class ApplicationsIni:
             self.data['labels'].pop(key)
         else:
             self[f'labels.{key}'] = labels
+
+    @property
+    def formula(self):
+        return self['formula.formula'] or 'nan'
+
+    @formula.setter
+    def formula(self, formula):
+        self['formula.formula'] = formula
 
 
 class Applications:

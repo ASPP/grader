@@ -142,8 +142,24 @@ def test_person_not_in_ini(tmp_path):
     # check that we don't an empty key assignment in [labels]
     assert 'name unset =\n' not in out.read_text()
 
+ini_extra = '''\
+[formula]
+formula = (nationality!=affiliation)*0.4 + programming*0.2 + cooking*0.2 + nonmale*0.2 + (nationality!=location)*0.1
+location = Nicaragua
+
+[cooking_rating]
+paleo = -1.0
+vegan = 2.0
+
+[programming_rating]
+competent = 1.0
+expert = 0.0
+novice = 0.0
+'''
+
 def test_formula_proxy(tmp_path):
-    ini = get_ini(tmp_path)
+    ini = get_ini(tmp_path, ini_extra)
+
     p = Person(**MARCIN, _ini=ini)
     p.cooking = 'paleo'
 
@@ -155,5 +171,42 @@ def test_formula_proxy(tmp_path):
     assert f['cooking'] == -1
     assert f['location'] == 'Nicaragua'
 
-    formula = '(nationality!=affiliation)*0.4 + programming*0.2 + cooking*0.2 + nonmale*0.2'
-    assert f.eval(formula) == 0.4 + 0 + -1*0.2 + 0.2
+def test_person_score(tmp_path):
+    ini = get_ini(tmp_path, ini_extra)
+    p = Person(**MARCIN, _ini=ini)
+
+    assert len(p._score_cache) == 0
+
+    p.cooking = 'paleo'
+    score = p.score
+    assert score == 0.4 + 0 + -1.0*0.2 + 0.2 + 0
+    assert len(p._score_cache) == 1
+
+    assert p.score == score
+    assert len(p._score_cache) == 1
+
+    p.cooking = 'vegan'
+    score = p.score
+    assert score == 0.4 + 0 + 2.0*0.2 + 0.2 + 0
+    assert len(p._score_cache) == 2
+
+    assert p.score == score
+    assert len(p._score_cache) == 2
+
+    # manually tweak the cache to test that we're getting the value from the cache
+    for key in p._score_cache:
+        p._score_cache[key] = 100
+
+    assert p.score == 100
+
+    # invalidate the cache by setting an attribute
+    p.cooking = 'paleo'
+    assert p.score == 0.4 + 0 + -1.0*0.2 + 0.2 + 0
+
+    # set attribute on the ini, check if cache is invalidated
+    ini['formula.location'] = 'Poland'
+    assert p.score == 0.4 + 0 + -1.0*0.2 + 0.2 + 1*0.1
+
+    p.gender = 'male'
+    assert p.nonmale is False
+    assert p.score == 0.4 + 0 + -1.0*0.2 + 0*0.2 + 1*0.1

@@ -30,18 +30,6 @@ ini_string = """\
 key_str = value
 key_num = 111.5
 
-[cooking_rating]
-paleo = -1.0
-vegan = 2.0
-
-[programming_rating]
-competent = 1.0
-expert = 0.0
-novice = 0.0
-
-[formula]
-location = Nicaragua
-
 [motivation_score-zbyszek]
 person one = 1
 person two = -1
@@ -61,9 +49,10 @@ person one = PALEO
 
 """
 
-def get_ini(tmp_path):
+def get_ini(tmp_path, *extra):
     input = tmp_path / 'ini1.ini'
-    input.write_text(ini_string)
+    input.write_text(ini_string + '\n'.join(extra))
+
     return ApplicationsIni(input)
 
 def get_applications_csv(tmp_path):
@@ -97,10 +86,7 @@ def test_applications_ini_read(tmp_path):
 
     assert ini['extra.key_str'] == 'value'
     assert ini['extra.key_num'] == '111.5'
-    with pytest.raises(KeyError):
-        ini['extra.missing']
-
-    assert ini['cooking_rating.key'] == 5.0
+    assert ini['extra.missing'] == None
 
     assert ini['motivation_score-zbyszek.person one'] == 1
     assert ini['motivation_score-zbyszek.person two'] == -1
@@ -134,7 +120,7 @@ def test_applications_ini_file_missing(tmp_path):
     ini.save()
     assert ini.filename.exists()
 
-def test_applications_ini_read(tmp_path):
+def test_applications_ini_scores(tmp_path):
     ini = get_ini(tmp_path)
 
     assert ini.get_motivation_score('Person One', identity='other') == -1
@@ -155,7 +141,7 @@ def test_applications_ini_save(tmp_path):
     # so we get '6.0' when reading the data back again.
     ini['cooking_rating.key'] = 6
     ini.save(out)
-    assert '[cooking_rating]\npaleo = -1.0\n' in out.read_text()
+    assert '[cooking_rating]\nkey = 6.0\n' in out.read_text()
 
     # Add a key to an exisiting section
     ini['cooking_rating.some_long_key'] = 7

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import dataclasses
 import datetime
+import functools
 import re
+import math
 
 from . import applications_ as applications
 
@@ -91,6 +93,10 @@ class Person:
     _ini: applications.ApplicationsIni = \
         dataclasses.field(default=None, repr=False)
 
+    _generation: int = dataclasses.field(default=0, repr=False)
+
+    _score_cache: dict = dataclasses.field(default_factory=dict, repr=False)
+
     @property
     def motivation_scores(self):
         if self._ini is None:
@@ -103,6 +109,9 @@ class Person:
 
         self._ini.set_motivation_score(
             self.fullname, value, identity=identity)
+
+        # The internal state has been modified, version nnn
+        self._generation += 1
 
     @property
     def labels(self):
@@ -121,6 +130,8 @@ class Person:
         labels = sorted(labels + [label])
         self._ini.set_labels(self.fullname, labels)
 
+        self._generation += 1
+
     def remove_label(self, label):
         if self._ini is None:
             raise ValueError
@@ -131,6 +142,8 @@ class Person:
 
         labels.remove(label)
         self._ini.set_labels(self.fullname, labels)
+
+        self._generation += 1
 
     @property
     def fullname(self) -> str:
@@ -176,6 +189,8 @@ class Person:
                 break
         super().__setattr__(attr, value)
 
+        # We use the ancestor's method to avoid recursively calling our own __setattr__
+        super().__setattr__('_generation', self._generation + 1)
 
     def _apply_override(self, attr):
         if not self._ini:
@@ -189,9 +204,9 @@ class Person:
 
     def _apply_overrides(self):
         for attr in dir(self):
-            obj = getattr(self, attr)
-            if callable(obj):
+            if attr.startswith('_'):
                 continue
+
             self._apply_override(attr)
 
     # this is to be used when we want to create a Person from a CSV file,
@@ -238,12 +253,31 @@ class Person:
 
         self.n_applied = found
 
+    @property
+    def score(self):
+        if self._ini is None:
+            return math.nan
+
+        key = (self._generation, self._ini.generation, self._ini.formula)
+        try:
+            return self._score_cache[key]
+        except KeyError:
+            fp = FormulaProxy(self)
+
+            v = eval(self._ini.formula, {}, fp)
+
+            self._score_cache[key] = v
+            return v
+
 class FormulaProxy:
     def __init__(self, person):
         self.person = person
         self.rankings = person._ini.ratings()
 
     def __getitem__(self, name):
+        if name == 'nan':
+            return math.nan
+
         try:
             val = getattr(self.person, name)
         except AttributeError:
@@ -258,6 +292,3 @@ class FormulaProxy:
                 raise KeyError(f'{name} not rated for {key!r}')
 
         return val
-
-    def eval(self, formula):
-        return eval(formula, {}, self)
