@@ -242,9 +242,10 @@ class ApplicationsIni:
             # open the file for reading, if it exists
             try:
                 file = open(file)
+                print(f"loading '{self.filename}'")
             except FileNotFoundError as e:
                 # if the file doesn't exist yet, we'll create it when writing
-                print(f'warning: {e}')
+                #print(f'warning: {e}')
                 file = None
                 # set the modification time to the beginning of the Epoch, so that
                 # any change will trigger our reload rule
