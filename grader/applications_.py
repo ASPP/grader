@@ -289,22 +289,33 @@ class ApplicationsIni:
         return lambda x: x
 
     def reload_if_modified(self):
+        # this function reloads the INI file if its modified time is newer than
+        # the last one the function was called. It is not called automatically
+        # here. It is meant to be used in some form of command/event-loop from
+        # Grader itself
+
         if self.mtime is None:
+            # we won't reload something we can't get the modification time of
             return False
 
+        # guard against accidentally removing the file under our feet
         try:
             current = self.filename.stat().st_mtime_ns
         except FileNotFoundError:
             print(f'WARNING: {self.filename!r} was removed')
             return False
 
+        # don't need to reload
         if current == self.mtime:
             return False
 
+        # if we are here, we have to reload the file
         self.mtime = current
         self.data = self.read_config_file(self.filename.open())
+        # unconditionally update out generation counter, because anything may
+        # have been modified in the file
         self.generation += 1
-        return True  # modified
+        return True
 
     @functools.cache
     @vector.vectorize
@@ -339,12 +350,18 @@ class ApplicationsIni:
             cp.write(fh)
 
     def __setitem__(self, key, value):
+        # allow to set items in the section of the INI using a dotted form, for ex:
+        # to set [python_rating] -> competent = 1 you can do
+        # ApplicationsIni['python_rating.competent'] = 1
         section_name, key_name = key.split('.')
-        conv = self._find_conv(section_name)
 
         if section_name not in self.data:
+            # create a new section if we don't find one in the INI
             self.data[section_name] = {}
-        self.data[section_name][key_name] = conv(value)
+
+        # enforce types for sections we know the type of
+        typ = self._find_typ(section_name)
+        self.data[section_name][key_name] = typ(value)
 
         if not section_name.startswith(('motivation-', 'labels')):
             # We increase the generation number, for modifications of the state,
@@ -355,6 +372,7 @@ class ApplicationsIni:
             self.generation += 1
 
     def __getitem__(self, key):
+        # same as in __setattr__, allows access to section keys via a dotted notation
         # The key is split into two parts: section and key name.
         # The key names are allowed to contain dots (this is what maxsplit is for).
         section_name, key = key.split('.', maxsplit=1)
@@ -371,6 +389,7 @@ class ApplicationsIni:
             yield self[f'{section_name}.{key}']
 
     def get_motivation_score(self, fullname, identity):
+        # get the motivation score of a Person as assigned to them by identity
         section_name = f'motivation_score-{identity}'
         key = fullname.lower()
         return self[f'{section_name}.{key}']
