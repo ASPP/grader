@@ -1,6 +1,6 @@
 import pathlib
 import os
-from io import StringIO
+import time
 
 from grader.applications_ import (
     load_applications_csv,
@@ -106,6 +106,25 @@ def test_applications_ini_read(tmp_path):
     assert ini.get_motivation_scores('Some Son Jr.') == [-1, 1]
 
     assert ini.get_motivation_scores('Unknown Person') == [None, None]
+
+def test_applications_ini_reload(tmp_path):
+    ini = get_ini(tmp_path)
+
+    assert ini.reload_if_modified() == False
+
+    # we need to sleep a bit because the can be fast enough to do the
+    # modification within the granularity of the file system timestamp
+    time.sleep(0.001)
+    ini.filename.touch()
+    assert ini.reload_if_modified() == True
+
+    assert ini.reload_if_modified() == False
+
+    time.sleep(0.001)
+    with ini.filename.open('a') as f:
+        f.write('[cleaning]\nvacuum = 3\n')
+    assert ini.reload_if_modified() == True
+    assert ini['cleaning.vacuum'] == '3'
 
 def test_applications_ini_file_missing(tmp_path):
     ini = ApplicationsIni(tmp_path / 'missing.ini')

@@ -218,8 +218,10 @@ class ApplicationsIni:
         if hasattr(file, 'read'):
             # file is already open
             self.filename = file.name
+            self.mtime = None
         else:
             self.filename = file
+
             # open the file for reading, if it exists
             try:
                 file = open(file)
@@ -227,7 +229,18 @@ class ApplicationsIni:
                 # if the file doesn't exist yet, we'll create it when writing
                 print(f'warning: {e}')
                 file = None
+                self.mtime = 0
+            else:
+                self.mtime = self.filename.stat().st_mtime_ns
 
+        self.data = self.read_config_file(file)
+
+        # Track modifications to the global state, i.e. the parameters
+        # that apply to all people. Per-person state is changed
+        # through Person, and it'll keep track of invalidation itself.
+        self.generation = 0
+
+    def read_config_file(self, file):
         cp = self.config_parser()
 
         if file is not None:
@@ -235,13 +248,26 @@ class ApplicationsIni:
 
         # this keeps all the data from the INI file, ex:
         # 'motivation_score-0' : {'firstname lastname' : -1}
-        self.data = {name: self.convert_section(name, section)
-                     for name, section in cp.items()}
+        return {name: self.convert_section(name, section)
+                for name, section in cp.items()}
 
-        # Track modifications to the global state, i.e. the parameters
-        # that apply to all people. Per-person state is changed
-        # through Person, and it'll keep track of invalidation itself.
-        self.generation = 0
+    def reload_if_modified(self):
+        if self.mtime is None:
+            return False
+
+        try:
+            current = self.filename.stat().st_mtime_ns
+        except FileNotFoundError:
+            print(f'WARNING: {self.filename!r} was removed')
+            return False
+
+        if current == self.mtime:
+            return False
+
+        self.mtime = current
+        self.data = self.read_config_file(self.filename.open())
+        self.generation += 1
+        return True  # modified
 
     @functools.cache
     @vector.vectorize

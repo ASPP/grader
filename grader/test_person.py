@@ -1,3 +1,5 @@
+import time
+
 from grader.person import (Person, FormulaProxy)
 from grader.applications_ import ApplicationsIni
 
@@ -210,3 +212,16 @@ def test_person_score(tmp_path):
     p.gender = 'male'
     assert p.nonmale is False
     assert p.score == 0.4 + 0 + -1.0*0.2 + 0*0.2 + 1*0.1
+
+def test_person_ini_reload(tmp_path):
+    ini = get_ini(tmp_path, ini_extra)
+    p = Person(**MARCIN, _ini=ini)
+
+    assert p.labels == ['UTF-8', 'VEGAN']
+
+    time.sleep(0.001)
+    ini.filename.write_text(ini.filename.read_text().replace('UTF-8', 'ASCII'))
+
+    assert ini.reload_if_modified() == True
+
+    assert p.labels == ['ASCII', 'VEGAN']
