@@ -1,6 +1,6 @@
 import time
 
-from grader.person import (Person, FormulaProxy)
+from grader.person import (convert_bool, Person, FormulaProxy)
 from grader.applications_ import ApplicationsIni
 
 import pytest
@@ -29,6 +29,19 @@ MARCIN = dict(
     nationality = 'Nicaragua',
     applied = 'No',
 )
+
+def test_convert_bool():
+    assert convert_bool('y') is True
+    assert convert_bool('Yes') is True
+    assert convert_bool('NO') is False
+    assert convert_bool('false') is False
+    assert convert_bool('True') is True
+    assert convert_bool(0) is False
+    assert convert_bool(1) is True
+    with pytest.raises(ValueError):
+        convert_bool(0.0)
+    with pytest.raises(ValueError):
+        convert_bool('Ciao')
 
 def test_person():
     p = Person(**MARCIN)

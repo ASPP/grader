@@ -10,12 +10,16 @@ from . import applications_ as applications
 
 # List of valid values for fields in the Person object
 # The values need to match with what is used in the application form
+# You can have fields not specified here in the application form, they will
+# be added to Person, but won't be managed in any way (so they are only useful
+# for printing or for being evaluated in the formula
 
 VALID_GENDER = (
     'male',
     'female',
     'other',
 )
+
 VALID_POSITION = (
     'bachelor student',
     'master student',
@@ -26,15 +30,18 @@ VALID_POSITION = (
     'employee',
     'other',
 )
+
 VALID_PROGRAMMING = (
     'novice/advanced beginner',
     'competent/proficient',
     'expert',
 )
+
 VALID_PYTHON = (
     'none',
     *VALID_PROGRAMMING,
 )
+
 VALID_OPEN_SOURCE = (
     'never used / never heard of it',
     'user',
@@ -42,6 +49,7 @@ VALID_OPEN_SOURCE = (
     'major contributions (bug fixes, new feature implementations, ...)',
     'project membership',
 )
+
 VALID_VCS = (
     "no, i don't habitually use a vcs",
     "git",
@@ -53,11 +61,16 @@ _year_now = datetime.datetime.now().year
 def convert_bool(value):
     """Convert "booleany" strings to bool"""
     if isinstance(value, str):
-        return value[0] in 'yY'
-    elif isinstance(value, (bool, int)):
-        return bool(value)
-    else:
-        raise ValueError(f'cannot convert {value} of type {type(value)} to bool')
+        value = value.lower()
+    match value:
+        case ('y' | 'yes'|'true'):
+            return True
+        case ('n' | 'no' | 'false' | 'n/a' | 'none'):
+            return False
+        case bool(value) | int(value):
+            return bool(value)
+        case _:
+            raise ValueError(f'cannot convert {value} of type {type(value)} to bool')
 
 @dataclasses.dataclass(kw_only=True, order=False)
 class Person:
