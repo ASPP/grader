@@ -258,16 +258,20 @@ class Person:
                 setattr(self, attr, override)
 
     # this is to be used when we want to create a Person from a CSV file,
-    # automatically loading unknown/unprocessed fields
+    # automatically loading unknown/unprocessed fields. Outside of testing
+    # cases, most Person instances are created this way by grader
     @classmethod
     def from_row(cls, fields, values, relaxed=False, ini=None):
         # first instantiate a Person with the known/required fields
+        #  - get the list of known fields
         known_fields = [item.name for item in dataclasses.fields(cls)]
+        #  - set their values from those found in the CSV file
         hard_coded = {field:value for (field, value) in zip(fields, values)
                                   if field in known_fields}
         person = cls(**hard_coded, _relaxed=relaxed, _ini=ini)
 
         # add all the unknown/unprocessed fields
+        # all these fields will be of type str
         for (field, value) in zip(fields, values):
             if field not in known_fields:
                 setattr(person, field, value)
@@ -275,6 +279,10 @@ class Person:
         return person
 
     def set_n_applied(self, archive):
+        # set the number of previous applications (excluding the present one)
+        # only works if an archive of previous applications, i.e. a list of
+        # Applications objects is passed. This method is called during the initialization
+        # of Grader
         if self._ini and \
                 self._ini[f'n_applied_overrides.{self.fullname.lower()}'] is not None:
             # we don't count manually if an override was found
@@ -282,61 +290,121 @@ class Person:
 
         found = 0
         for year in archive:
+            # try to find candidate by exact fullname
             candidates = year.filter(fullname=f'^{self.fullname}$')
             if not candidates:
+                # they may write the name differently, let's try to match on the email
+                # address
                 candidates = year.filter(email=self.email)
+            ### TODO: we need some form of fuzzy matching here, especially people with
+            ###       more then one first/last-name tend to skip some of their names
+            ###       but they skip different ones every time.
+            ###       For the emails, we could match on the first part of the email
+            ###       for cases of people who have changed institution in the mean
+            ###       time, like for example:
+            ###       foo.bar@uni-xxx.edu -> foo.bar@uni-yyy.edu
 
+            # if we have found more than a candidate on one year there is something
+            # seriously wrong???
             assert len(candidates) <= 1
             if candidates:
                 found += 1
 
+        # self.applied must be a bool at this point, if not this method is been
+        # called at the wrong time
         assert isinstance(self.applied, bool)
 
         if found and not self.applied:
+            # inform the user that we are overriding the self.applied flag, given
+            # that the applicant cearly forgot to do it themeselves
             print(f'INFO: {self.fullname}: n_applied={found}, setting applied=yes')
             self.applied = True
         if not found and self.applied:
+            # warn the user that someone claims to have applied even if we don't
+            # find them: those cases must be analized manually and solved with
+            # a n_applied override if necessary
             print('WARNING: person says they applied, but not found in archive: '
                   f'{self.fullname} <{self.email}>')
             self.applied = False
 
         self.n_applied = found
 
+    # the score property is expensive to compute, because it requires the evaluation
+    # of the formula.
     @property
     def score(self):
+        # if we don't have a formula we can't compute the score
         if self._ini is None:
             return math.nan
 
+        # create a key for the cache of score. We store there our own generation
+        # (which is updated every time we change something on Person), the INI
+        # file generation (which is updated every time something global changes
+        # in the INI file, like for example some override was added or a reload
+        # from disk was triggered, and finally the formula, which comes as a string
         key = (self._generation, self._ini.generation, self._ini.formula)
         try:
+            # we can return the cached score if nothing has changed
             return self._score_cache[key]
         except KeyError:
+            # we must compute the score
+            # instantiate the FormulaProxy
             fp = FormulaProxy(self)
 
+            # evaluate the formula on the proxy object
             v = eval(self._ini.formula, {}, fp)
 
+            # store the score in cache and return it
             self._score_cache[key] = v
             return v
 
 class FormulaProxy:
+    # This object proxies formula evaluation for Person
+    # It is useful because it knows how to translate text ratings into numeric
+    # ratings as configured in the INI file, for example the entry
+    #    [python_rating]
+    #    competent = 1
+    # would translate a mention of 'python' in the formula with '1' if the
+    # corresponding Person hat python = 'Competent/Proficient'
+    # In other words, this class is a mapping FormulaProxy.attr -> Person.attr (boring)
+    # but more interestingly for FormulaProxy.attr_with_rating -> numerical value
+    # corresponding to the string rating
     def __init__(self, person):
+        # we keep a reference to Person
         self.person = person
-        self.rankings = person._ini.ratings()
+        # and a reference to the ratings as found in the INI file
+        self.ratings = person._ini.ratings()
 
     def __getitem__(self, name):
+        # support returning not a number
         if name == 'nan':
             return math.nan
 
         try:
+            # if this works, the attribute is known and we know what to do with it
             val = getattr(self.person, name)
         except AttributeError:
+            # this may be a global field defined in the section 'formula' of the
+            # INI file, like for example "location = Palermo"
             val = self.person._ini[f'formula.{name}']
+            # if this also fails, a KeyError will be raised, which should give
+            # enough info to the user in order to understand that the name used
+            # in the formula is not legal?
 
-        if name in self.rankings:
-            # Explanation in () or after / is ignored in the key
+        if name in self.ratings:
+            # the values of these attributes need to converted to their numerical
+            # value as found in the INI file. For example from
+            # Person.open_source -> "Minor Contributions (bug reports, mailing lists, ...)"
+            # we extract "minor contributions" and look for it in the INI file ratings:
+            # [open_source_rating]
+            # ...
+            # minor contributions = 0.5
+            # ...
+            # The rule is to match anything until the first "/" or "(" or ","
+            # and removing trialing whitespace if any
             key = re.match(r'(.+?)\s*(?:[(/,]|$)', val).group(1).lower()
             try:
-                val = self.rankings[name][key]
+                val = self.ratings[name][key]
             except KeyError:
                 raise KeyError(f'{name} not rated for {key!r}')
 
