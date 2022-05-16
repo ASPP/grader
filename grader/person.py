@@ -74,6 +74,22 @@ def convert_bool(value):
 
 @dataclasses.dataclass(kw_only=True, order=False)
 class Person:
+    """The Person class hold all information about an applicant
+
+       The attributes are typed, but types will be only enforced for "safe" types,
+       like str, bool, int, float.
+
+       If instanciated with a reference to a INI file, Person will get all attributes
+       found in the INI file corresponding to their fullname.
+
+       Person has methods to set and read motivation scores and labels.
+       To calculate the score Person uses FormulaProxy and the formula as found
+       in the INI file.
+
+       Person caches expensive properties, like score. The cache is invalidated
+       and the properties computed again if changes are detected in Person or in
+       the INI file such would affect the value of the property.
+    """
     name: str
     lastname: str
     email: str
@@ -95,7 +111,8 @@ class Person:
     nationality: str
     applied: bool          # already applied? (self-reported)
 
-    n_applied: int = 0
+    n_applied: int = 0     # this is computed based on the archives from past
+                           # editions
 
     # internal attribute signaling relaxed checking
     # needed to relax value checks for old application files [should not be
@@ -106,8 +123,11 @@ class Person:
     _ini: applications.ApplicationsIni = \
         dataclasses.field(default=None, repr=False)
 
+    # generation counter used to detect changes in Person that need to trigger
+    # cached properties invalidation
     _generation: int = dataclasses.field(default=0, repr=False)
 
+    # cache dict for the calls to 'score'
     _score_cache: dict = dataclasses.field(default_factory=dict, repr=False)
 
     @property
@@ -123,7 +143,7 @@ class Person:
         self._ini.set_motivation_score(
             self.fullname, value, identity=identity)
 
-        # The internal state has been modified, version nnn
+        # The internal state has been modified, increase generation number
         self._generation += 1
 
     @property
@@ -143,6 +163,7 @@ class Person:
         labels = sorted(labels + [label])
         self._ini.set_labels(self.fullname, labels)
 
+        # The internal state has been modified, increase generation number
         self._generation += 1
 
     def remove_label(self, label):
@@ -156,6 +177,7 @@ class Person:
         labels.remove(label)
         self._ini.set_labels(self.fullname, labels)
 
+        # The internal state has been modified, increase generation number
         self._generation += 1
 
     @property
@@ -167,21 +189,28 @@ class Person:
             return self.gender.lower() != 'male'
 
     def __post_init__(self):
+        # This is run once at instantiation after __init__
+
         # strip extraneous whitespace from around and within names and emails
         self.name = ' '.join(self.name.split())
         self.lastname = ' '.join(self.lastname.split())
 
+        # load overrides of out own fields if any are found in the INI file
         self._apply_overrides()
 
+        # ensure valid email
         self.email = self.email.strip()
 
-        # only run the checks if we are in strict mode
+        # only run the sanity checks if we are in strict mode
         if self._relaxed:
             return
 
+        # we won't accept vampires or zombies.
+        # we accept newborns, but not people who are not born yet
         if not (1900 <= self.born <= _year_now):
             raise ValueError(f'Bad birth year {self.born}')
 
+        # check known fields against legal values
         for field in ('gender', 'programming', 'python', 'position'):
             value = getattr(self, field).lower()
             if value not in globals()[f'VALID_{field.upper()}']:
@@ -194,28 +223,37 @@ class Person:
                             bool=convert_bool,
                             float=float,
                             int=int)
+
         # find the type of the attr from the type annotations
         for field in dataclasses.fields(self):
             if field.name == attr:
                 if typ := allowed_types.get(field.type):
+                    # enforce type
                     value = typ(value)
                 break
-        super().__setattr__(attr, value)
 
-        # We use the ancestor's method to avoid recursively calling our own __setattr__
+        # set the attribute using the ancestor's method to avoid  recursively
+        # calling our own __setattr__
+        super().__setattr__(attr, value)
+        # we are setting a new attribute, so we increase the generation
         super().__setattr__('_generation', self._generation + 1)
 
     def _apply_override(self, attr):
-        if not self._ini:
-            return
-
+        # apply override for attribute "attr" if any is found
         key = f'{attr}_overrides.{self.fullname.lower()}'
         if override := self._ini[key]:
+            # if a override is found, we override the field as reported
+            # by the applicant with the one found in the INI file
+            # we use this to "correct" applications mistakes or mistifications
             print(f'INFO: {self.fullname}: found override, setting {attr}={override}')
             setattr(self, attr, override)
             return True
 
     def _apply_overrides(self):
+        if not self._ini:
+            # cannot apply overrides if there is no INI file
+            return
+        # loop through all public attributes
         for attr in dir(self):
             if attr.startswith('_'):
                 continue
