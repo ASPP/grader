@@ -219,7 +219,7 @@ def test_person_ini_reload(tmp_path):
 
     assert p.labels == ['UTF-8', 'VEGAN']
 
-    time.sleep(0.001)
+    time.sleep(0.01)
     ini.filename.write_text(ini.filename.read_text().replace('UTF-8', 'ASCII'))
 
     assert ini.reload_if_modified() == True

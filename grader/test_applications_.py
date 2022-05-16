@@ -114,13 +114,13 @@ def test_applications_ini_reload(tmp_path):
 
     # we need to sleep a bit because the can be fast enough to do the
     # modification within the granularity of the file system timestamp
-    time.sleep(0.001)
+    time.sleep(0.01)
     ini.filename.touch()
     assert ini.reload_if_modified() == True
 
     assert ini.reload_if_modified() == False
 
-    time.sleep(0.001)
+    time.sleep(0.01)
     with ini.filename.open('a') as f:
         f.write('[cleaning]\nvacuum = 3\n')
     assert ini.reload_if_modified() == True
