@@ -1,5 +1,34 @@
 import functools
 
+
+# In all places when you have code like this:
+#
+#     def do_something():
+#        l = []
+#        for i in range(10):
+#            l.append(i)
+#        return l
+#
+# you can instead do this
+#
+#    @vectorize
+#    def do_something():
+#        for i in range(10)
+#        yield i
+#
+# this way the code only contains the iteration logic, and you have
+# delegated the book-keeping to the decorator
+#
+# This class is also used whenever you want an easy way to extract
+# attributes from all the elements of a sequence. So for example if you have
+#
+#    l = [person1, person2, person3]
+#    names = (person.name for person in l)
+#
+# you can instead do
+#
+#    v = vector(l)
+#    names = l.name
 class vector(list):
     """A vector of objects with easy extraction:
            v.E == vector(elem.E for elem in v)
@@ -46,11 +75,13 @@ class vector(list):
     def argsort(self):
         return vector(key for key,val in sorted(zip(self, xrange(len(self)))))
 
+# wraps generators into a vector object
 def vectorize(generator_func):
     def wrapper(*args, **kwargs):
         return vector(generator_func(*args, **kwargs))
     return functools.update_wrapper(wrapper, generator_func)
 
+# wraps a generator into a dictionary
 def dictify(generator_func):
     def wrapper(*args, **kwargs):
         return dict(generator_func(*args, **kwargs))
