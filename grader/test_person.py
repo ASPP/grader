@@ -170,6 +170,9 @@ vegan = 2.0
 competent = 1.0
 expert = 0.0
 novice = 0.0
+
+[n_applied_overrides]
+jędrzej marcin mirosławski piołun = 3
 '''
 
 def test_formula_proxy(tmp_path):
@@ -238,3 +241,11 @@ def test_person_ini_reload(tmp_path):
     assert ini.reload_if_modified() == True
 
     assert p.labels == ['ASCII', 'VEGAN']
+
+def test_set_n_applied_override(tmp_path):
+    ini = get_ini(tmp_path, ini_extra)
+    p = Person(**MARCIN, _ini=ini)
+
+    assert p.n_applied == 3
+    p.set_n_applied({2020 : None})
+    assert p.n_applied == 3

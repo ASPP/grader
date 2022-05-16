@@ -238,17 +238,6 @@ class Person:
         # we are setting a new attribute, so we increase the generation
         super().__setattr__('_generation', self._generation + 1)
 
-    def _apply_override(self, attr):
-        # apply override for attribute "attr" if any is found
-        key = f'{attr}_overrides.{self.fullname.lower()}'
-        if override := self._ini[key]:
-            # if a override is found, we override the field as reported
-            # by the applicant with the one found in the INI file
-            # we use this to "correct" applications mistakes or mistifications
-            print(f'INFO: {self.fullname}: found override, setting {attr}={override}')
-            setattr(self, attr, override)
-            return True
-
     def _apply_overrides(self):
         if not self._ini:
             # cannot apply overrides if there is no INI file
@@ -256,9 +245,17 @@ class Person:
         # loop through all public attributes
         for attr in dir(self):
             if attr.startswith('_'):
+                # skip private attributes
                 continue
-
-            self._apply_override(attr)
+            # create the key name for this attribute override
+            key = f'{attr}_overrides.{self.fullname.lower()}'
+            if override := self._ini[key]:
+                # if a override for this attribute is found, we override the
+                # field as reported by the applicant with the one found in the
+                # INI file. We use this to "correct" applications mistakes or
+                # mistifications
+                print(f'INFO: {self.fullname}: found override, setting {attr}={override}')
+                setattr(self, attr, override)
 
     # this is to be used when we want to create a Person from a CSV file,
     # automatically loading unknown/unprocessed fields
@@ -278,8 +275,9 @@ class Person:
         return person
 
     def set_n_applied(self, archive):
-        if self._apply_override('n_applied'):
-            # we don't count manually, if an override was found
+        if self._ini and \
+                self._ini[f'n_applied_overrides.{self.fullname.lower()}'] is not None:
+            # we don't count manually if an override was found
             return
 
         found = 0
