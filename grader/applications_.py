@@ -263,16 +263,30 @@ class ApplicationsIni:
         # through Person, and it'll keep track of invalidation itself.
         self.generation = 0
 
+    @vector.dictify
     def read_config_file(self, file):
-        cp = self.config_parser()
+        cp = configparser.ConfigParser(comment_prefixes='#', inline_comment_prefixes='#')
 
         if file is not None:
             cp.read_file(file)
 
         # this keeps all the data from the INI file, ex:
         # 'motivation_score-0' : {'firstname lastname' : -1}
-        return {name: self.convert_section(name, section)
-                for name, section in cp.items()}
+        # while converting the values of the keys to the types
+        # declared in SECTION_TYPES
+        for section_name, section in cp.items():
+            # find the type of this particular section
+            typ = self._find_typ(section_name)
+            yield (section_name, {key:typ(value) for key, value in section.items()})
+
+    def _find_typ(self, section_name):
+        # find the appropriate converter for a given section
+        for pattern, typ in SECTION_TYPES.items():
+            # find the proper type for the section naming matching pattern
+            if fnmatch(section_name, pattern):
+                return typ
+        # just return as-is if we don't know the type for this section
+        return lambda x: x
 
     def reload_if_modified(self):
         if self.mtime is None:
@@ -311,27 +325,10 @@ class ApplicationsIni:
                    # section is already a dictionary, so we just yield it
                    yield field, section
 
-    @staticmethod
-    def config_parser():
-        return configparser.ConfigParser(comment_prefixes='#',
-                                         inline_comment_prefixes='#')
-
-    def _find_conv(self, section_name):
-        # find the appropriate converter for a given section
-        for pattern, conv in SECTION_TYPES.items():
-            # find the proper type for the section naming matching pattern
-            if fnmatch(section_name, pattern):
-                return conv
-        # just return as-is if we don't know the type for this section
-        return lambda x: x
-
-    def convert_section(self, section_name, section):
-        conv = self._find_conv(section_name)
-        # convert section item values to the proper type
-        return {key:conv(value) for key, value in section.items()}
 
     def save(self, file=None):
-        cp = self.config_parser()
+        # save our data to the INI file
+        cp = configparser.ConfigParser(comment_prefixes='#', inline_comment_prefixes='#')
         cp.read_dict(self.data)
 
         file = file or self.filename
