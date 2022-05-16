@@ -383,10 +383,9 @@ class ApplicationsIni:
 
     @vector.vectorize
     def get_motivation_scores(self, fullname):
-        key = fullname.lower()
-        for ident in self.identities():
-            section_name = f'motivation_score-{ident}'
-            yield self[f'{section_name}.{key}']
+        # get all motivation scores of a Person
+        for identity in self.identities():
+            yield self.get_motivation_score(fullname, identity)
 
     def get_motivation_score(self, fullname, identity):
         # get the motivation score of a Person as assigned to them by identity
