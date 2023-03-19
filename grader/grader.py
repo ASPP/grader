@@ -326,7 +326,7 @@ class Grader(cmd_completer.Cmd_Completer):
         "Print information about applications"
         opts = self.dump_options.parse_args(args.split())
         persons = tuple(self.applications.filter(label=opts.label))
-        
+
         if opts.highlanders:
             persons = (p for p in persons if p.highlander)
         if opts.persons:
@@ -1400,30 +1400,26 @@ grader_options = cmd_completer.ModArgumentParser('grader')\
     .add_argument('-i', '--identity', type=int,
                   choices=IDENTITIES,
                   help='Index of person grading applications')\
-    .add_argument('--history-file', type=str,
-                  default=os.path.join(os.path.expanduser("~"), ".grader_history"),
+    .add_argument('--history-file',
+                  type=pathlib.Path,
+                  default=pathlib.Path('~/.grader_history').expanduser(),
                   help='File to record typed in commands')\
-    .add_argument('config', type=our_configfile, nargs='?',
-                  default=os.path.join(os.getcwd(), 'grader.conf'))\
-    .add_argument('applications', type=str, nargs='*',
-                  help='''CSV files with application data.
-                          The first is current, subsequent are from previous years.
-                       ''')
+    .add_argument('applications',
+                  nargs='?',
+                  type=pathlib.Path,
+                  default=pathlib.Path('applications.csv'),
+                  help='CSV file with application data')
 
-
-import click
-
-@click.command()
-@click.option('-i', '--identity')
-@click.option('--csv-file',
-              default='applications.csv',
-              type=click.Path(dir_okay=False,
-                              path_type=pathlib.Path))
-def main(identity, csv_file):
+def main():
     logging.basicConfig(level=logging.INFO)
-    history = pathlib.Path.home() / '.grader_history'
 
-    cmd = Grader(identity=identity, csv_file=csv_file, history_file=history)
+    opts = grader_options.parse_args()
+
+    cmd = Grader(
+        identity=opts.identity,
+        csv_file=opts.applications,
+        history_file=opts.history_file,
+    )
 
     if sys.stdin.isatty():
         while True:
