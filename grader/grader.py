@@ -740,7 +740,16 @@ class Grader(cmd_completer.Cmd_Completer):
         self._dumpone(person, format='motivation')
 
         printff(f'Old score was {colored_scores(scores)}')
-        while True:
+
+        def is_valid_score(choice):
+            try:
+                choice = int(choice)
+                return choice in SCORE_RANGE
+            except:
+                return False
+
+        valid_choice = None
+        while valid_choice not in SCORE_RANGE:
             prompt = 'Your choice {}/s/d/l LABEL [{}]? '.format(SCORE_RANGE, default)
             try:
                 choice = input(prompt)
@@ -748,41 +757,30 @@ class Grader(cmd_completer.Cmd_Completer):
                 print()
                 return False
 
-            if choice == 's' or choice == '' and default == '':
-                printff('person skipped')
-                return True
-            elif choice == 'd':
-                printff('showing person on request')
-                self._dumpone(person, format='long')
-                continue
-            elif choice.startswith('l '):
-                labels = choice.split()[1:]
-                printff('labelling {} as {}',
-                        person.fullname, ', '.join(labels))
-                self.applications.add_labels(person.fullname, labels)
-                continue
-            elif choice == '':
-                choice = default
-            elif choice == '+':
-                choice = SCORE_RANGE[-1]
-            elif choice == '-':
-                choice = SCORE_RANGE[0]
-            elif 'abstain'.startswith(choice) and len(choice) >= 3: # abs…
-                choice = np.nan
+            match choice.split():
+                case [choice] if is_valid_score(choice):
+                    valid_choice = int(choice)
+                case ['+']:
+                    valid_choice = 1
+                case ['=']:
+                    valid_choice = 0
+                case ['-']:
+                    valid_choice = -1
+                case ['s'] | ['']:
+                    printff('person skipped')
+                    return True
+                case ['d']:
+                    printff('showing person on request')
+                    self._dumpone(person, format='long')
+                case ['l', *labels]:
+                    printff('labelling {} as {}',
+                            person.fullname, ', '.join(labels))
+                    self.applications.add_labels(person.fullname, labels)
+                case _:
+                    print('illegal value: {}'.format(choice))
 
-            if isinstance(choice, float) and np.isnan(choice):
-                break
-
-            try:
-                choice = int(choice)
-                if choice not in SCORE_RANGE:
-                    raise ValueError('illegal value: {}'.format(choice))
-                break
-            except ValueError as e:
-                printff(str(e))
-
-        if not equal(choice, default):
-            self._set_grading(person, 'motivation', choice)
+        if not equal(valid_choice, default):
+            self._set_grading(person, 'motivation', valid_choice)
         return True
 
     def _score_with_labels(self, p, use_labels=False):
