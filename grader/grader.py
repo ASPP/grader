@@ -766,7 +766,7 @@ class Grader(cmd_completer.Cmd_Completer):
                     valid_choice = 0
                 case ['-']:
                     valid_choice = -1
-                case ['s'] | ['']:
+                case ['s'] | []:
                     printff('person skipped')
                     return True
                 case ['d']:
