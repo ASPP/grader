@@ -3,7 +3,7 @@ import numpy as np
 from . import cmd_completer
 from . import configfile
 
-IDENTITIES = (0, 1, 2, 3)
+IDENTITIES = (0, 1, 2, 3, 4)
 
 section_name = '{}_score-{}'.format
 
