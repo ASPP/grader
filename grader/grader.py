@@ -1256,6 +1256,8 @@ class Grader(cmd_completer.Cmd_Completer):
                                'OVERQUALIFIED', 'CUSTOM-ANSWER', *invitesl)))
         _write_file('list_invite_nextyear.csv',
                     applications.filter(label=('NEXT-YEAR')))
+        _write_file('list_declined.csv',
+                    applications.filter(label=('DECLINED', '-', 'NEXT-YEAR')))
 
 def _write_file(filename, persons):
     header = '$NAME$;$SURNAME$;$EMAIL$'
