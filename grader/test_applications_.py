@@ -10,7 +10,7 @@ from grader.applications_ import (
 import pytest
 
 APPLICATIONS_ROOT = (os.getenv('APPLICATIONS_ROOT') or
-                     '/home/zbyszek/pythonschool/pythonschool/')
+                     os.path.expanduser('~/pythonschool/pythonschool/'))
 
 APPLICATIONS = sorted(
     pathlib.Path(APPLICATIONS_ROOT).glob('**/applications.csv'),
