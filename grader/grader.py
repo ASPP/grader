@@ -107,7 +107,7 @@ born: %(bold)s{p.nationality} {p.born}%(default)s
 ''' % COLOR + ALMOST_DUMP_FMT + '''\
 cv: {cv}
 motivation: {motivation} [{motivation_scores}]
-rank: {{p.rank}} {p.score} {{p.highlander}}
+rank: {{p.rank}} {p.score:6.3f} {{p.highlander}}
 travel-grant: {p.travel_grant}
 {labels_newline}''' % COLOR
 
@@ -115,7 +115,7 @@ AFFILIATION_FMT = '''\
 name: %(yellow)s{p.name} {p.lastname} {labels}<{p.email}>%(default)s
 institute: %(bold)s{p.institute}%(default)s
 group: %(bold)s{p.group}%(default)s
-rank: {p.rank} {p.score} {p.highlander}
+rank: {{p.rank}} {p.score:6.3f} {p.highlander}
 ''' % COLOR
 
 MOTIVATION_DUMP_FMT = '''\
