@@ -405,11 +405,11 @@ class FormulaProxy:
             return getattr(self.person, name)
         except AttributeError:
             # check if the name we are looking for happens to be rating
-            if name.endswith('_score'):
-                # this is name with the '_score' removed. All _scores have a
-                # common getting procedure, i.e. looking up the corresponding
+            if name.endswith('_rating'):
+                # this is name with the '_rating' removed. All ratings have a
+                # common query procedure, i.e. looking up the corresponding
                 # key in the ini file.
-                return self.person.get_rating(name[:-6])
+                return self.person.get_rating(name[:-7])
             # Otherwise:
             # this may be a global field defined in the section 'formula' of the
             # INI file, like for example "location = Palermo"

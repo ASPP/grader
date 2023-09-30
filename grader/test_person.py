@@ -159,7 +159,7 @@ def test_person_not_in_ini(tmp_path):
 
 ini_extra = '''\
 [formula]
-formula = (nationality!=affiliation)*0.4 + programming_score*0.2 + cooking_score*0.2 + nonmale*0.2 + (nationality!=location)*0.1
+formula = (nationality!=affiliation)*0.4 + programming_rating*0.2 + cooking_rating*0.2 + nonmale*0.2 + (nationality!=location)*0.1
 location = Nicaragua
 
 [cooking_rating]
@@ -185,8 +185,8 @@ def test_formula_proxy(tmp_path):
 
     assert f['gender'] == 'other'
     assert f['nonmale'] == 1
-    assert f['programming_score'] == 0.0
-    assert f['cooking_score'] == -1
+    assert f['programming_rating'] == 0.0
+    assert f['cooking_rating'] == -1
     assert f['location'] == 'Nicaragua'
 
 def test_person_score(tmp_path):

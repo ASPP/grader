@@ -96,10 +96,10 @@ group: {p.group}
 affiliation: {p.affiliation}
 position: {p.position}{position_other}
 appl.prev.: {have_applied}
-programming: {p.programming}{programming_description} [{programming_score}]
-python: {p.python} [{python_score}]
-vcs: {p.vcs} [{vcs_score}]
-open source: {p.open_source}{open_source_description} [{open_source_score}]
+programming: {p.programming}{programming_description} [{programming_rating}]
+python: {p.python} [{python_rating}]
+vcs: {p.vcs} [{vcs_rating}]
+open source: {p.open_source}{open_source_description} [{open_source_rating}]
 '''
 
 DUMP_FMT = '''\
@@ -122,10 +122,10 @@ rank: {p.rank} {p.score} {p.highlander}
 MOTIVATION_DUMP_FMT = '''\
 appl.prev.: {have_applied}
 position: {p.position}{position_other}
-programming: {p.programming}{programming_description} [{programming_score}]
-python: {p.python} [{python_score}]
-vcs: {p.vcs} [{vcs_score}]
-open source: {p.open_source}{open_source_description} [{open_source_score}]
+programming: {p.programming}{programming_description} [{programming_rating}]
+python: {p.python} [{python_rating}]
+vcs: {p.vcs} [{vcs_rating}]
+open source: {p.open_source}{open_source_description} [{open_source_rating}]
 motivation: %(bold)s{motivation}%(default)s\
 {labels_newline}''' % COLOR
 
@@ -147,9 +147,9 @@ _RANK_FMT_SHORT = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}')
 _RANK_FMT_DETAILED = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' [{motivation_scores}] [appl: {have_applied}]'
-                 ' [prog: {programming_score}] [python: {python_score}]'
-                 ' [{gender:^{gender_width}}] [git: {vcs_score}]'
-                 ' [os: {open_source_score}]'
+                 ' [prog: {programming_rating}] [python: {python_rating}]'
+                 ' [{gender:^{gender_width}}] [git: {vcs_rating}]'
+                 ' [os: {open_source_rating}]'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}'
                  ' {p.travel_grant}'
                  ' {nationality:{nationality_width}} {affiliation:{affiliation_width}}'
@@ -432,15 +432,15 @@ class Grader(cmd_completer.Cmd_Completer):
         #               'python':      self.python_rating,
         #               'vcs':         self.vcs_rating,
         #               'underrep':    self.underrep_rating}
-        # cat_scores = categorical_scores(p, categories)
-        # cat_scores = {f'{k}_score':v for k,v in cat_scores.items()}
+        # cat_ratings = categorical_ratings(p, categories)
+        # cat_ratings = {f'{k}_rating':v for k,v in cat_ratings.items()}
 
-        cat_scores = {
-            'programming_score': p.programming,
-            'open_source_score': p.open_source,
-            'python_score': p.python,
-            'vcs_score': p.vcs,
-            'underrep_score': p.underrep,
+        cat_ratings = {
+            'programming_rating': p.programming,
+            'open_source_rating': p.open_source,
+            'python_rating': p.python,
+            'vcs_rating': p.vcs,
+            'underrep_rating': p.underrep,
         }
 
         printf(DUMP_FMTS[format],
@@ -451,10 +451,10 @@ class Grader(cmd_completer.Cmd_Completer):
                open_source_description=open_source_description,
                cv=cv,
                motivation=motivation,
-               motivation_scores=colored_scores(self._gradings(p, 'motivation')),
+               motivation_ratings=colored_scores(self._gradings(p, 'motivation')),
                labels=labels,
                labels_newline=labels + '\n' if labels else '',
-               **cat_scores)
+               **cat_ratings)
 
     grep_options = cmd_completer.PagedArgumentParser('grep')\
         .add_argument('-n', '--fullname', dest='what', action='store_const',
