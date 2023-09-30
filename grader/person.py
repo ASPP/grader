@@ -5,6 +5,7 @@ import datetime
 import functools
 import re
 import math
+import numpy as np
 
 from . import applications_ as applications
 
@@ -113,7 +114,8 @@ class Person:
 
     n_applied: int = 0     # this is computed based on the archives from past
                            # editions
-
+    underrep: str = ''     # underrepresentaiton
+    travel_grant: str = '' # if poor then too bad!
     # internal attribute signaling relaxed checking
     # needed to relax value checks for old application files [should not be
     # necessary for new application files
@@ -140,6 +142,10 @@ class Person:
         all_ratings = self._ini.ratings()
         val = getattr(self, name)
         ratings = all_ratings[name]
+
+        if not val and not ratings:
+            return math.nan
+
         # the values of these attributes need to converted to their numerical
         # value as found in the INI file. For example from
         # Person.open_source -> "Minor Contributions (bug reports, mailing lists, ...)"
@@ -151,7 +157,7 @@ class Person:
         # The rule is to match anything until the first "/" or "(" or ","
         # and removing trialing whitespace if any
         key = re.match(r'(.+?)\s*(?:[(/,]|$)', val).group(1).lower()
-        
+
         try:
             return ratings[key]
         except KeyError:
@@ -396,6 +402,9 @@ class FormulaProxy:
         self.person = person
 
     def __getitem__(self, name):
+
+        if name == 'motivation':
+            return self.person.motivation_scores.mean()
         # support returning not a number
         if name == 'nan':
             return math.nan

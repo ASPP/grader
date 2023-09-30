@@ -83,11 +83,10 @@ def colored_scores(scores):
                      for score in scores)
 
 def format_have_applied(person, width=3):
-    yes = person.applied in 'yY' or person.napplied > 0  # we assume people forget to check the box
-    return '{}{:.{}} {}{}'.format(COLOR['bold'] if yes else '',
-                                  person.applied, width,
-                                  person.napplied,
-                                  COLOR['default'] if yes else '')
+    return '{}{:.{}} {}{}'.format(COLOR['bold'] if person.applied else '',
+                                  'ny'[person.applied], width,
+                                  person.n_applied,
+                                  COLOR['default'] if person.applied else '')
 
 ALMOST_DUMP_FMT = '''\
 gender: {p.gender}
@@ -108,7 +107,7 @@ born: %(bold)s{p.nationality} {p.born}%(default)s
 ''' % COLOR + ALMOST_DUMP_FMT + '''\
 cv: {cv}
 motivation: {motivation} [{motivation_scores}]
-rank: {p.rank} {p.score} {p.highlander}
+rank: {{p.rank}} {p.score} {{p.highlander}}
 travel-grant: {p.travel_grant}
 {labels_newline}''' % COLOR
 
@@ -436,11 +435,11 @@ class Grader(cmd_completer.Cmd_Completer):
         # cat_ratings = {f'{k}_rating':v for k,v in cat_ratings.items()}
 
         cat_ratings = {
-            'programming_rating': p.programming,
-            'open_source_rating': p.open_source,
-            'python_rating': p.python,
-            'vcs_rating': p.vcs,
-            'underrep_rating': p.underrep,
+            'programming_rating': p.get_rating('programming'),
+            'open_source_rating': p.get_rating('open_source'),
+            'python_rating': p.get_rating('python'),
+            'vcs_rating': p.get_rating('vcs'),
+            'underrep_rating': p.get_rating('underrep'),
         }
 
         printf(DUMP_FMTS[format],
@@ -451,7 +450,7 @@ class Grader(cmd_completer.Cmd_Completer):
                open_source_description=open_source_description,
                cv=cv,
                motivation=motivation,
-               motivation_ratings=colored_scores(self._gradings(p, 'motivation')),
+               motivation_scores=colored_scores(p.motivation_scores),
                labels=labels,
                labels_newline=labels + '\n' if labels else '',
                **cat_ratings)

@@ -1,4 +1,5 @@
 import functools
+import numpy as np
 
 
 # In all places when you have code like this:
@@ -74,6 +75,12 @@ class vector(list):
 
     def argsort(self):
         return vector(key for key,val in sorted(zip(self, xrange(len(self)))))
+
+    def mean(self):
+        valid = [arg for arg in self if arg is not None]
+        if not valid:
+            return float('nan')
+        return np.nanmean(valid)
 
 # wraps generators into a vector object
 def vectorize(generator_func):
