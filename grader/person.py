@@ -136,6 +136,28 @@ class Person:
             return []
         return self._ini.get_motivation_scores(self.fullname)
 
+    def get_rating(self, name):
+        all_ratings = self._ini.ratings()
+        val = getattr(self, name)
+        ratings = all_ratings[name]
+        # the values of these attributes need to converted to their numerical
+        # value as found in the INI file. For example from
+        # Person.open_source -> "Minor Contributions (bug reports, mailing lists, ...)"
+        # we extract "minor contributions" and look for it in the INI file ratings:
+        # [open_source_rating]
+        # ...
+        # minor contributions = 0.5
+        # ...
+        # The rule is to match anything until the first "/" or "(" or ","
+        # and removing trialing whitespace if any
+        key = re.match(r'(.+?)\s*(?:[(/,]|$)', val).group(1).lower()
+        
+        try:
+            return ratings[key]
+        except KeyError:
+            raise KeyError(f'{name} not rated for {key!r}')
+
+
     def set_motivation_score(self, value, identity):
         if self._ini is None:
             raise ValueError
@@ -372,8 +394,6 @@ class FormulaProxy:
     def __init__(self, person):
         # we keep a reference to Person
         self.person = person
-        # and a reference to the ratings as found in the INI file
-        self.ratings = person._ini.ratings()
 
     def __getitem__(self, name):
         # support returning not a number
@@ -382,30 +402,18 @@ class FormulaProxy:
 
         try:
             # if this works, the attribute is known and we know what to do with it
-            val = getattr(self.person, name)
+            return getattr(self.person, name)
         except AttributeError:
+            # check if the name we are looking for happens to be rating
+            if name.endswith('_score'):
+                # this is name with the '_score' removed. All _scores have a
+                # common getting procedure, i.e. looking up the corresponding
+                # key in the ini file.
+                return self.person.get_rating(name[:-6])
+            # Otherwise:
             # this may be a global field defined in the section 'formula' of the
             # INI file, like for example "location = Palermo"
-            val = self.person._ini[f'formula.{name}']
+            return self.person._ini[f'formula.{name}']
             # if this also fails, a KeyError will be raised, which should give
             # enough info to the user in order to understand that the name used
             # in the formula is not legal?
-
-        if name in self.ratings:
-            # the values of these attributes need to converted to their numerical
-            # value as found in the INI file. For example from
-            # Person.open_source -> "Minor Contributions (bug reports, mailing lists, ...)"
-            # we extract "minor contributions" and look for it in the INI file ratings:
-            # [open_source_rating]
-            # ...
-            # minor contributions = 0.5
-            # ...
-            # The rule is to match anything until the first "/" or "(" or ","
-            # and removing trialing whitespace if any
-            key = re.match(r'(.+?)\s*(?:[(/,]|$)', val).group(1).lower()
-            try:
-                val = self.ratings[name][key]
-            except KeyError:
-                raise KeyError(f'{name} not rated for {key!r}')
-
-        return val

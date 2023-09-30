@@ -282,21 +282,6 @@ class Grader(cmd_completer.Cmd_Completer):
     def accept_count(self, value):
         self.config['formula']['accept_count'] = value
 
-    @property
-    def programming_rating(self):
-        return self.config['programming_rating']
-    @property
-    def open_source_rating(self):
-        return self.config['open_source_rating']
-    @property
-    def python_rating(self):
-        return self.config['python_rating']
-    @property
-    def vcs_rating(self):
-        return self.config['vcs_rating']
-    @property
-    def underrep_rating(self):
-        return self.config['underrep_rating']
 
     def _complete_name(self, prefix):
         """Return a list of dictionaries {name -> [last-name+]}
@@ -377,6 +362,7 @@ class Grader(cmd_completer.Cmd_Completer):
         "Print information about applications"
         opts = self.dump_options.parse_args(args.split())
         persons = tuple(self.applications.filter(label=opts.label))
+        
         if opts.highlanders:
             persons = (p for p in persons if p.highlander)
         if opts.persons:
@@ -434,21 +420,28 @@ class Grader(cmd_completer.Cmd_Completer):
                                    if p.programming_description else '')
         open_source_description = ('\n             {}'.format(osd)
                                    if p.open_source_description else '')
-        labels = self.applications.get_labels(p.fullname)
+        #labels = p.labels
         if format == 'motivation':
             # hide identifying info from motivation text if in grading mode
             motivation = motivation.replace(p.name, '–')
             motivation = motivation.replace(p.lastname, '–')
-        if labels:
-            labels = '[{}] '.format(labels)
+        labels = f'[{p.labels}] ' if p.labels else ' '
 
-        categories = {'programming': self.programming_rating,
-                      'open_source': self.open_source_rating,
-                      'python':      self.python_rating,
-                      'vcs':         self.vcs_rating,
-                      'underrep':    self.underrep_rating}
-        cat_scores = categorical_scores(p, categories)
-        cat_scores = {f'{k}_score':v for k,v in cat_scores.items()}
+        # categories = {'programming': self.programming_rating,
+        #               'open_source': self.open_source_rating,
+        #               'python':      self.python_rating,
+        #               'vcs':         self.vcs_rating,
+        #               'underrep':    self.underrep_rating}
+        # cat_scores = categorical_scores(p, categories)
+        # cat_scores = {f'{k}_score':v for k,v in cat_scores.items()}
+
+        cat_scores = {
+            'programming_score': p.programming,
+            'open_source_score': p.open_source,
+            'python_score': p.python,
+            'vcs_score': p.vcs,
+            'underrep_score': p.underrep,
+        }
 
         printf(DUMP_FMTS[format],
                p=p,

@@ -159,7 +159,7 @@ def test_person_not_in_ini(tmp_path):
 
 ini_extra = '''\
 [formula]
-formula = (nationality!=affiliation)*0.4 + programming*0.2 + cooking*0.2 + nonmale*0.2 + (nationality!=location)*0.1
+formula = (nationality!=affiliation)*0.4 + programming_score*0.2 + cooking_score*0.2 + nonmale*0.2 + (nationality!=location)*0.1
 location = Nicaragua
 
 [cooking_rating]
@@ -185,8 +185,8 @@ def test_formula_proxy(tmp_path):
 
     assert f['gender'] == 'other'
     assert f['nonmale'] == 1
-    assert f['programming'] == 0.0
-    assert f['cooking'] == -1
+    assert f['programming_score'] == 0.0
+    assert f['cooking_score'] == -1
     assert f['location'] == 'Nicaragua'
 
 def test_person_score(tmp_path):
@@ -249,3 +249,16 @@ def test_set_n_applied_override(tmp_path):
     assert p.n_applied == 3
     p.set_n_applied({2020 : None})
     assert p.n_applied == 3
+
+def test_get_rating(tmp_path):
+    ini = get_ini(tmp_path, ini_extra)
+    p = Person(**MARCIN, _ini=ini)
+    p.cooking = 'paleo'
+    assert p.get_rating("programming") == 0
+    assert p.get_rating("cooking") == -1
+    with pytest.raises(AttributeError):
+        p.get_rating("skiing")
+
+    p.golf = 'novice'
+    with pytest.raises(KeyError):
+        p.get_rating("golf")
