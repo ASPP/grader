@@ -47,14 +47,6 @@ from .util import (
     IDENTITIES,
 )
 
-@contextlib.contextmanager
-def Umask(umask):
-    old = os.umask(umask)
-    try:
-        yield
-    finally:
-        os.umask(old)
-
 def ellipsize(s, width):
     return s if len(s) <= width else s[:width-1] + '…'
 
@@ -206,7 +198,6 @@ class Grader(cmd_completer.Cmd_Completer):
         self.identity = identity
         self.applications = Applications(csv_file=csv_file)
         self.archive = []
-        self.modified = False
 
         for path in sorted(csv_file.parent.glob('*/applications.csv'),
                               reverse=True):
@@ -515,7 +506,6 @@ class Grader(cmd_completer.Cmd_Completer):
         if opts.what == 'formula':
             if opts.person:
                 self.formula = ' '.join(opts.person)
-                self.modified = True
             minsc, maxsc, contr = find_min_max(self.formula, self.location,
                                                self.programming_rating,
                                                self.open_source_rating,
@@ -539,7 +529,6 @@ class Grader(cmd_completer.Cmd_Completer):
         elif opts.what == 'location':
             if opts.person:
                 self.location = ' '.join(opts.person)
-                self.modified = True
             printf('location = {}', self.location)
             return
 
@@ -632,7 +621,6 @@ class Grader(cmd_completer.Cmd_Completer):
                 how = ' '.join(opts.args[:-1])
                 value = float(opts.args[-1])
                 current[how] = value
-                self.modified = True
             else:
                 current.print_sorted()
                 if opts.missing:
@@ -645,7 +633,6 @@ class Grader(cmd_completer.Cmd_Completer):
                             raw = input('{} = '.format(descr))
                             value = float(raw)
                             current[e.key] = value
-                            self.modified = True
 
     def _get_grading(self, person, identity=None):
         if identity is None:
@@ -1090,7 +1077,6 @@ class Grader(cmd_completer.Cmd_Completer):
         saved = self.config['equivs'].get(variant, list_of_equivs())
         saved.extend(equivs)
         self.config['equivs'][variant] = saved
-        self.modified = True
         self.ranking_done = False
 
     def do_label(self, args):
@@ -1117,7 +1103,6 @@ class Grader(cmd_completer.Cmd_Completer):
                 applications.add_labels(fullname, labels)
             else:
                 applications.clear_labels(fullname)
-            self.modified = True
         else:
             display_by_label = any(label in set(args.split())
                                    for label in applications.get_all_labels())
@@ -1147,7 +1132,6 @@ class Grader(cmd_completer.Cmd_Completer):
         "Save the fruits of thy labour"
         opts = self.save_options.parse_args(args.split())
         self.config.save(opts.filename)
-        self.modified = False
 
     def do_write(self, args):
         """Write lists of mailing recipients
@@ -1461,12 +1445,9 @@ def main(identity, csv_file):
         for line in input:
             cmd.onecmd(line)
 
-    if cmd.modified:
-        printff("It seems thy labours' fruits may be going into oblivion...")
-        with Umask(0o077):
-            tmpfile = tempfile.mkstemp(prefix='grader-', suffix='.conf')[1]
-            printff("Saving them to {} instead", tmpfile)
-            cmd.do_save(tmpfile)
+    if cmd.applications.ini.has_modifications():
+        cmd.applications.ini.save()
+
 
 if __name__ == '__main__':
     sys.exit(main())

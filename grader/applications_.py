@@ -8,6 +8,7 @@ import re
 import os
 
 from . import (person, vector, util)
+from .util import printff
 
 DEBUG_MAPPINGS = False
 
@@ -254,18 +255,20 @@ class ApplicationsIni:
                 # store the modification time (in ns) of the file
                 self.mtime = self.filename.stat().st_mtime_ns
 
-        # use config parser to give us a mapping:
-        # { section_names : {keys : values} }
-        # where the values are alredy converted to the proper types
-        self.data = self.read_config_file(file)
-
         # Track modifications to the global state, i.e. the parameters
         # that apply to all people. Per-person state is changed
         # through Person, and it'll keep track of invalidation itself.
         self.generation = 0
 
+        # use config parser to give us a mapping:
+        # { section_names : {keys : values} }
+        # where the values are alredy converted to the proper types
+        self.data = self.read_config_file(file)
+
     @vector.dictify
     def read_config_file(self, file):
+        self.config_file_generation = self.generation
+
         cp = configparser.ConfigParser(comment_prefixes='#', inline_comment_prefixes='#')
 
         if file is not None:
@@ -279,6 +282,9 @@ class ApplicationsIni:
             # find the type of this particular section
             typ = self._find_typ(section_name)
             yield (section_name, {key:typ(value) for key, value in section.items()})
+
+    def has_modifications(self):
+        return self.generation > self.config_file_generation
 
     def _find_typ(self, section_name):
         # find the appropriate converter for a given section
@@ -312,10 +318,13 @@ class ApplicationsIni:
 
         # if we are here, we have to reload the file
         self.mtime = current
-        self.data = self.read_config_file(self.filename.open())
+
         # unconditionally update out generation counter, because anything may
         # have been modified in the file
         self.generation += 1
+
+        self.data = self.read_config_file(self.filename.open())
+
         return True
 
     @functools.cache
@@ -352,6 +361,8 @@ class ApplicationsIni:
 
         with file as fh:
             cp.write(fh)
+
+        printff(f'Saved changes to {fh.name!r}')
 
     def __setitem__(self, key, value):
         # allow to set items in the section of the INI using a dotted form, for ex:
