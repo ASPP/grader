@@ -149,7 +149,6 @@ class Person:
             name = name[:-7]
         
         ratings = self._ini.get_ratings(name)
-        print(f"ratings {name=} {ratings=}")
         
         val = getattr(self, name)
 

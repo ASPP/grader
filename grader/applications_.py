@@ -341,7 +341,6 @@ class ApplicationsIni:
         else:
             raise KeyError(f"No rating for {field}")
 
-
     def save(self, file=None):
         # save our data to the INI file
         cp = configparser.ConfigParser(comment_prefixes='#', inline_comment_prefixes='#')
@@ -380,11 +379,14 @@ class ApplicationsIni:
         # same as in __setattr__, allows access to section keys via a dotted notation
         # The key is split into two parts: section and key name.
         # The key names are allowed to contain dots (this is what maxsplit is for).
-        section_name, key = key.split('.', maxsplit=1)
-        section = self.data.get(section_name)
-        if section is None:
-            return None
-        return section.get(key)
+        if '.' in key:
+            section_name, key = key.split('.', maxsplit=1)
+            section = self.data.get(section_name)
+            if section is None:
+                return None
+            return section.get(key)
+        else:
+            return self.data.get(key)
 
     @vector.vectorize
     def get_motivation_scores(self, fullname):

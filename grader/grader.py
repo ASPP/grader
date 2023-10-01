@@ -249,12 +249,11 @@ class Grader(cmd_completer.Cmd_Completer):
 
     @property
     def accept_count(self):
-        return int(self.config['formula'].create('accept_count',
-                                                 lambda:DEFAULT_ACCEPT_COUNT))
+        return int(self.applications.ini['formula.accept_count'])
+
     @accept_count.setter
     def accept_count(self, value):
-        self.config['formula']['accept_count'] = value
-
+        self.applications.ini['formula.accept_count'] = value
 
     def _complete_name(self, prefix):
         """Return a list of dictionaries {name -> [last-name+]}
@@ -819,8 +818,8 @@ class Grader(cmd_completer.Cmd_Completer):
         return vector.vector(ranked_applications)
 
     def _equiv_master(self, variant):
-        "Return the key for equiv canocalization"
-        for key, values in self.config['equivs'].items():
+        "Return the key for equiv canonicalization"
+        for key, values in self.applications.ini['equivs'].items():
             if (variant.lower() == key.lower() or
                 variant.lower() in (spelling.lower() for spelling in values)):
                 return key
@@ -854,7 +853,7 @@ class Grader(cmd_completer.Cmd_Completer):
         group_width = min(max(len(self._equiv_master(field)) for field in ranked.group), opts.width)
         affiliation_width = min(max(len(field) for field in ranked.affiliation), COUNTRY_WIDTH)
         nationality_width = min(max(len(field) for field in ranked.nationality), COUNTRY_WIDTH)
-        labels_width = max(len(str(self.applications.get_labels(field)))
+        labels_width = max(len(str(self.applications.ini.get_labels(field)))
                            for field in ranked.fullname) or 1
 
         fmt = RANK_FORMATS[opts.format]
@@ -883,11 +882,13 @@ class Grader(cmd_completer.Cmd_Completer):
             group = self._equiv_master(person.group)
             institute = self._equiv_master(person.institute)
 
-            categories = {'programming': self.programming_rating,
-                          'open_source': self.open_source_rating,
-                          'python':      self.python_rating,
-                          'vcs':         self.vcs_rating,
-                          'underrep':    self.underrep_rating}
+            categories = {
+                'programming_rating': self.applications.ini.get_ratings("programming"),
+                'open_source_rating': self.applications.ini.get_ratings("open_source"),
+                'python_rating':      self.applications.ini.get_ratings("python"),
+                'vcs_rating':         self.applications.ini.get_ratings("vcs"),
+                'underrep_rating':    self.applications.ini.get_ratings("underrep"),
+            }
             cat_scores = categorical_scores(person, categories)
             cat_scores = {f'{k}_score':v for k,v in cat_scores.items()}
 
