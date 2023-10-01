@@ -206,6 +206,7 @@ class Grader(cmd_completer.Cmd_Completer):
         self.identity = identity
         self.applications = Applications(csv_file=csv_file)
         self.archive = []
+        self.modified = False
 
         for path in sorted(csv_file.parent.glob('*/applications.csv'),
                               reverse=True):
