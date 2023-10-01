@@ -329,8 +329,8 @@ class ApplicationsIni:
 
     #@functools.cache
     def get_ratings(self, field):
-        """Return a mapping:  {value → rating}"""
-        #()
+        """Return a mapping:  {value → rating}. we expect the field without
+        the suffix _rating"""
         for section_name, section in self.data.items():
             match section_name.rsplit('_', maxsplit=1):
                 case (name, 'rating'):
@@ -339,7 +339,7 @@ class ApplicationsIni:
                         return section
         # this condition is met when the loop is not interrupted
         else:
-            raise KeyError(f"No rating for name {field}")
+            raise KeyError(f"No rating for {field}")
 
 
     def save(self, file=None):
@@ -423,7 +423,9 @@ class ApplicationsIni:
     def formula(self, formula):
         self['formula.formula'] = formula
 
-
+    @property
+    def location(self):
+        return self['formula.location']
 # This class is a collection of applications for an edition of the school
 # It can be iterated over and it can return a subset of applications matching
 # certain criteria (see "filter" method)
@@ -443,6 +445,14 @@ class Applications:
         self.people = load_applications_csv(csv_file,
                                             ini=self.ini,
                                             relaxed=relaxed)
+
+    @functools.cache
+    def all_nationalities(self):
+        return set(p.nationality for p in self.people)
+
+    @functools.cache
+    def all_affiliations(self):
+        return set(p.affiliation for p in self.people)
 
     def __getitem__(self, key):
         """Get people by numerical index or by fullname"""

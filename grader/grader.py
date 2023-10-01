@@ -226,10 +226,10 @@ class Grader(cmd_completer.Cmd_Completer):
             # this is the first instance of the school and we did not
             # ask about previous participation
             person.applied = 'N'
-            person.napplied = 0
+            person.n_applied = 0
             return
         except IndexError:
-            person.napplied = 0
+            person.n_applied = 0
             return
         found = 0
         for app_old in self.applications_old.values():
@@ -241,37 +241,11 @@ class Grader(cmd_completer.Cmd_Completer):
         if declared and not found:
             printf('warning: person applied prev. not found on lists: {} <{}>',
                    person.fullname, person.email)
-        person.napplied = max(declared, found)
+        person.n_applied = max(declared, found)
 
     def _applied_range(self):
-        s = set(p.napplied for p in self.applications)
+        s = set(p.n_applied for p in self.applications)
         return sorted(s)
-
-    @property
-    def formula(self):
-        try:
-            return self.config['formula']['formula']
-        except KeyError:
-            return None
-    @formula.setter
-    def formula(self, value):
-        # check syntax
-        compile(value, '--formula--', 'eval')
-        self.config['formula']['formula'] = value
-        # invalidate rankings
-        self.ranking_done = False
-
-    @property
-    def location(self):
-        try:
-            return self.config['formula']['location']
-        except KeyError:
-            return None
-    @location.setter
-    def location(self, value):
-        self.config['formula']['location'] = value
-        # invalidate rankings
-        self.ranking_done = False
 
     @property
     def accept_count(self):
@@ -353,7 +327,7 @@ class Grader(cmd_completer.Cmd_Completer):
                       help='print applications only for people with label')\
         .add_argument('-a', '--attribute', nargs='+', metavar='ATTRNAME ATTRVALUE', action='append',
                       help='print applications only for people with matching attributes'
-                      ', e.g. -a napplied 3 -a . Call "-a list" to get a list of attributes.')\
+                      ', e.g. -a n_applied 3 -a . Call "-a list" to get a list of attributes.')\
         .add_argument('persons', nargs='*',
                       help='name fragments of people to display')
 
@@ -485,11 +459,11 @@ class Grader(cmd_completer.Cmd_Completer):
         self._dump(which, format=opts.format)
 
 
-    def print_grading_stats(self, what, applications):
+    def print_grading_stats(self, applications):
         if pandas is None:
             print('need pandas to show stats!')
             return
-        grades = pandas.DataFrame(list(self._gradings(p, what)) for p in applications)
+        grades = pandas.DataFrame(list(self._get_gradings(p)) for p in applications)
         stats = grades.apply(pandas.value_counts, dropna=False).fillna(0)
         stats.rename(index={'nan':'todo', 'NaN':'todo'}, inplace=True)
         print(stats)
@@ -596,7 +570,7 @@ class Grader(cmd_completer.Cmd_Completer):
             if opts.disagreement is all:
                 dis_todo = []
                 for p in todo:
-                    gradings = [g if g is not None else 0 for g in self._gradings(p, opts.what)]
+                    gradings = [g if g is not None else 0 for g in self._get_gradings(p)]
                     if (max(gradings) - min(gradings)) > 1:
                         dis_todo.append(p)
                 todo = dis_todo
@@ -673,31 +647,26 @@ class Grader(cmd_completer.Cmd_Completer):
                             current[e.key] = value
                             self.modified = True
 
-    def _get_grading(self, person, what, identity=None):
+    def _get_grading(self, person, identity=None):
         if identity is None:
             identity = self.identity
-        section = self.config[section_name(what, identity)]
-        return section.get(person.fullname, None)
+        return person.get_motivation_score(identity)
 
-    def _gradings(self, person, what):
-        gen = (
-            self.config[section_name(what, identity)].get(person.fullname, None)
-            for identity in IDENTITIES)
+    def _get_gradings(self, person):
+        gen = (self._get_grading(person, identity) for identity in self.applications.ini.identities())
         return list_of_float(gen)
 
-    def _set_grading(self, person, what, score):
+    def _set_grading(self, person, score):
         assert isinstance(score, numbers.Number), score
-        section = self.config[section_name(what, self.identity)]
-        section[person.fullname] = score
-        printff('{} score set to {}', what, score)
-        self.modified = True
+        person.set_motivation_score(score=score, identity=self.identity)
+        printff('Motivation score set to {}', score)
 
     def _grade(self, person, disagreement):
         if disagreement:
-            scores = self._gradings(person, 'motivation')
+            scores = self._get_gradings(person)
         else:
-            scores = [self._get_grading(person, 'motivation')]
-        old_score = self._get_grading(person, 'motivation')
+            scores = [self._get_grading(person)]
+        old_score = self._get_grading(person)
         default = old_score if old_score is not None else ''
         self._dumpone(person, format='motivation')
 
@@ -764,43 +733,46 @@ class Grader(cmd_completer.Cmd_Completer):
 
     def _assign_rankings(self, use_labels=False):
         "Order applications by rank"
-        if self.formula is None:
+        ini = self.applications.ini
+        if ini.formula is None:
             raise ValueError('formula not set yet')
 
         #if self.ranking_done:
         #    return
         #else:
         #    self.ranking_done = True
-        minsc, maxsc, contr = find_min_max(self.formula, self.location,
-                                           self.programming_rating,
-                                           self.open_source_rating,
-                                           self.python_rating,
-                                           self.vcs_rating,
-                                           self.underrep_rating,
-                                           self._applied_range(),
-                                           self.all_nationalities,
-                                           self.all_affiliations)
+        categories = {
+            'programming_rating': ini.get_ratings("programming"),
+            'open_source_rating': ini.get_ratings("open_source"),
+            'python_rating':      ini.get_ratings("python"),
+            'vcs_rating':         ini.get_ratings("vcs"),
+            'underrep_rating':    ini.get_ratings("underrep"),
+        }
 
-        categories = {'programming': self.programming_rating,
-                      'open_source': self.open_source_rating,
-                      'python':      self.python_rating,
-                      'vcs':         self.vcs_rating,
-                      'underrep':    self.underrep_rating}
+        minsc, maxsc, contr = find_min_max(
+            ini[f'formula.formula'],
+            ini[f'formula.location'],
+            **categories,
+            applied=self._applied_range(),
+            all_nationalities=self.applications.all_nationalities(),
+            all_affiliations=self.applications.all_affiliations(),
+        )
 
-        for person in self.applications:
-            labels = self.applications.get_labels(person.fullname)
-            person.score = rank_person(person,
-                                       self.formula, self.location,
-                                       categories,
-                                       self._gradings(person, 'motivation'),
-                                       minsc, maxsc,
-                                       labels,
-                                       person.napplied)
+        # for person in self.applications:
+        #     #labels = self.applications.ini.get_labels(person.fullname)
+        #     person.score = rank_person(person,
+        #                                self.applications.ini.formula,
+        #                                self.applications.ini.location,
+        #                                categories,
+        #                                self._get_gradings(person),
+        #                                minsc, maxsc,
+        #                                person.labels,
+        #                                person.n_applied)
 
         nan_to_value = lambda n: LABEL_VALUES['__nan__'] if np.isnan(n) else n
 
-        ordered = sorted(self.applications,
-                         key=lambda x: nan_to_value(self._score_with_labels(x, use_labels=use_labels)),
+        ordered = sorted(self.applications.people,
+                         key=lambda p: nan_to_value(self._score_with_labels(p, use_labels=use_labels)),
                          reverse=True)
 
         rank, prevscore = 0, 10000
@@ -941,7 +913,7 @@ class Grader(cmd_completer.Cmd_Completer):
                    affiliation_width=affiliation_width,
                    labels=', '.join(labels),
                    labels_width=labels_width,
-                   motivation_scores=colored_scores(self._gradings(person, 'motivation')),
+                   motivation_scores=colored_scores(self._get_gradings(person)),
                    **cat_scores)
 
     stat_options = (
@@ -994,7 +966,7 @@ class Grader(cmd_completer.Cmd_Completer):
         """ Given a pool of applicants, compute and display some statistics.
         """
         observables = ['born', 'gender', 'nationality', 'affiliation',
-                       'position', 'applied', 'napplied', 'open_source',
+                       'position', 'applied', 'n_applied', 'open_source',
                        'programming', 'python', 'vcs', 'underrep']
         counters = {var: collections.Counter(getattr(p, var, NOT_AVAILABLE_LABEL)
                                              for p in pool)
@@ -1019,7 +991,7 @@ class Grader(cmd_completer.Cmd_Completer):
         if detailed:
             for var in observables:
                 print('--\n'+var.upper())
-                if var in ('born', 'napplied'):
+                if var in ('born', 'n_applied'):
                     # years should be sorted numerically and not by popularity
                     for n in sorted(counters[var].items(),
                             key=operator.itemgetter(0)):
@@ -1060,7 +1032,7 @@ class Grader(cmd_completer.Cmd_Completer):
 
         # first collect statistics like we do in the do_stat method (DRY ;))))
         observables = ['born', 'gender', 'nationality', 'affiliation',
-                       'position', 'applied', 'napplied', 'open_source',
+                       'position', 'applied', 'n_applied', 'open_source',
                        'programming', 'python', 'vcs', 'underrep']
         c_confirmed = {var: collections.Counter(getattr(p, var, NOT_AVAILABLE_LABEL)
                                                 for p in confirmed)
@@ -1093,7 +1065,7 @@ class Grader(cmd_completer.Cmd_Completer):
         print('\n\n== Details for Participants ==')
         for var in observables:
             self._wiki_tb_head((var.upper(), 'Count'))
-            if var in ('born', 'napplied'):
+            if var in ('born', 'n_applied'):
                 for n in sorted(c_confirmed[var].items(),
                                 key=operator.itemgetter(0)):
                     self._wiki_tb_row((n[0],
@@ -1304,19 +1276,21 @@ def gender_to_formula_label(label):
     return KNOWN_GENDER_LABELS[label.lower()]
 
 def categorical_scores(person, categories):
-    vars = {}
-    for attr, dict in categories.items():
-        # Some attributes might not be defined by Person. Let's not define the
-        # variable in that case. This will cause the formula evaluation to fail
-        # if it refers to one of the undefined attributes.
-        try:
-            key = getattr(person, attr)
-        except AttributeError:
-            pass
-        else:
-            value = get_rating(attr, dict, key)
-            vars[attr] = value
-    return vars
+    return {c: person.get_rating(c) for c in categories}
+
+    # vars = {}
+    # for attr, dict in categories.items():
+    #     # Some attributes might not be defined by Person. Let's not define the
+    #     # variable in that case. This will cause the formula evaluation to fail
+    #     # if it refers to one of the undefined attributes.
+    #     try:
+    #         key = getattr(person, attr)
+    #     except AttributeError:
+    #         pass
+    #     else:
+    #         value = get_rating(attr, dict, key)
+    #         vars[attr] = value
+    # return vars
 
 def rank_person(person, formula, location, categories,
                 motivation_scores, minsc, maxsc, labels,
@@ -1384,7 +1358,7 @@ def find_min_max(formula, location,
     # Also add location so that we take care of terms like nationality!=location
     nationalities = ['NOWHERE', 'NOWHERE2', location]
     affiliations = ['NOWHERE', 'NOWHERE2', location]
-    for country in set(all_nationalities + all_affiliations):
+    for country in (all_nationalities | all_affiliations):
         country_str = (f"'{country}'", '"{country}"')
         found = False
         for test_str in country_str:
@@ -1404,11 +1378,11 @@ def find_min_max(formula, location,
         affiliation=affiliations,
         location=(location,),
         motivation=SCORE_RANGE,
-        programming=programming_rating.values(),
-        open_source=open_source_rating.values(),
-        python=python_rating.values(),
-        vcs=vcs_rating.values(),
-        underrep=underrep_rating.values(),
+        programming_rating=programming_rating.values(),
+        open_source_rating=open_source_rating.values(),
+        python_rating=python_rating.values(),
+        vcs_rating=vcs_rating.values(),
+        underrep_rating=underrep_rating.values(),
         labels=())
     needed = list(_yield_values(n, *choices[n]) for n in find_names(formula))
     options = tuple(itertools.product(*needed))

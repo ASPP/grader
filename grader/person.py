@@ -138,7 +138,16 @@ class Person:
             return []
         return self._ini.get_motivation_scores(self.fullname)
 
+    def get_motivation_score(self, identity):
+        if self._ini is None:
+            return math.nan
+        return self._ini.get_motivation_score(self.fullname, identity)
+        
+
     def get_rating(self, name):
+        if name.endswith('_rating'):
+            name = name[:-7]
+        
         ratings = self._ini.get_ratings(name)
         print(f"ratings {name=} {ratings=}")
         
