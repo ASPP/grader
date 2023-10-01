@@ -324,18 +324,22 @@ class ApplicationsIni:
         """Return a vector of all identities used in the ini file"""
         for section_name, section in self.data.items():
             match section_name.split('-', maxsplit=1):
-               case ('motivation_score', identity):
+                case ('motivation_score', identity):
                     yield identity
 
-    @functools.cache
-    @vector.dictify
-    def ratings(self):
-        """Return a dictionary of mappings: {field → {value → rating}}"""
+    #@functools.cache
+    def get_ratings(self, field):
+        """Return a mapping:  {value → rating}"""
+        #()
         for section_name, section in self.data.items():
             match section_name.rsplit('_', maxsplit=1):
-               case (field, 'rating'):
-                   # section is already a dictionary, so we just yield it
-                   yield field, section
+                case (name, 'rating'):
+                    if field == name:
+                        # section is already a dictionary
+                        return section
+        # this condition is met when the loop is not interrupted
+        else:
+            raise KeyError(f"No rating for name {field}")
 
 
     def save(self, file=None):

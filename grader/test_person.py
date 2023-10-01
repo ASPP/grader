@@ -4,6 +4,7 @@ from grader.person import (convert_bool, Person, FormulaProxy)
 from grader.applications_ import ApplicationsIni
 
 import pytest
+import numpy as np
 
 from .test_applications_ import get_ini
 
@@ -176,8 +177,9 @@ jędrzej marcin mirosławski piołun = 3
 '''
 
 def test_formula_proxy(tmp_path):
+    
     ini = get_ini(tmp_path, ini_extra)
-
+    
     p = Person(**MARCIN, _ini=ini)
     p.cooking = 'paleo'
 
@@ -185,6 +187,7 @@ def test_formula_proxy(tmp_path):
 
     assert f['gender'] == 'other'
     assert f['nonmale'] == 1
+    assert np.isnan(f['nan'])
     assert f['programming_rating'] == 0.0
     assert f['cooking_rating'] == -1
     assert f['location'] == 'Nicaragua'
@@ -253,10 +256,11 @@ def test_set_n_applied_override(tmp_path):
 def test_get_rating(tmp_path):
     ini = get_ini(tmp_path, ini_extra)
     p = Person(**MARCIN, _ini=ini)
-    p.cooking = 'paleo'
+    #print(p.__dict__)
     assert p.get_rating("programming") == 0
+    p.cooking = 'paleo'
     assert p.get_rating("cooking") == -1
-    with pytest.raises(AttributeError):
+    with pytest.raises(KeyError):
         p.get_rating("skiing")
 
     p.golf = 'novice'

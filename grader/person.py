@@ -139,9 +139,10 @@ class Person:
         return self._ini.get_motivation_scores(self.fullname)
 
     def get_rating(self, name):
-        all_ratings = self._ini.ratings()
+        ratings = self._ini.get_ratings(name)
+        print(f"ratings {name=} {ratings=}")
+        
         val = getattr(self, name)
-        ratings = all_ratings[name]
 
         if not val and not ratings:
             return math.nan
