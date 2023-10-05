@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 import argparse
 import collections
-import contextlib
 import io
 import itertools
 import keyword
 import logging
 import math
 import numbers
-import numpy as np
 import operator
 import os
 import pathlib
@@ -16,11 +14,12 @@ import pprint
 import random
 import re
 import sys
-import tempfile
 import textwrap
 import token
 import tokenize
 import traceback
+
+import numpy as np
 try:
     import pandas
 except ImportError:
@@ -30,20 +29,13 @@ from . import cmd_completer
 from .flags import flags as FLAGS
 from . import vector
 
-from .applications import (
-    parse_applications_csv_file,
-    Applications,
-)
-
 from .applications_ import Applications
 
 from .util import (
     list_of_equivs,
     list_of_float,
-    our_configfile,
     printf,
     printff,
-    section_name,
     IDENTITIES,
 )
 
