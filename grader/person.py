@@ -195,13 +195,14 @@ class Person:
 
         labels = self.labels
         if label in self.labels:
-            return
+            return False
 
         labels = sorted(labels + [label])
         self._ini.set_labels(self.fullname, labels)
 
         # The internal state has been modified, increase generation number
         self._generation += 1
+        return True
 
     def remove_label(self, label):
         if self._ini is None:
@@ -209,13 +210,14 @@ class Person:
 
         labels = self.labels
         if label not in self.labels:
-            return
+            return False
 
         labels.remove(label)
         self._ini.set_labels(self.fullname, labels)
 
         # The internal state has been modified, increase generation number
         self._generation += 1
+        return True
 
     @property
     def fullname(self) -> str:

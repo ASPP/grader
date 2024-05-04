@@ -688,10 +688,25 @@ class Grader(cmd_completer.Cmd_Completer):
                 case ['d']:
                     printff('showing person on request')
                     self._dumpone(person, format='long')
+                case ['l']:
+                    printff('{}', ', '.join(person.labels) or '(no labels)')
                 case ['l', *labels]:
-                    printff('labelling {} as {}',
-                            person.fullname, ', '.join(labels))
-                    self.applications.add_labels(person.fullname, labels)
+                    for label in labels:
+                        remove = label.startswith('-')
+                        lname = label[1:] if remove else label
+
+                        if remove:
+                            mod = person.remove_label(lname)
+                            if mod:
+                                printff('Removed label {} = {}', person.fullname, lname)
+                            else:
+                                printff('(label not found)')
+                        else:
+                            mod = person.add_label(lname)
+                            if mod:
+                                printff('Added label {} = {}', person.fullname, lname)
+                            else:
+                                printff('(label already set)')
                 case _:
                     print('illegal value: {}'.format(choice))
 
