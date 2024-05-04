@@ -395,13 +395,16 @@ class ApplicationsIni:
         # The key is split into two parts: section and key name.
         # The key names are allowed to contain dots (this is what maxsplit is for).
         if '.' in key:
-            section_name, key = key.split('.', maxsplit=1)
+            section_name, item = key.split('.', maxsplit=1)
             section = self.data.get(section_name)
             if section is None:
-                return None
-            return section.get(key)
+                ans = None
+            else:
+                ans = section.get(item)
         else:
-            return self.data.get(key)
+            ans = self.data.get(key)
+        # print(f'Query {key} -> {ans}')
+        return ans
 
     @vector.vectorize
     def get_motivation_scores(self, fullname):
