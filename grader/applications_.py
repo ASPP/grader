@@ -346,9 +346,7 @@ class ApplicationsIni:
                     if field == name:
                         # section is already a dictionary
                         return section
-        # this condition is met when the loop is not interrupted
-        else:
-            raise KeyError(f"No rating for {field}")
+        return None
 
     def save(self, file=None):
         # save our data to the INI file

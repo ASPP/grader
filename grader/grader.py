@@ -637,7 +637,7 @@ class Grader(cmd_completer.Cmd_Completer):
 
     def _set_grading(self, person, score):
         assert isinstance(score, numbers.Number), score
-        person.set_motivation_score(score=score, identity=self.identity)
+        person.set_motivation_score(score, identity=self.identity)
         printff('Motivation score set to {}', score)
 
     def _grade(self, person, disagreement):
@@ -690,7 +690,7 @@ class Grader(cmd_completer.Cmd_Completer):
                     print('illegal value: {}'.format(choice))
 
         if not equal(valid_choice, default):
-            self._set_grading(person, 'motivation', valid_choice)
+            self._set_grading(person, valid_choice)
         return True
 
     def _score_with_labels(self, p, use_labels=False):
