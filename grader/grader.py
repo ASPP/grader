@@ -13,6 +13,7 @@ import pathlib
 import pprint
 import random
 import re
+import readline
 import sys
 import textwrap
 import token
@@ -666,6 +667,11 @@ class Grader(cmd_completer.Cmd_Completer):
             except EOFError:
                 print()
                 return False
+
+            if len(choice) <= 2:
+                clen = readline.get_current_history_length()
+                if readline.get_history_item(clen) == choice: # 1-based numbering
+                    readline.remove_history_item(clen - 1)    # 0-based numbering
 
             match choice.split():
                 case [choice] if is_valid_score(choice):
