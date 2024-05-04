@@ -453,7 +453,7 @@ class Grader(cmd_completer.Cmd_Completer):
         print(stats)
 
     grade_options = cmd_completer.PagedArgumentParser('grade')\
-        .add_argument('what', choices=['motivation', 'cv', 'formula', 'location'],
+        .add_argument('what', choices=['motivation', 'formula', 'location'],
                       help='what to grade | set formula | set location')\
         .add_argument('-s', '--stat', action='store_true',
                       help='display statics about the grading process itself')\
@@ -538,14 +538,14 @@ class Grader(cmd_completer.Cmd_Completer):
         if opts.graded is not None or opts.disagreement is not None:
             grade = opts.graded if opts.graded is not None else all
             todo = [p for p in applications
-                    if grade is all or self._get_grading(p, opts.what) == grade]
+                    if grade is all or self._get_grading(p) == grade]
             total = len(todo)
         elif fullname:
             todo = [p for p in applications if p.fullname == fullname]
             total = len(todo)
         else:
             todo = [p for p in applications
-                    if self._get_grading(p, opts.what) is None]
+                    if self._get_grading(p) is None]
             total = len(self.applications)
 
         if opts.disagreement is not None:
@@ -558,10 +558,10 @@ class Grader(cmd_completer.Cmd_Completer):
                 todo = dis_todo
             else:
                 todo = [p for p in todo
-                        if (self._get_grading(p, opts.what) is not None and
-                            self._get_grading(p, opts.what, opts.disagreement) is not None and
-                            abs(self._get_grading(p, opts.what) -
-                                self._get_grading(p, opts.what, opts.disagreement)) > 1)]
+                        if (self._get_grading(p) is not None and
+                            self._get_grading(p, identity=opts.disagreement) is not None and
+                            abs(self._get_grading(p) -
+                                self._get_grading(p, identity=opts.disagreement)) > 1)]
             total = len(todo)
 
         done_already = total - len(todo)
