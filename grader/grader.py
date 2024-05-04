@@ -1123,7 +1123,7 @@ class Grader(cmd_completer.Cmd_Completer):
     def do_save(self, args):
         "Save the fruits of thy labour"
         opts = self.save_options.parse_args(args.split())
-        self.config.save(opts.filename)
+        self.applications.ini.save(opts.filename)
 
     def do_write(self, args):
         """Write lists of mailing recipients
