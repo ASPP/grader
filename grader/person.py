@@ -341,9 +341,9 @@ class Person:
             ###       time, like for example:
             ###       foo.bar@uni-xxx.edu -> foo.bar@uni-yyy.edu
 
-            # if we have found more than a candidate on one year there is something
-            # seriously wrong???
-            assert len(candidates) <= 1
+            # We used to have a check here whether len(candidates) <= 1, but
+            # in 2023, a person applied twice from different email addresses,
+            # and we didn't notice that until a year later.
             if candidates:
                 found += 1
 
