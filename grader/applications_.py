@@ -256,9 +256,10 @@ class ApplicationsIni:
                 self.mtime = self.filename.stat().st_mtime_ns
 
         # Track modifications to the global state, i.e. the parameters
-        # that apply to all people. Per-person state is changed
-        # through Person, and it'll keep track of invalidation itself.
+        # that apply to all people. Some per-person modifications are tracked
+        # without changing the global generation number.
         self.generation = 0
+        self.modifications_without_generation = False
 
         # use config parser to give us a mapping:
         # { section_names : {keys : values} }
@@ -268,6 +269,7 @@ class ApplicationsIni:
     @vector.dictify
     def read_config_file(self, file):
         self.config_file_generation = self.generation
+        self.modifications_without_generation = False
 
         cp = configparser.ConfigParser(comment_prefixes='#', inline_comment_prefixes='#')
 
@@ -284,7 +286,9 @@ class ApplicationsIni:
             yield (section_name, {key:typ(value) for key, value in section.items()})
 
     def has_modifications(self):
-        return self.generation > self.config_file_generation
+        return (self.modifications_without_generation
+                or
+                self.generation > self.config_file_generation)
 
     def _find_typ(self, section_name):
         # find the appropriate converter for a given section
@@ -376,12 +380,14 @@ class ApplicationsIni:
         typ = self._find_typ(section_name)
         self.data[section_name][key_name] = typ(value)
 
-        if not section_name.startswith(('motivation-', 'labels')):
-            # We increase the generation number, for modifications of the state,
-            # but not for the per-person settings in [motivation-*] and [labels],
-            # because those modifications increase the generation number in Person,
-            # and if we increased the generation here, we would trigger recalculation
-            # of scores of all people whenever one person's score or labels were modified.
+        # We increase the generation number, for modifications of the state,
+        # but not for the per-person settings in [motivation-*] and [labels],
+        # because those modifications increase the generation number in Person,
+        # and if we increased the generation here, we would trigger recalculation
+        # of scores of all people whenever one person's score or labels were modified.
+        if section_name.startswith(('motivation_score-', 'labels')):
+            self.modifications_without_generation = True
+        else:
             self.generation += 1
 
     def __getitem__(self, key):
