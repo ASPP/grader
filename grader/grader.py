@@ -567,7 +567,7 @@ class Grader(cmd_completer.Cmd_Completer):
         done_already = total - len(todo)
 
         if opts.stat:
-            self.print_grading_stats(opts.what, applications)
+            self.print_grading_stats(applications)
             return
 
         printff('Doing grading for identity {}', self.identity)
