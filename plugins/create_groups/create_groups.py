@@ -4,6 +4,7 @@ import hashlib
 import os
 import csv
 import unicodedata
+import re
 import numpy as np
 
 # Here we define how to weight different contributions to the total
@@ -71,9 +72,13 @@ def participants():
             continue
         if 'CONFIRMED' in labels:
             # get a proposed login name for forgejo
-            # try to get a ascii-only form of the firstname
-            login = unicodedata.normalize('NFKD', person.name).encode('ascii', 'ignore').decode('ascii').lower()
-            person.login = login.split()[0].split('-')[0]
+            # try to get a ascii-only form of firstname+lastname[:2]
+            login_first = unicodedata.normalize('NFKD', person.name).encode('ascii', 'ignore').decode('ascii').lower().strip()
+            login_last = unicodedata.normalize('NFKD', person.lastname).encode('ascii', 'ignore').decode('ascii').lower().strip()
+            # find where to split firstname and lastname -> first non alphabetic character in both strings
+            login_first = re.match("^[a-zA-Z]+", login_first).group(0)
+            login_last = re.match("^[a-zA-Z]+", login_last).group(0)
+            person.login = login_first+login_last[:2]
             # we set a fake password here, the real one will be generated later by a secret script
             person.password = str(person.born)
             yield person
@@ -236,12 +241,12 @@ def main():
     # open CSV output
     with open(CSV, 'wt') as csv:
         # write header
-        csv.write('$FULLNAME$;$EMAIL$;$LOGIN$;$PASSWORD$;$TEAMS$\n')
+        csv.write('$FULLNAME$;$EMAIL$;$LOGIN$;$PASSWORD$;$GROUPN$;$TEAMS$\n')
         for i in range(NGROUPS):
             print('Group %d:'%i, best[group(i), 1:].mean(axis=0).round(7))
             for member in best[group(i),0]:
                 # write member line
-                csv.write(';'.join(name(member, people))+';students,group'+str(i)+'\n')
+                csv.write(';'.join(name(member, people))+f';{i};students,group{i}\n')
 
     # print relative deviation from optimal skills
     print('Deviation from optimal skills (percent):')
