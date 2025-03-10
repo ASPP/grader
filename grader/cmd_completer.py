@@ -44,12 +44,7 @@ class PagedStdOut(io.StringIO):
         self.flush()
 
     def flush(self):
-        # until http://bugs.python.org/issue13609 is fixed,
-        # we used our own brain dead implementation of
-        # get_terminal_size
-        height, width = struct.unpack("hhhh",
-                                      fcntl.ioctl(0,termios.TIOCGWINSZ,
-                                                  "\000"*8))[0:2]
+        height, width = shutil.get_terminal_size()
         buffer = ''.join(self.buffer)
         sys.stdout.write = self.stdout_write
         sys.stderr.write = self.stderr_write
