@@ -28,8 +28,6 @@ class PagedStdOut(io.StringIO):
         sys.stderr.write = self.direct_write
         if 'LESS' not in os.environ:
             os.environ['LESS'] = '-FSRX'
-        global PAGER
-        PAGER = self
 
     def write(self, s):
         # do not really write, just cumulates input
@@ -53,6 +51,18 @@ class PagedStdOut(io.StringIO):
         else:
             sys.stdout.write(buffer)
         self.buffer = []
+
+
+#: Global instance of PagedStdOut
+_PAGER = PagedStdOut()
+
+
+def get_pager():
+    """ Utility function to get the global StdOut pager.
+
+    Having this getter allows using an alternative one for testing, even though it's a global variable.
+    """
+    return _PAGER
 
 
 class Cmd_Completer(cmd.Cmd):
@@ -131,7 +141,7 @@ class Cmd_Completer(cmd.Cmd):
         cmd, _, rest = line.partition(';')
         if rest:
             self.cmdqueue.insert(0, rest)
-        self.page_stdout = PagedStdOut()
+        self.page_stdout = get_pager()
         return cmd
 
     def postcmd(self, stop, line):
@@ -179,10 +189,12 @@ class Cmd_Completer(cmd.Cmd):
         return [a[3:] + ' '
                 for a in self.get_names() if a.startswith(dotext)]
 
+
 class ModArgumentParser(argparse.ArgumentParser):
     def add_argument(self, *args, **kwargs):
         super(ModArgumentParser, self).add_argument(*args, **kwargs)
         return self
+
 
 class PagedArgumentParser(ModArgumentParser):
     def exit(self, status=0, message=None):
@@ -191,7 +203,8 @@ class PagedArgumentParser(ModArgumentParser):
         raise KeyboardInterrupt
 
     def _print_message(self, message, file=None):
-        PAGER.direct_write(message)
+        get_pager().direct_write(message)
+
 
 class InputFile:
     COMMENT_OR_EMPTY_RE = re.compile('\s* (?: [#] | $ )', re.X)

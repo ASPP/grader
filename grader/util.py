@@ -60,7 +60,7 @@ def printf(fmt, *args, **kwargs):
 # the command
 def printff(fmt, *args, **kwargs):
     print(fmt.format(*args, **kwargs))
-    cmd_completer.PAGER.flush()
+    cmd_completer.get_pager().flush()
 
 
 class list_of_float(list):
