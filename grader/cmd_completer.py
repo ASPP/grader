@@ -1,20 +1,20 @@
-import sys
-import os
-import atexit
-import readline
-import cmd
 import argparse
-import re
-import io
-import struct
-import fcntl
-import termios
-import pydoc
+import atexit
+import cmd
 import contextlib
+import logging
+import io
+import os
+import pydoc
+import readline
+import re
+import shutil
+import sys
 import traceback
 
-import logging
+
 log = logging.getLogger('cmd_completer')
+
 
 class PagedStdOut(io.StringIO):
     "Page stdout if needed"
