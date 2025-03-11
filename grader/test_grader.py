@@ -1,17 +1,17 @@
 from .grader import Grader
-from .util import our_configfile
 
 
 CSV_APPLICATIONS = """
-"First name","Last name","Nationality","Affiliation","programming","open_source","applied","python","born","gender","email","group","institute","vcs","underrep"
-"John","Doe","Italy","Italy","competent","user","No","competent","1978","Male","john.doe@gmail.com","Group A","Institute A","yes","no"
-"Mary Jane","Smith","Germany","UK","expert","minor contributions","No","competent","1999","Female","mary99@gmail.com","Group B","Institute B","no","yes"
+"First name","Last name","Nationality","Affiliation","programming","open_source","applied","python","born","gender","email","group","institute","vcs","underrep","position","position_other","programming_description","open_source_description","cv","motivation"
+"John","Doe","Italy","Italy","expert","user","No","expert","1978","Male","john.doe@gmail.com","Group A","Institute A","yes","no","PhD student","","competent/proficient","I like it","(2001) Trip around the world","Very high"
+"Mary Jane","Smith","Germany","UK","competent/proficient","minor contributions","No","competent/proficient","1999","Female","mary99@gmail.com","Group B","Institute B","no","yes","post-doctorate","","novice/advanced beginner","blah","(2020) Chilling","Not interested"
 """.strip()
 
 
 CONF = """
 [formula]
 formula = (nationality!=affiliation)
+accept_count = 30
 
 [programming_rating]
 competent = 1.0
@@ -60,30 +60,24 @@ group = group
 institute = institute
 vcs = vcs
 underrep = underrep
+
+[equivs]
 """
 
 
-def _tmp_application_files(tmpdir, config_string, csv_string):
-    config_tmpfile = tmpdir.join('test_grader.conf')
-    config_tmpfile.write(config_string)
-    csv_tmpfile = tmpdir.join('test_applications.csv')
-    csv_tmpfile.write(csv_string)
-    return config_tmpfile, csv_tmpfile
+def _tmp_application_files(tmp_path, config_string, csv_string):
+    config_tmp_path = tmp_path / 'applications.ini'
+    config_tmp_path.write_text(config_string)
+    csv_tmp_path = tmp_path / 'applications.csv'
+    csv_tmp_path.write_text(csv_string)
+    return config_tmp_path, csv_tmp_path
 
 
-def test_grader_rank(tmpdir, capsys):
-    # Basic test, just checking that it down not crash
-    config_tmpfile, csv_tmpfile = _tmp_application_files(
-        tmpdir, CONF, CSV_APPLICATIONS)
-    config = our_configfile(config_tmpfile.strpath)
+def test_grader_rank(tmp_path, capsys):
+    # Basic test, just checking that it does not crash
+    config_tmp_path, csv_tmp_path = _tmp_application_files(tmp_path, CONF, CSV_APPLICATIONS)
 
-    grader = Grader(
-        identity=1,
-        config=config,
-        applications=[csv_tmpfile.strpath]
-    )
-
-    config['formula']['formula'] = '(nationality!=affiliation)'
+    grader = Grader(identity=1, csv_file=csv_tmp_path)
     grader.do_rank(args='')
 
     out, err = capsys.readouterr()
@@ -94,19 +88,11 @@ def test_grader_rank(tmpdir, capsys):
     assert 'John Doe' in output_lines[1]
 
 
-def test_grader_rank_labels_filter(tmpdir, capsys):
+def test_grader_rank_labels_filter(tmp_path, capsys):
     # Basic test, just checking that it down not crash
-    config_tmpfile, csv_tmpfile = _tmp_application_files(
-        tmpdir, CONF, CSV_APPLICATIONS)
-    config = our_configfile(config_tmpfile.strpath)
+    config_tmp_path, csv_tmp_path = _tmp_application_files(tmp_path, CONF, CSV_APPLICATIONS)
 
-    grader = Grader(
-        identity=1,
-        config=config,
-        applications=[csv_tmpfile.strpath]
-    )
-
-    config['formula']['formula'] = '(nationality!=affiliation)'
+    grader = Grader(identity=1, csv_file=csv_tmp_path)
     grader.do_rank(args='-l RICH')
 
     out, err = capsys.readouterr()

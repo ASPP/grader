@@ -819,7 +819,7 @@ class Grader(cmd_completer.Cmd_Completer):
         return vector.vector(ranked_applications)
 
     def _equiv_master(self, variant):
-        "Return the key for equiv canonicalization"
+        """ Return the key for equiv canonicalization. """
         for key, values in self.applications.ini['equivs'].items():
             if (variant.lower() == key.lower() or
                 variant.lower() in (spelling.lower() for spelling in values)):
