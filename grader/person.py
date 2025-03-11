@@ -80,7 +80,7 @@ class Person:
        The attributes are typed, but types will be only enforced for "safe" types,
        like str, bool, int, float.
 
-       If instanciated with a reference to a INI file, Person will get all attributes
+       If instantiated with a reference to a INI file, Person will get all attributes
        found in the INI file corresponding to their fullname.
 
        Person has methods to set and read motivation scores and labels.
@@ -142,14 +142,13 @@ class Person:
         if self._ini is None:
             return math.nan
         return self._ini.get_motivation_score(self.fullname, identity)
-        
+
 
     def get_rating(self, name):
         if name.endswith('_rating'):
             name = name[:-7]
-        
+
         ratings = self._ini.get_ratings(name)
-        
         val = getattr(self, name)
 
         if not val and not ratings:
@@ -167,11 +166,9 @@ class Person:
         # and removing trialing whitespace if any
         key = re.match(r'(.+?)\s*(?:[(/,]|$)', val).group(1).lower()
 
-        try:
-            return ratings[key]
-        except KeyError:
+        if key not in ratings:
             raise KeyError(f'{name} not rated for {key!r}')
-
+        return ratings[key]
 
     def set_motivation_score(self, value, identity):
         if self._ini is None:

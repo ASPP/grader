@@ -177,9 +177,9 @@ jędrzej marcin mirosławski piołun = 3
 '''
 
 def test_formula_proxy(tmp_path):
-    
+
     ini = get_ini(tmp_path, ini_extra)
-    
+
     p = Person(**MARCIN, _ini=ini)
     p.cooking = 'paleo'
 
@@ -256,13 +256,17 @@ def test_set_n_applied_override(tmp_path):
 def test_get_rating(tmp_path):
     ini = get_ini(tmp_path, ini_extra)
     p = Person(**MARCIN, _ini=ini)
-    #print(p.__dict__)
+
+    # These attributes exist in the Person dataclass, and their rating exist in the INI file
     assert p.get_rating("programming") == 0
     p.cooking = 'paleo'
     assert p.get_rating("cooking") == -1
-    with pytest.raises(KeyError):
-        p.get_rating("skiing")
 
-    p.golf = 'novice'
+    # These attribute exists in the Person dataclass, its rating exist in the INI file, but the given key is not rated
+    p.cooking = 'cimbalese'
     with pytest.raises(KeyError):
-        p.get_rating("golf")
+        p.get_rating("cooking")
+
+    # The skiing attribute does not exist in the Person dataclass
+    with pytest.raises(AttributeError):
+        p.get_rating("skiing")
