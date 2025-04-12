@@ -190,31 +190,23 @@ class Person:
         if self._ini is None:
             raise ValueError
 
-        labels = self.labels
-        if label in self.labels:
-            return False
+        mod = self._ini.add_label(self.fullname, label)
 
-        labels = sorted(labels + [label])
-        self._ini.set_labels(self.fullname, labels)
-
-        # The internal state has been modified, increase generation number
-        self._generation += 1
-        return True
+        if mod:
+            # The internal state has been modified, increase generation number
+            self._generation += 1
+        return mod
 
     def remove_label(self, label):
         if self._ini is None:
             raise ValueError
 
-        labels = self.labels
-        if label not in self.labels:
-            return False
+        mod = self._ini.remove_label(self.fullname, label)
 
-        labels.remove(label)
-        self._ini.set_labels(self.fullname, labels)
-
-        # The internal state has been modified, increase generation number
-        self._generation += 1
-        return True
+        if mod:
+            # The internal state has been modified, increase generation number
+            self._generation += 1
+        return mod
 
     @property
     def fullname(self) -> str:
