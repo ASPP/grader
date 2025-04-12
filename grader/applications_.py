@@ -353,19 +353,20 @@ class ApplicationsIni:
                         return section
         return None
 
-    def save(self, file=None):
+    def save(self, filename=None):
+        filename = filename or self.filename
+        with open(filename, 'wt') as file:
+            self.save_to_file(file)
+
+    def save_to_file(self, file):
         # save our data to the INI file
         cp = configparser.ConfigParser(comment_prefixes='#', inline_comment_prefixes='#')
         cp.read_dict(self.data)
+        cp.write(file)
 
-        file = file or self.filename
-        if not hasattr(file, 'write'):
-            file = open(file, 'w')
+        name = getattr(file, 'name', '(tmp)')
+        printff(f'Saved changes to {name}')
 
-        with file as fh:
-            cp.write(fh)
-
-        printff(f'Saved changes to {fh.name!r}')
 
     def __setitem__(self, key, value):
         # allow to set items in the section of the INI using a dotted form, for ex:
@@ -476,6 +477,11 @@ class Applications:
     @functools.cache
     def all_affiliations(self):
         return set(p.affiliation for p in self.people)
+
+    def all_labels(self):
+        return set(l
+                   for p in self.people
+                   for l in p.labels)
 
     def __getitem__(self, key):
         """Get people by numerical index or by fullname"""

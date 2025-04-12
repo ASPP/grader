@@ -1,3 +1,4 @@
+import io
 import pathlib
 import os
 import time
@@ -88,6 +89,12 @@ def get_applications_csv(tmp_path):
 
     return input
 
+@pytest.fixture
+def app(tmp_path):
+    csv = get_applications_csv(tmp_path)
+    ini = get_ini(tmp_path).filename
+    return Applications(csv, ini)
+
 def test_applications_ini_read(tmp_path):
     ini = get_ini(tmp_path)
 
@@ -177,15 +184,9 @@ def test_applications_ini_save(tmp_path):
     ini2 = ApplicationsIni(out)
     assert ini2['cooking_rating.some_long_key'] == 7.0
 
-def test_applications_object(tmp_path):
-    csv = get_applications_csv(tmp_path)
-    ini = get_ini(tmp_path).filename
-
-    app = Applications(csv, ini)
-
+def test_applications_object(app):
     assert len(app) == 3
     assert len(app.people) == 3
-    assert app.ini.filename == ini
 
     vegans = app.filter(label = ['VEGAN'])
     assert len(vegans) == 1
@@ -241,12 +242,11 @@ def test_applications_object(tmp_path):
     # TODO: this should fail:
     # byname.lastname = ['One', 'Two']
 
-def test_applications_getitem(tmp_path):
-    csv = get_applications_csv(tmp_path)
-    ini = get_ini(tmp_path).filename
+    fullname = app.filter(fullname = 'Person One')
+    assert len(fullname) == 1
+    assert fullname.fullname == ['Person One']
 
-    app = Applications(csv, ini)
-
+def test_applications_getitem(app):
     assert len(app) == 3
     assert app['Person One'].fullname == 'Person One'
     assert app['person one'].fullname == 'Person One'
@@ -255,3 +255,57 @@ def test_applications_getitem(tmp_path):
         app[3.0]
     with pytest.raises(IndexError):
         app['Unkown Person']
+
+def test_applications_labels(app):
+    assert app['Person One'].add_label('VIP') is True
+    assert app['Person One'].labels == ['PALEO', 'VIP']
+
+    assert app['Person One'].add_label('VIP') is False
+    assert app['Person One'].labels == ['PALEO', 'VIP']
+
+    assert app['Person One'].add_label('VEGAN') is True
+    assert app['Person One'].labels == ['PALEO', 'VEGAN', 'VIP']
+
+    assert app['Person One'].add_label('VIRULENT') is True
+    assert app['Person One'].labels == ['PALEO', 'VEGAN', 'VIP', 'VIRULENT']
+
+    assert app['Person One'].add_label('VIRULENT') is False
+    assert app['Person One'].labels == ['PALEO', 'VEGAN', 'VIP', 'VIRULENT']
+
+    assert app['Person Two'].labels == []
+
+    assert app['Person One'].remove_label('VIP') is True
+    assert app['Person One'].labels == ['PALEO', 'VEGAN', 'VIRULENT']
+
+    assert app['Person One'].remove_label('VIP') is False
+    assert app['Person One'].labels == ['PALEO', 'VEGAN', 'VIRULENT']
+
+    assert app['Person One'].remove_label('VEGAN') is True
+    assert app['Person One'].labels == ['PALEO', 'VIRULENT']
+
+    assert app['Person One'].remove_label('VIRULENT') is True
+    assert app['Person One'].labels == ['PALEO']
+
+    assert app['Person One'].remove_label('VIRULENT') is False
+    assert app['Person One'].labels == ['PALEO']
+
+    assert app['Person One'].remove_label('PALEO') is True
+    assert app['Person One'].labels == []
+
+    out = io.StringIO()
+    app.ini.save_to_file(file=out)
+
+    assert 'john doe = VEGAN, VIP' in out.getvalue()
+    assert 'jędrzej marcin mirosławski piołun = UTF-8, VEGAN' in out.getvalue()
+
+def test_applications_all_labels(app):
+    assert app.all_labels() == {'PALEO', 'UTF-8', 'VEGAN'}
+    assert app['Person One'].add_label('VIRULENT') is True
+    assert app.all_labels() == {'PALEO', 'UTF-8', 'VEGAN', 'VIRULENT'}
+
+def test_applications_item_access(app):
+    assert len(app) == 3
+    assert app['Person One'].fullname == 'Person One'
+    assert app[1].fullname == 'Person One'
+    with pytest.raises(TypeError):
+        assert app[1.0]
