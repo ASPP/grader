@@ -189,46 +189,46 @@ def test_applications_object(tmp_path):
 
     vegans = app.filter(label = ['VEGAN'])
     assert len(vegans) == 1
-    vegans.name == ['Jędrzej Marcin']
+    assert vegans.name == ['Jędrzej Marcin']
 
     vegans = app.filter(label = 'VEGAN')
     assert len(vegans) == 1
-    vegans.name == ['Jędrzej Marcin']
+    assert vegans.name == ['Jędrzej Marcin']
 
     vegans = app.filter(label = ['VEGAN', 'UTF-8'])
     assert len(vegans) == 1
-    vegans.name == ['Jędrzej Marcin']
+    assert vegans.name == ['Jędrzej Marcin']
 
     byname = app.filter(name = 'Person')
     assert len(byname) == 2
-    byname.name == ['Person', 'Person']
-    byname.lastname = ['One', 'Two']
+    assert byname.name == ['Person', 'Person']
+    assert byname.lastname == ['One', 'Two']
 
     byname_and_l = app.filter(name = 'Person', label=['-','PALEO'])
     assert len(byname_and_l) == 1
-    byname_and_l.name == ['Person']
-    byname_and_l.lastname = ['Two']
+    assert byname_and_l.name == ['Person']
+    assert byname_and_l.lastname == ['Two']
 
     byname = app.filter(name = 'Person', affiliation='Paleolithic 1')
     assert len(byname) == 1
-    byname.fullname == ['Person One']
+    assert byname.fullname == ['Person One']
 
     byname = app.filter(name = 'Person', affiliation=r'Paleolithic')
     assert len(byname) == 1
-    byname.fullname == ['Person One']
+    assert byname.fullname == ['Person One']
 
     byname = app.filter(name = 'Person', affiliation=r'paleo[a-z]ithic')
     assert len(byname) == 1
-    byname.fullname == ['Person One']
+    assert byname.fullname == ['Person One']
 
     byname = app.filter(name = 'Person', affiliation=r'^aleolithic')
     assert len(byname) == 0
-    byname.fullname == []
+    assert byname.fullname == []
 
     # also check with utf-8 in the pattern and label/non-label matching
     byname = app.filter(label = ['VEGAN', 'UTF-8'], name = 'Jędrzej')
     assert len(byname) == 1
-    byname.name == ['Jędrzej Marcin']
+    assert byname.name == ['Jędrzej Marcin']
 
     with pytest.raises(AttributeError):
         app.filter(unknown_attr = '11')
@@ -236,7 +236,10 @@ def test_applications_object(tmp_path):
     # non-string match
     byyear = app.filter(born=1980)
     assert len(byyear) == 1
-    byyear.name == ['Jędrzej Marcin']
+    assert byyear.name == ['Jędrzej Marcin']
+
+    # TODO: this should fail:
+    # byname.lastname = ['One', 'Two']
 
 def test_applications_getitem(tmp_path):
     csv = get_applications_csv(tmp_path)
