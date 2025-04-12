@@ -429,13 +429,37 @@ class ApplicationsIni:
         key = fullname.lower()
         return self[f'labels.{key}'] or []
 
+    def add_label(self, fullname, label):
+        old_labels = set(self.get_labels(fullname))
+        if label in old_labels:
+            return False
+
+        old_labels.add(label)
+        self.set_labels(fullname, sorted(old_labels))
+        return True
+
+    def remove_label(self, fullname, label):
+        old_labels = set(self.get_labels(fullname))
+        if label not in old_labels:
+            return False
+
+        old_labels.remove(label)
+        self.set_labels(fullname, sorted(old_labels))
+        return True
+
     def set_labels(self, fullname, labels):
         key = fullname.lower()
 
-        if not labels:
+        old_labels = set(self.get_labels(fullname))
+        new_labels = set(labels)
+        mod = old_labels == new_labels
+
+        if not new_labels:
             self.data['labels'].pop(key)
         else:
-            self[f'labels.{key}'] = labels
+            # write new labels
+            self[f'labels.{key}'] = sorted(labels)
+        return mod
 
     @property
     def formula(self):
@@ -494,7 +518,14 @@ class Applications:
             case int(key):
                 return self.people[key]
             case str(key):
-                return self.filter(fullname=f'^{key.lower()}$')[0]
+                filtered = self.filter(fullname=f'^{key.lower()}$')
+                match len(filtered):
+                    case 1:
+                        return filtered[0]
+                    case 0:
+                        raise IndexError(f"No person with name {key}")
+                    case _:
+                        raise IndexError(f"Multiple people with name {key}")
             case _:
                 raise TypeError
 
