@@ -21,3 +21,12 @@ def test_no_identity():
 def test_unknown_identity():
     with pytest.raises(ValueError, match='charlie'):
         gr = grader2.Grader('charlie', TESTCSV)
+
+def test_archive():
+    gr = grader2.Grader(None, TESTCSV)
+    # we have year 2009 and year 2019
+    assert len(gr.archive) == 2
+    for apps in gr.archive:
+        assert len(apps.people) == 2
+
+

@@ -19,12 +19,20 @@ class Grader(cmd_completer.Cmd_Completer):
         if identity is not None:
             self.do_identity(identity)
         self.archive = []
+        for path in sorted(csv_file.parent.glob('*/applications.csv'), reverse=True):
+            # years before 2012 are to be treated less strictly
+            relaxed = any(f'{year}-' in str(path) for year in range(2009,2012))
+            old = Applications(csv_file=path, relaxed=relaxed)
+            self.archive.append(old)
+
+        for person in self.applications:
+            person.set_n_applied(self.archive)
+
 
     identity_options = (
         cmd_completer.PagedArgumentParser('identity')
         .add_argument('identity', type=str, help='become this identity')
         )
-
     def do_identity(self, args):
         "Switch identity"
         opts = self.identity_options.parse_args(args.split())
