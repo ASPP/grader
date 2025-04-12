@@ -29,4 +29,11 @@ def test_archive():
     for apps in gr.archive:
         assert len(apps.people) == 2
 
-
+def test_setting_n_applied():
+    gr = grader2.Grader(None, TESTCSV)
+    # Bob Travolta applied twice in our dataset
+    bobs = gr.applications.filter(name='Bob')
+    assert len(bobs) == 1
+    bob = bobs[0]
+    # n_applied is the number of times applied before
+    assert bob.n_applied == 1
