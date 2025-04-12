@@ -5,6 +5,9 @@ from grader.applications import ApplicationsIni
 
 import pytest
 import numpy as np
+import math
+
+import csv
 
 from .test_applications import get_ini
 
@@ -89,6 +92,23 @@ def test_person_applied():
     assert p.applied is True
     assert p.n_applied == 0
 
+def test_person_without_ini():
+    p = Person(**MARCIN)
+
+    assert p.motivation_scores == []
+    assert math.isnan(p.get_motivation_score(0))
+    assert math.isnan(p.score)
+
+    with pytest.raises(ValueError):
+        p.set_motivation_score(0, 0)
+
+    with pytest.raises(ValueError):
+        p.add_label('VEGAN')
+
+    with pytest.raises(ValueError):
+        p.remove_label('VEGAN')
+
+
 def test_person_with_ini(tmp_path):
     ini = get_ini(tmp_path)
 
@@ -97,6 +117,7 @@ def test_person_with_ini(tmp_path):
     assert p.motivation_scores == [1, None]
 
     p.set_motivation_score(0, identity='other')
+    assert p.get_motivation_score('other') == 0
     assert p.motivation_scores == [1, 0]
     assert ini.data['motivation_score-other'][p.fullname.lower()] == 0
 
