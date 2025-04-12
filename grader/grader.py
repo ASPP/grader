@@ -521,8 +521,8 @@ class Grader(cmd_completer.Cmd_Completer):
             return
         elif opts.what == 'location':
             if opts.person:
-                self.location = ' '.join(opts.person)
-            printf('location = {}', self.location)
+                self.applications.ini.location = ' '.join(opts.person)
+            printf('location = {}', self.applications.ini.location)
             return
 
         if opts.label:

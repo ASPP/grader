@@ -449,6 +449,10 @@ class ApplicationsIni:
     def location(self):
         return self['formula.location']
 
+    @location.setter
+    def location(self, location):
+        self['formula.location'] = location
+
 
 # This class is a collection of applications for an edition of the school
 # It can be iterated over and it can return a subset of applications matching
