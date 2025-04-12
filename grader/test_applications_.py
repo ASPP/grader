@@ -12,9 +12,16 @@ import pytest
 APPLICATIONS_ROOT = (os.getenv('APPLICATIONS_ROOT') or
                      os.path.expanduser('~/pythonschool/pythonschool/'))
 
-APPLICATIONS = sorted(
+EXTRA_APPLICATIONS = sorted(
     pathlib.Path(APPLICATIONS_ROOT).glob('**/applications.csv'),
     reverse=True)
+
+BUILTIN_APPLICATIONS = (
+    'tests/data/year99/applications.csv',
+)
+BUILTIN_APPLICATIONS = (pathlib.Path(p) for p in BUILTIN_APPLICATIONS)
+
+APPLICATIONS = (*EXTRA_APPLICATIONS, *BUILTIN_APPLICATIONS)
 
 @pytest.mark.parametrize('path', APPLICATIONS,
                          ids=(lambda path: path.parent.name))
