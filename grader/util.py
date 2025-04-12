@@ -2,8 +2,6 @@ import numpy as np
 
 from . import cmd_completer
 
-IDENTITIES = (0, 1, 2, 3, 4)
-
 class list_of_equivs(list):
     def __init__(self, arg=None):
         equivs = ((item.strip() for item in arg.split('='))

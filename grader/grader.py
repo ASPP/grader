@@ -37,7 +37,6 @@ from .util import (
     list_of_float,
     printf,
     printff,
-    IDENTITIES,
 )
 
 def ellipsize(s, width):
@@ -185,7 +184,7 @@ class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
     set_completions = cmd_completer.Cmd_Completer.set_completions
 
-    def __init__(self, identity, csv_file, history_file=None):
+    def __init__(self, csv_file, identity=None, history_file=None):
         super().__init__(histfile=history_file)
 
         self.identity = identity
@@ -251,14 +250,25 @@ class Grader(cmd_completer.Cmd_Completer):
                 completions[p.name].add(p.lastname)
         return completions
 
-    identity_options = cmd_completer.PagedArgumentParser('identity')\
-        .add_argument('identity', type=int, choices=IDENTITIES,
-                      help='become this identity')
+    identity_options = (
+        cmd_completer.PagedArgumentParser('identity')
+            .add_argument('identity',
+                          nargs='?',
+                          help='become this identity')
+    )
 
     def do_identity(self, args):
         "Switch identity"
         opts = self.identity_options.parse_args(args.split())
-        self.identity = opts.identity
+
+        if opts.identity:
+            known = self.applications.ini.identities()
+            if opts.identity not in known:
+                raise ValueError(f"Identity {opts.identity} not defined in .ini ({', '.join(known)})")
+            self.identity = opts.identity
+            print(f'Identity set to {self.identity}')
+        else:
+            print(f'Running as identity {self.identity}')
 
     exception_options = cmd_completer.PagedArgumentParser('exception')\
         .add_argument('exception',
@@ -282,8 +292,7 @@ class Grader(cmd_completer.Cmd_Completer):
         try:
             ranked = self.last_ranking
         except AttributeError:
-            printff('You need to rank applications first!')
-            return
+            raise ValueError('You need to rank applications first!')
         counter = 0
         for person in ranked:
             if person.highlander:
@@ -645,6 +654,7 @@ class Grader(cmd_completer.Cmd_Completer):
         printff('Motivation score set to {}', score)
 
     def _grade(self, person, disagreement):
+        "This is the function that does the loop asking question +1/0/-1/…"
         if disagreement:
             scores = self._get_gradings(person)
         else:
@@ -1429,8 +1439,7 @@ def wrap_paragraphs(text, prefix=''):
 
 
 grader_options = cmd_completer.ModArgumentParser('grader')\
-    .add_argument('-i', '--identity', type=int,
-                  choices=IDENTITIES,
+    .add_argument('-i', '--identity',
                   help='Index of person grading applications')\
     .add_argument('--history-file',
                   type=pathlib.Path,
@@ -1448,10 +1457,13 @@ def main():
     opts = grader_options.parse_args()
 
     cmd = Grader(
-        identity=opts.identity,
         csv_file=opts.applications,
         history_file=opts.history_file,
     )
+
+    # Set identity in a way that checks that the identity is known
+    if opts.identity:
+        cmd.do_identity(opts.identity)
 
     if sys.stdin.isatty():
         while True:
