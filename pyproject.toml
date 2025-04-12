@@ -20,6 +20,7 @@ content-type = "text/markdown"
 
 [project.scripts]
 grader = "grader.grader:main"
+grader2 = "grader.grader2:main"
 
 [tool.aliases]
 test = "pytest"
