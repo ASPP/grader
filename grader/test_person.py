@@ -1,7 +1,8 @@
 import time
+import os
 
 from grader.person import (convert_bool, Person, FormulaProxy)
-from grader.applications import ApplicationsIni
+from grader.applications import ApplicationsIni, Applications
 
 import pytest
 import numpy as np
@@ -291,3 +292,72 @@ def test_get_rating(tmp_path):
     # The skiing attribute does not exist in the Person dataclass
     with pytest.raises(AttributeError):
         p.get_rating("skiing")
+
+
+# This one is used to test for repeated people
+JOSE = dict(
+    name = ' Jose Javier Edmundo ',
+    lastname = ' Garcia Lopez ',
+    email = ' j.garcia@example.com ',
+    gender = 'other',
+    institute = 'Real escuela de Caracas',
+    group = 'Group',
+    affiliation = 'Departamento de astrologia',
+    position = 'Other',
+    position_other = 'Whisperer',
+    programming = 'Novice/Advanced Beginner',
+    programming_description = 'Programming Description…',
+    python = 'Competent/Proficient',
+    vcs = 'git',
+    open_source = 'User',
+    open_source_description = 'Open Source Description…',
+    cv = 'cv text is here\nline 2\nline3\n',
+    motivation = 'motivation text is here\nline 2\nline3\n',
+    born = '1980',
+    nationality = 'Nicaragua',
+    applied = 'No',
+)
+
+# Testing repeated people
+def test_repeated_people(tmp_path):
+    ini = get_ini(tmp_path)
+
+    # Create temporary application csv files
+    my_dict = JOSE
+    filepath = os.path.join(tmp_path, f'JOSE.csv')
+    with open(filepath, 'w', encoding="utf-8") as f:
+        w = csv.DictWriter(f, my_dict.keys())
+        w.writeheader()
+        w.writerow(my_dict)
+
+    # # Re-load as applications instance
+    # # This avoids having to re-write the Applications init, which usually expects a csv    
+    # XXX Hard coded path here
+    archive = [Applications(filepath, ini_file=tmp_path / 'ini1.ini')]
+
+    # Test two different people
+    p = Person(**MARCIN, _ini=ini)
+    p.set_n_applied(archive)
+    assert p.n_applied == 0
+
+    # Test against itself
+    p = Person(**JOSE, _ini=ini)
+    p.set_n_applied(archive)
+    assert p.n_applied == 1
+
+    # In this copy the name is not the same, 
+    # so the email should lead to finding the duplicate
+    JOSE1 = JOSE.copy()
+    JOSE1['name'] = 'Jose'
+    p = Person(**JOSE1, _ini=ini)
+    p.set_n_applied(archive)
+    assert p.n_applied == 1
+
+    # Here not even the email is the same
+    # So fuzzy name comparison should work
+    # XXX This fails for the right reason, not implemented yet
+    # JOSE2 = JOSE1.copy()
+    # JOSE2['email'] = 'joselito@proton.fake'
+    # p = Person(**JOSE2, _ini=ini)
+    # p.set_n_applied(archive)
+    # assert p.n_applied == 1
