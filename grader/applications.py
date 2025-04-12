@@ -518,7 +518,14 @@ class Applications:
             case int(key):
                 return self.people[key]
             case str(key):
-                return self.filter(fullname=f'^{key.lower()}$')[0]
+                filtered = self.filter(fullname=f'^{key.lower()}$')
+                match len(filtered):
+                    case 1:
+                        return filtered[0]
+                    case 0:
+                        raise IndexError(f"No person with name {key}")
+                    case _:
+                        raise IndexError(f"Multiple people with name {key}")
             case _:
                 raise TypeError
 

@@ -1095,6 +1095,15 @@ class Grader(cmd_completer.Cmd_Completer):
         self.config['equivs'][variant] = saved
         self.ranking_done = False
 
+
+
+    label_options = (
+        cmd_completer.PagedArgumentParser('label')
+            .add_argument('arg',
+                          nargs='+',
+                          help="Full name or index of the person to add a label to")
+    )
+
     def do_label(self, args):
         """Mark persons with string labels
 
@@ -1104,26 +1113,33 @@ class Grader(cmd_completer.Cmd_Completer):
         label                      # display all labels
         label LABEL                # display people thus labelled
         """
+
+        opts = self.label_options.parse_args(args.split())
+
         applications = self.applications
-        if args == '':
+        if not opts.arg:
             for applicant in applications:
                 if applicant.labels:
                     print('{} = {}'.format(applicant.fullname.lower(),
                                            applicant.labels))
             return
 
-        if '=' in args:
-            fullname, *labels = [item.strip() for item in args.split('=')
-                                 if item != '']
+        if '=' in opts.arg:
+            idx = opts.arg.index('=')
+            fullname = " ".join(opts.arg[:idx])
+            labels = opts.arg[idx+1:]
+
             if labels:
-                applications.add_labels(fullname, labels)
+                for label in labels:
+                    applications.ini.add_label(fullname, label)
             else:
-                applications.clear_labels(fullname)
+                applications.ini.set_labels(fullname, [])
         else:
-            display_by_label = any(label in set(args.split())
-                                   for label in applications.get_all_labels())
+            fullname = " ".join(opts.arg)
+            display_by_label = any(label in opts.arg
+                                   for label in applications.all_labels())
             if display_by_label:
-                for label in args.split():
+                for label in opts.arg:
                     count = 0
                     printf('== {} ==', label)
                     for applicant in applications:
@@ -1132,12 +1148,12 @@ class Grader(cmd_completer.Cmd_Completer):
                             count += 1
                     printf('== {} labelled ==', count)
             else:
-                applicant = applications.find_applicant_by_fullname(args)
+                applicant = applications[fullname]
                 labels = applicant.labels
                 if labels:
-                    printf('{} = {}', args, labels)
+                    printf('{} = {}', fullname, labels)
                 else:
-                    printf('{} has no labels', args)
+                    printf('{} has no labels', fullname)
 
     do_label.completions = _complete_name
 
@@ -1177,7 +1193,7 @@ class Grader(cmd_completer.Cmd_Completer):
         _write_file('list_custom_answer.csv',
                     applications.filter(label=('CUSTOM-ANSWER')))
         # get all INVITESL? labels
-        all_labels = self.applications.get_all_labels()
+        all_labels = self.applications.all_labels()
         invitesl = [label for label in all_labels
                     if label.startswith('INVITESL')]
         for i, sl_label in enumerate(invitesl):
