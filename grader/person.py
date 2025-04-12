@@ -151,9 +151,6 @@ class Person:
         ratings = self._ini.get_ratings(name)
         val = getattr(self, name)
 
-        if not val and not ratings:
-            return math.nan
-
         # The values of these attributes need to converted to their numerical
         # value as found in the INI file. For example from
         # Person.open_source -> "Minor Contributions (bug reports, mailing lists, ...)"
