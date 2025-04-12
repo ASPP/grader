@@ -30,7 +30,7 @@ from . import cmd_completer
 from .flags import flags as FLAGS
 from . import vector
 
-from .applications_ import Applications
+from .applications import Applications
 
 from .util import (
     list_of_equivs,

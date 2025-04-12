@@ -7,7 +7,7 @@ import re
 import math
 import numpy as np
 
-from . import applications_ as applications
+from . import applications
 
 # List of valid values for fields in the Person object
 # The values need to match with what is used in the application form

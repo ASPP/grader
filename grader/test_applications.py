@@ -3,7 +3,7 @@ import pathlib
 import os
 import time
 
-from grader.applications_ import (
+from grader.applications import (
     load_applications_csv,
     ApplicationsIni,
     Applications)
