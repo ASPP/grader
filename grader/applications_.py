@@ -492,7 +492,7 @@ class Applications:
         return len(self.people)
 
     def filter(self, **kwargs):
-        """Return a sequence of the applications which match certain criteria:
+        """Return a sequence of applications which match certain criteria:
 
         The returned object is a vector, i.e it can be used to extract list of
         Person attributes, like:
