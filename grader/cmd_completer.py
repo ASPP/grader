@@ -207,7 +207,7 @@ class PagedArgumentParser(ModArgumentParser):
 
 
 class InputFile:
-    COMMENT_OR_EMPTY_RE = re.compile('\s* (?: [#] | $ )', re.X)
+    COMMENT_OR_EMPTY_RE = re.compile(r'\s* (?: [#] | $ )', re.X)
 
     def __init__(self, input):
         self.file = input
