@@ -498,18 +498,21 @@ class Grader(cmd_completer.Cmd_Completer):
 
         if opts.what == 'formula':
             if opts.person:
-                self.formula = ' '.join(opts.person)
-            minsc, maxsc, contr = find_min_max(self.formula, self.location,
-                                               self.programming_rating,
-                                               self.open_source_rating,
-                                               self.python_rating,
-                                               self.vcs_rating,
-                                               self.underrep_rating,
-                                               self._applied_range(),
-                                               self.all_nationalities,
-                                               self.all_affiliations)
+                self.applications.ini.formula = ' '.join(opts.person)
+            minsc, maxsc, contr = find_min_max(
+                formula=self.applications.ini.formula,
+                location=self.applications.ini.location,
+                programming_rating=self.applications.ini.get_ratings('programming'),
+                open_source_rating=self.applications.ini.get_ratings('open_source'),
+                python_rating=self.applications.ini.get_ratings('python'),
+                vcs_rating=self.applications.ini.get_ratings('vcs'),
+                underrep_rating=self.applications.ini.get_ratings('underrep'),
+                applied=self._applied_range(),
+                all_nationalities=self.applications.all_nationalities(),
+                all_affiliations=self.applications.all_affiliations(),
+            )
 
-            printf('formula = {}', self.formula)
+            printf('formula = {}', self.applications.ini.formula)
             printf('score ∈ [{:6.3f},{:6.3f}]', minsc, maxsc)
             printf('applied ∈ {}', self._applied_range())
             print('contributions:')
@@ -521,8 +524,8 @@ class Grader(cmd_completer.Cmd_Completer):
             return
         elif opts.what == 'location':
             if opts.person:
-                self.location = ' '.join(opts.person)
-            printf('location = {}', self.location)
+                self.applications.ini.location = ' '.join(opts.person)
+            printf('location = {}', self.applications.ini.location)
             return
 
         if opts.label:
