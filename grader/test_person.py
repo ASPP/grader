@@ -1,12 +1,12 @@
 import time
 
 from grader.person import (convert_bool, Person, FormulaProxy)
-from grader.applications_ import ApplicationsIni
+from grader.applications import ApplicationsIni
 
 import pytest
 import numpy as np
 
-from .test_applications_ import get_ini
+from .test_applications import get_ini
 
 MARCIN = dict(
     name = ' Jędrzej\t\t\tMarcin ',

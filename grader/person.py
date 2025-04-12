@@ -7,7 +7,7 @@ import re
 import math
 import numpy as np
 
-from . import applications_ as applications
+from . import applications
 
 # List of valid values for fields in the Person object
 # The values need to match with what is used in the application form
@@ -116,12 +116,12 @@ class Person:
                            # editions
     underrep: str = ''     # underrepresentaiton
     travel_grant: str = '' # if poor then too bad!
-    # internal attribute signaling relaxed checking
-    # needed to relax value checks for old application files [should not be
-    # necessary for new application files
+    # Internal attribute signaling relaxed checking.
+    # Needed to relax value checks for old application files (should not be
+    # necessary for new application files).
     _relaxed: bool = dataclasses.field(default=False, repr=False)
 
-    # internal attribute keeping a reference to the application.ini file
+    # Internal attribute keeping a reference to the application.ini file
     _ini: applications.ApplicationsIni = \
         dataclasses.field(default=None, repr=False)
 
@@ -154,7 +154,7 @@ class Person:
         if not val and not ratings:
             return math.nan
 
-        # the values of these attributes need to converted to their numerical
+        # The values of these attributes need to converted to their numerical
         # value as found in the INI file. For example from
         # Person.open_source -> "Minor Contributions (bug reports, mailing lists, ...)"
         # we extract "minor contributions" and look for it in the INI file ratings:
@@ -163,7 +163,7 @@ class Person:
         # minor contributions = 0.5
         # ...
         # The rule is to match anything until the first "/" or "(" or ","
-        # and removing trialing whitespace if any
+        # and removing trailing whitespace if any.
         key = re.match(r'(.+?)\s*(?:[(/,]|$)', val).group(1).lower()
 
         if key not in ratings:

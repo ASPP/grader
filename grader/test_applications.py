@@ -1,222 +1,311 @@
-from io import StringIO
-from textwrap import dedent
+import io
+import pathlib
+import os
+import time
 
-from pytest import raises
+from grader.applications import (
+    load_applications_csv,
+    ApplicationsIni,
+    Applications)
 
-from .configfile import ConfigFile
-from .applications import Applications, build_person_factory
-from .util import list_of_str
+import pytest
 
+APPLICATIONS_ROOT = (os.getenv('APPLICATIONS_ROOT') or
+                     os.path.expanduser('~/pythonschool/pythonschool/'))
 
-def _tmp_application_files(tmpdir, config_string, csv_string):
-    config_tmpfile = tmpdir.join('test_grader.conf')
-    config_tmpfile.write(config_string)
-    csv_tmpfile = tmpdir.join('test_applications.csv')
-    csv_tmpfile.write(csv_string)
-    return config_tmpfile, csv_tmpfile
+EXTRA_APPLICATIONS = sorted(
+    pathlib.Path(APPLICATIONS_ROOT).glob('**/applications.csv'),
+    reverse=True)
 
+BUILTIN_APPLICATIONS = (
+    'tests/data/year99/applications.csv',
+)
+BUILTIN_APPLICATIONS = (pathlib.Path(p) for p in BUILTIN_APPLICATIONS)
 
-def test_applications_from_paths(tmpdir):
-    config_string = dedent("""
-        [labels]
-        john doe = VEGAN
-        """)
-    csv_string = dedent("""
-        "First name","Last name","Email address"
-        "John","Doe","john.dow@nowhere.com"
-        "Mary Jane","Smith","mary82@something.org"
-        """).strip()
-    config_tmpfile, csv_tmpfile = _tmp_application_files(
-        tmpdir, config_string, csv_string)
+APPLICATIONS = (*EXTRA_APPLICATIONS, *BUILTIN_APPLICATIONS)
 
-    fields_to_col_names_section = {
-        'name': ['First name'],
-        'lastname': ['Last name'],
-        'email': ['Email address'],
-    }
+@pytest.mark.parametrize('path', APPLICATIONS,
+                         ids=(lambda path: path.parent.name))
+def test_all_years(path):
+    # years before 2012 are to be treated less strictly
+    relaxed = any(f'{year}-' in str(path) for year in range(2009,2012))
+    load_applications_csv(path, relaxed=relaxed)
 
-    applications = Applications.from_paths(
-        config_tmpfile.strpath,
-        csv_tmpfile.strpath,
-        fields_to_col_names_section
-    )
+# FIXME: make identities sorted alphabetically
 
-    assert len(applications.applicants) == 2
-    assert applications.applicants[0].name == 'John'
-    assert applications.applicants[1].lastname == 'Smith'
-    assert applications.applicants[0].labels == ['VEGAN']
+ini_string = """\
+[extra]
+key_str = value
+key_num = 111.5
 
+[motivation_score-zbyszek]
+person one = 1
+person two = -1
+person three = 0
+some son jr. = -1
+jędrzej marcin mirosławski piołun = 1
 
-def test_applications_init():
-    config_string = dedent("""
-    [labels]
-    john doe = VEGAN, VIP
-    """)
-    config = ConfigFile(StringIO(config_string), labels=list_of_str)
+[motivation_score-other]
+person one = -1
+person two = 1
+some son jr. = 1
 
-    person_factory = build_person_factory(['name', 'lastname'])
-    applicants = [person_factory('John', 'Doe')]
+[labels]
+john doe = VEGAN, VIP
+jędrzej marcin mirosławski piołun = UTF-8, VEGAN
+person one = PALEO
 
-    applications = Applications(applicants, config)
+"""
 
-    assert len(applications.applicants) == 1
-    assert applications.applicants[0].labels == ['VEGAN', 'VIP']
+def get_ini(tmp_path, *extra):
+    input = tmp_path / 'ini1.ini'
+    input.write_text(ini_string + '\n'.join(extra))
 
+    return ApplicationsIni(input)
 
-def test_applications_find_applicant_by_fullname():
-    config_string = dedent("""
-    [labels]
-    john doe = VEGAN
-    """)
-    config = ConfigFile(StringIO(config_string), labels=list_of_str)
+def get_applications_csv(tmp_path):
+    from .test_person import MARCIN
 
-    person_factory = build_person_factory(['name', 'lastname'])
-    applicants = [person_factory('John', 'Doe')]
+    person_one = MARCIN | dict(
+        name = 'Person',
+        lastname = 'One',
+        affiliation = 'Paleolithic 1',
+        born=1981)
 
-    applications = Applications(applicants, config)
-    john_doe = applications.find_applicant_by_fullname('john doe')
-    assert applications.applicants[0] is john_doe
+    person_two = MARCIN | dict(
+        name = 'Person',
+        lastname = 'Two',
+        affiliation = 'Completely Modern 1',
+        born=1982)
 
-    with raises(ValueError):
-        applications.find_applicant_by_fullname('johnny mnemonic')
+    csv = '\n'.join((';'.join(f'"{key}"' for key in MARCIN.keys()),
+                     ';'.join(f'"{val}"' for val in MARCIN.values()),
+                     ';'.join(f'"{val}"' for val in person_one.values()),
+                     ';'.join(f'"{val}"' for val in person_two.values()),
+                     ))
 
+    input = tmp_path / 'applications.csv'
+    input.write_text(csv)
 
-def test_applications_add_labels():
-    config_string = dedent("""
-    [labels]
-    john doe = VEGAN
-    """)
-    config = ConfigFile(StringIO(config_string), labels=list_of_str)
+    return input
 
-    person_factory = build_person_factory(['name', 'lastname'])
-    john_doe = person_factory('John', 'Doe')
-    ben_johnson = person_factory('Ben', 'Johnson')
-    applicants = [john_doe, ben_johnson]
+@pytest.fixture
+def app(tmp_path):
+    csv = get_applications_csv(tmp_path)
+    ini = get_ini(tmp_path).filename
+    return Applications(csv, ini)
 
-    applications = Applications(applicants, config)
-    applications.add_labels('john doe', ['VIP', 'VIRULENT'])
-    applications.add_labels('ben johnson', ['VIPER'])
+def test_applications_ini_read(tmp_path):
+    ini = get_ini(tmp_path)
 
-    assert john_doe.labels == ['VEGAN', 'VIP', 'VIRULENT']
-    assert config.sections['labels']['john doe'] \
-           == ['VEGAN', 'VIP', 'VIRULENT']
+    assert ini['extra.key_str'] == 'value'
+    assert ini['extra.key_num'] == '111.5'
+    assert ini['extra.missing'] == None
 
-    assert ben_johnson.labels == ['VIPER']
-    assert config.sections['labels']['ben johnson'] == ['VIPER']
+    assert ini['motivation_score-zbyszek.person one'] == 1
+    assert ini['motivation_score-zbyszek.person two'] == -1
+    assert ini['motivation_score-zbyszek.person three'] == 0
+    assert ini['motivation_score-zbyszek.some son jr.'] == -1
 
+    assert ini['motivation_score-other.person one'] == -1
+    assert ini['motivation_score-other.person two'] == 1
+    assert ini['motivation_score-other.person three'] == None
+    assert ini['motivation_score-other.some son jr.'] == 1
 
-def test_applications_clear_labels():
-    config_string = dedent("""
-    [labels]
-    john doe = VEGAN, VIP
-    """)
-    config = ConfigFile(StringIO(config_string), labels=list_of_str)
+    assert ini['labels.john doe'] == 'VEGAN VIP'.split()
 
-    person_factory = build_person_factory(['name', 'lastname'])
-    john_doe = person_factory('John', 'Doe')
-    applicants = [john_doe]
+    assert ini.get_motivation_scores('Person One') == [1, -1]
+    assert ini.get_motivation_scores('PERSON TWO') == [-1, 1]
+    assert ini.get_motivation_scores('person three') == [0, None]
+    assert ini.get_motivation_scores('Some Son Jr.') == [-1, 1]
 
-    applications = Applications(applicants, config)
+    assert ini.get_motivation_scores('Unknown Person') == [None, None]
 
-    assert john_doe.labels == ['VEGAN', 'VIP']
-    assert 'john doe' in config.sections['labels'].keys()
-    applications.clear_labels('john doe')
-    assert john_doe.labels == []
-    assert 'john doe' not in config.sections['labels'].keys()
+def test_applications_ini_reload(tmp_path):
+    ini = get_ini(tmp_path)
 
+    assert ini.reload_if_modified() == False
 
-def test_applications_get_labels():
-    config_string = dedent("""
-    [labels]
-    john doe = VEGAN, VIP
-    """)
-    config = ConfigFile(StringIO(config_string), labels=list_of_str)
+    # we need to sleep a bit because the can be fast enough to do the
+    # modification within the granularity of the file system timestamp
+    time.sleep(0.01)
+    ini.filename.touch()
+    assert ini.reload_if_modified() == True
 
-    person_factory = build_person_factory(['name', 'lastname'])
-    john_doe = person_factory('John', 'Doe')
-    ben_johnson = person_factory('Ben', 'Johnson')
-    applicants = [john_doe, ben_johnson]
+    assert ini.reload_if_modified() == False
 
-    applications = Applications(applicants, config)
-    assert applications.get_labels('john doe') == ['VEGAN', 'VIP']
-    assert applications.get_labels('ben johnson') == []
+    time.sleep(0.01)
+    with ini.filename.open('a') as f:
+        f.write('[cleaning]\nvacuum = 3\n')
+    assert ini.reload_if_modified() == True
+    assert ini['cleaning.vacuum'] == '3'
 
+def test_applications_ini_file_missing(tmp_path):
+    ini = ApplicationsIni(tmp_path / 'missing.ini')
 
-def test_applications_get_all_labels():
-    config_string = dedent("""
-    [labels]
-    john doe = VEGAN, VIP
-    ben johnson = VIPER
-    """)
-    config = ConfigFile(StringIO(config_string), labels=list_of_str)
+    assert ini.get_motivation_score('Person One', identity='other') == None
 
-    person_factory = build_person_factory(['name', 'lastname'])
-    john_doe = person_factory('John', 'Doe')
-    ben_johnson = person_factory('Ben', 'Johnson')
-    applicants = [john_doe, ben_johnson]
+    ini.set_motivation_score('Person One', 2, identity='other')
+    assert ini.get_motivation_score('Person One', identity='other') == 2
 
-    applications = Applications(applicants, config)
-    assert applications.get_all_labels() == {'VEGAN', 'VIP', 'VIPER'}
+    assert not ini.filename.exists()
 
+    ini.save()
+    assert ini.filename.exists()
 
-def test_applications_filter_attributes():
-    config_string = dedent("""
-    [labels]
-    """)
-    config = ConfigFile(StringIO(config_string), labels=list_of_str)
+def test_applications_ini_scores(tmp_path):
+    ini = get_ini(tmp_path)
 
-    person_factory = build_person_factory(['name', 'lastname', 'nationality', 'gender'])
-    mario_rossi = person_factory('Mario', 'Rossi', 'Italy', 'Male')
-    lucia_bianchi = person_factory('Lucia', 'Bianchi', 'Italy', 'Female')
-    fritz_lang = person_factory('Fritz', 'Lang', 'Germany', 'Male')
-    applicants = [mario_rossi, fritz_lang, lucia_bianchi]
+    assert ini.get_motivation_score('Person One', identity='other') == -1
 
-    applications = Applications(applicants, config)
-    assert applications.filter(nationality='Italy') == [mario_rossi, lucia_bianchi]
-    assert applications.filter(nationality='Italy', nonmale=True) == [lucia_bianchi]
-    assert applications.filter(nationality='Germany') == [fritz_lang]
-    assert applications.filter(nationality='NoCountryForOldMen') == []
-    with raises(AttributeError):
-        applications.filter(dummy='Error')
+    ini.set_motivation_score('Person One', 2, identity='other')
+    assert ini.get_motivation_score('Person One', identity='other') == 2
 
+def test_applications_ini_save(tmp_path):
+    ini = get_ini(tmp_path)
 
-def test_applications_filter_labels():
-    config_string = dedent("""
-    [labels]
-    mario rossi = ALFA, DELTA, MIKE
-    fritz lang = ZULU, DELTA, MIKE, ECHO
-    """)
-    config = ConfigFile(StringIO(config_string), labels=list_of_str)
+    out = tmp_path / 'ini1.copy'
+    ini.save(out)
 
-    person_factory = build_person_factory(['name', 'lastname'])
-    mario_rossi = person_factory('Mario', 'Rossi')
-    fritz_lang = person_factory('Fritz', 'Lang')
-    applicants = [mario_rossi, fritz_lang]
+    assert out.read_text() == ini_string
 
-    applications = Applications(applicants, config)
-    assert applications.filter(label='ALFA') == [mario_rossi]
-    assert applications.filter(label='ZULU') == [fritz_lang]
-    assert applications.filter(label=('ALFA', 'MIKE')) == [mario_rossi]
-    assert applications.filter(label=('DELTA','MIKE')) == [mario_rossi, fritz_lang]
-    assert applications.filter(label=('DELTA', 'MIKE', '-', 'ECHO')) == [mario_rossi]
-    assert applications.filter(label=('DELTA', 'MIKE', '-', 'ECHO', 'ALFA')) == []
-    assert applications.filter(label='NOLABEL') == []
+    # Replace an exisiting entry.
+    # We use an int, but the type is converted to float internally
+    # so we get '6.0' when reading the data back again.
+    ini['cooking_rating.key'] = 6
+    ini.save(out)
+    assert '[cooking_rating]\nkey = 6.0\n' in out.read_text()
 
+    # Add a key to an exisiting section
+    ini['cooking_rating.some_long_key'] = 7
+    ini.save(out)
+    assert '\nsome_long_key = 7.0\n' in out.read_text()
 
-def test_applications_iteration():
-    config_string = ""
-    config = ConfigFile(StringIO(config_string), labels=list_of_str)
+    ini2 = ApplicationsIni(out)
+    assert ini2['cooking_rating.some_long_key'] == 7.0
 
-    person_factory = build_person_factory(['name', 'lastname'])
-    mario_rossi = person_factory('Mario', 'Rossi')
-    fritz_lang = person_factory('Fritz', 'Lang')
-    applicants = [mario_rossi, fritz_lang]
+def test_applications_object(app):
+    assert len(app) == 3
+    assert len(app.people) == 3
 
-    applications = Applications(applicants, config)
-    result = []
-    for app in applications:
-        result.append(app)
-    assert result == applications.applicants
-    # test that we can call len
-    assert len(applications) == len(applications.applicants)
-    assert result == list(applications)
+    vegans = app.filter(label = ['VEGAN'])
+    assert len(vegans) == 1
+    assert vegans.name == ['Jędrzej Marcin']
+
+    vegans = app.filter(label = 'VEGAN')
+    assert len(vegans) == 1
+    assert vegans.name == ['Jędrzej Marcin']
+
+    vegans = app.filter(label = ['VEGAN', 'UTF-8'])
+    assert len(vegans) == 1
+    assert vegans.name == ['Jędrzej Marcin']
+
+    byname = app.filter(name = 'Person')
+    assert len(byname) == 2
+    assert byname.name == ['Person', 'Person']
+    assert byname.lastname == ['One', 'Two']
+
+    byname_and_l = app.filter(name = 'Person', label=['-','PALEO'])
+    assert len(byname_and_l) == 1
+    assert byname_and_l.name == ['Person']
+    assert byname_and_l.lastname == ['Two']
+
+    byname = app.filter(name = 'Person', affiliation='Paleolithic 1')
+    assert len(byname) == 1
+    assert byname.fullname == ['Person One']
+
+    byname = app.filter(name = 'Person', affiliation=r'Paleolithic')
+    assert len(byname) == 1
+    assert byname.fullname == ['Person One']
+
+    byname = app.filter(name = 'Person', affiliation=r'paleo[a-z]ithic')
+    assert len(byname) == 1
+    assert byname.fullname == ['Person One']
+
+    byname = app.filter(name = 'Person', affiliation=r'^aleolithic')
+    assert len(byname) == 0
+    assert byname.fullname == []
+
+    # also check with utf-8 in the pattern and label/non-label matching
+    byname = app.filter(label = ['VEGAN', 'UTF-8'], name = 'Jędrzej')
+    assert len(byname) == 1
+    assert byname.name == ['Jędrzej Marcin']
+
+    with pytest.raises(AttributeError):
+        app.filter(unknown_attr = '11')
+
+    # non-string match
+    byyear = app.filter(born=1980)
+    assert len(byyear) == 1
+    assert byyear.name == ['Jędrzej Marcin']
+
+    # TODO: this should fail:
+    # byname.lastname = ['One', 'Two']
+
+    fullname = app.filter(fullname = 'Person One')
+    assert len(fullname) == 1
+    assert fullname.fullname == ['Person One']
+
+def test_applications_getitem(app):
+    assert len(app) == 3
+    assert app['Person One'].fullname == 'Person One'
+    assert app['person one'].fullname == 'Person One'
+    assert app[1].fullname == 'Person One'
+    with pytest.raises(TypeError):
+        app[3.0]
+    with pytest.raises(IndexError):
+        app['Unkown Person']
+
+def test_applications_labels(app):
+    assert app['Person One'].add_label('VIP') is True
+    assert app['Person One'].labels == ['PALEO', 'VIP']
+
+    assert app['Person One'].add_label('VIP') is False
+    assert app['Person One'].labels == ['PALEO', 'VIP']
+
+    assert app['Person One'].add_label('VEGAN') is True
+    assert app['Person One'].labels == ['PALEO', 'VEGAN', 'VIP']
+
+    assert app['Person One'].add_label('VIRULENT') is True
+    assert app['Person One'].labels == ['PALEO', 'VEGAN', 'VIP', 'VIRULENT']
+
+    assert app['Person One'].add_label('VIRULENT') is False
+    assert app['Person One'].labels == ['PALEO', 'VEGAN', 'VIP', 'VIRULENT']
+
+    assert app['Person Two'].labels == []
+
+    assert app['Person One'].remove_label('VIP') is True
+    assert app['Person One'].labels == ['PALEO', 'VEGAN', 'VIRULENT']
+
+    assert app['Person One'].remove_label('VIP') is False
+    assert app['Person One'].labels == ['PALEO', 'VEGAN', 'VIRULENT']
+
+    assert app['Person One'].remove_label('VEGAN') is True
+    assert app['Person One'].labels == ['PALEO', 'VIRULENT']
+
+    assert app['Person One'].remove_label('VIRULENT') is True
+    assert app['Person One'].labels == ['PALEO']
+
+    assert app['Person One'].remove_label('VIRULENT') is False
+    assert app['Person One'].labels == ['PALEO']
+
+    assert app['Person One'].remove_label('PALEO') is True
+    assert app['Person One'].labels == []
+
+    out = io.StringIO()
+    app.ini.save_to_file(file=out)
+
+    assert 'john doe = VEGAN, VIP' in out.getvalue()
+    assert 'jędrzej marcin mirosławski piołun = UTF-8, VEGAN' in out.getvalue()
+
+def test_applications_all_labels(app):
+    assert app.all_labels() == {'PALEO', 'UTF-8', 'VEGAN'}
+    assert app['Person One'].add_label('VIRULENT') is True
+    assert app.all_labels() == {'PALEO', 'UTF-8', 'VEGAN', 'VIRULENT'}
+
+def test_applications_item_access(app):
+    assert len(app) == 3
+    assert app['Person One'].fullname == 'Person One'
+    assert app[1].fullname == 'Person One'
+    with pytest.raises(TypeError):
+        assert app[1.0]
