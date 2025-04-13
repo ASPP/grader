@@ -57,8 +57,8 @@ person one = PALEO
 
 """
 
-def get_ini(tmp_path, *extra):
-    input = tmp_path / 'ini1.ini'
+def get_ini(tmp_path, *extra, ini_filename='ini1.ini'):
+    input = tmp_path / ini_filename
     input.write_text(ini_string + '\n'.join(extra))
 
     return ApplicationsIni(input)
