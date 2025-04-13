@@ -2,10 +2,8 @@ from __future__ import annotations
 
 import dataclasses
 import datetime
-import functools
 import re
 import math
-import numpy as np
 
 from . import (applications, vector)
 

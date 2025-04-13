@@ -174,7 +174,7 @@ class Cmd_Completer(cmd.Cmd):
             with contextlib.redirect_stdout(sys.stderr):
                 try:
                     exec(fh.read(), self.__dict__)
-                except Exception as e:
+                except Exception:
                     traceback.print_exc(file=sys.stdout)
 
     def do_shell(self, arg):

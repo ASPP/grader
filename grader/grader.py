@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 import argparse
 import collections
-import itertools
+import enum
 import logging
 import numbers
 import operator
 import os
 import pathlib
-import pprint
 import random
 import re
 import readline
@@ -16,16 +15,14 @@ import textwrap
 import traceback
 
 import numpy as np
+
 try:
     import pandas
 except ImportError:
     pandas = None
 
-from . import cmd_completer
+from . import cmd_completer, vector, applications
 from .flags import flags as FLAGS
-from . import vector
-
-from .applications import Applications
 
 from .util import (
     list_of_equivs,
@@ -74,10 +71,10 @@ group: {p.group}
 affiliation: {p.affiliation}
 position: {p.position}{position_other}
 appl.prev.: {have_applied}
-programming: {p.programming}{programming_description} [{programming_rating}]
-python: {p.python} [{python_rating}]
-vcs: {p.vcs} [{vcs_rating}]
-open source: {p.open_source}{open_source_description} [{open_source_rating}]
+programming: {p.programming}{programming_description} [{programming}]
+python: {p.python} [{python}]
+vcs: {p.vcs} [{vcs}]
+open source: {p.open_source}{open_source_description} [{open_source}]
 '''
 
 DUMP_FMT = '''\
@@ -100,10 +97,10 @@ rank: {{p.rank}} {p.score:6.3f} {p.highlander}
 MOTIVATION_DUMP_FMT = '''\
 appl.prev.: {have_applied}
 position: {p.position}{position_other}
-programming: {p.programming}{programming_description} [{programming_rating}]
-python: {p.python} [{python_rating}]
-vcs: {p.vcs} [{vcs_rating}]
-open source: {p.open_source}{open_source_description} [{open_source_rating}]
+programming: {p.programming}{programming_description} [{programming}]
+python: {p.python} [{python}]
+vcs: {p.vcs} [{vcs}]
+open source: {p.open_source}{open_source_description} [{open_source}]
 motivation: %(bold)s{motivation}%(default)s\
 {labels_newline}''' % COLOR
 
@@ -125,9 +122,9 @@ _RANK_FMT_SHORT = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}')
 _RANK_FMT_DETAILED = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' [{motivation_scores}] [appl: {have_applied}]'
-                 ' [prog: {programming_rating}] [python: {python_rating}]'
-                 ' [{gender:^{gender_width}}] [git: {vcs_rating}]'
-                 ' [os: {open_source_rating}]'
+                 ' [prog: {programming}] [python: {python}]'
+                 ' [{gender:^{gender_width}}] [git: {vcs}]'
+                 ' [os: {open_source}]'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}'
                  ' {p.travel_grant}'
                  ' {nationality:{nationality_width}} {affiliation:{affiliation_width}}'
@@ -173,6 +170,14 @@ def equal(a, b):
         # use normal comparison otherwise
     return a == b
 
+
+class GradingMoves(enum.Enum):
+    BACK = enum.auto()
+    SKIP = enum.auto()
+    NEXT = enum.auto()
+    DONE = enum.auto()
+
+
 class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
     set_completions = cmd_completer.Cmd_Completer.set_completions
@@ -181,14 +186,14 @@ class Grader(cmd_completer.Cmd_Completer):
         super().__init__(histfile=history_file)
 
         self.identity = identity
-        self.applications = Applications(csv_file=csv_file)
+        self.applications = applications.Applications(csv_file=csv_file)
         self.archive = []
 
         for path in sorted(csv_file.parent.glob('*/applications.csv'),
                               reverse=True):
             # years before 2012 are to be treated less strictly
             relaxed = any(f'{year}-' in str(path) for year in range(2009,2012))
-            old = Applications(csv_file=path, relaxed=relaxed)
+            old = applications.Applications(csv_file=path, relaxed=relaxed)
             self.archive.append(old)
 
         for person in self.applications:
@@ -281,7 +286,6 @@ class Grader(cmd_completer.Cmd_Completer):
         Note: the last ranking is used to sort applications"""
         opts = self.autolabel_options.parse_args(args.split())
         N = opts.N
-        applications = self.applications
         try:
             ranked = self.last_ranking
         except AttributeError:
@@ -289,11 +293,11 @@ class Grader(cmd_completer.Cmd_Completer):
         counter = 0
         for person in ranked:
             if person.highlander:
-                applications.add_labels(person.fullname, ['INVITE'])
+                self.applications.add_labels(person.fullname, ['INVITE'])
             else:
                 counter += 1
                 if counter <= N:
-                    applications.add_labels(person.fullname, ['SHORTLIST'])
+                    self.applications.add_labels(person.fullname, ['SHORTLIST'])
                 else:
                     return
 
@@ -577,15 +581,27 @@ class Grader(cmd_completer.Cmd_Completer):
         printff('Press ^C or ^D to stop')
 
         random.shuffle(todo)
-        for num, person in enumerate(todo):
-            progress = '┃ {:.1%} done, {} left to go ┃'.format((num + done_already) / total,
-                                                             len(todo) - num)
+
+        pos = 0
+
+        while True:
+            if pos >= len(todo):
+                break
+
+            progress = '┃ {:.1%} done, {} left to go ┃'.format((pos + done_already) / total,
+                                                               len(todo) - pos)
             sep_up = '\n┏'+(len(progress)-2)*'━'+'┓\n'
             sep_down = '\n┗'+(len(progress)-2)*'━'+'┛\n'
             print(sep_up+progress+sep_down)
             print()
-            if not self._grade(person, opts.disagreement is not None):
-                break
+
+            match self.grade_one_motivation(todo[pos], opts.disagreement is not None):
+                case GradingMoves.NEXT | GradingMoves.SKIP:
+                    pos += 1
+                case GradingMoves.BACK:
+                    pos = max(0, pos - 1)
+                case GradingMoves.DONE:
+                    break
 
     do_grade.completions = _complete_name
 
@@ -648,7 +664,7 @@ class Grader(cmd_completer.Cmd_Completer):
         person.set_motivation_score(score, identity=self.identity)
         printff('Motivation score set to {}', score)
 
-    def _grade(self, person, disagreement):
+    def grade_one_motivation(self, person, disagreement):
         "This is the function that does the loop asking question +1/0/-1/…"
         if disagreement:
             scores = self._get_gradings(person)
@@ -669,12 +685,12 @@ class Grader(cmd_completer.Cmd_Completer):
 
         valid_choice = None
         while valid_choice not in applications.SCORE_RANGE:
-            prompt = 'Your choice {}/s/d/l LABEL [{}]? '.format(applications.SCORE_RANGE, default)
+            prompt = 'Your choice {}/b/s/d/l LABEL [{}]? '.format(applications.SCORE_RANGE, default)
             try:
                 choice = input(prompt)
             except EOFError:
                 print()
-                return False
+                return GradingMoves.DONE
 
             if len(choice) <= 2:
                 clen = readline.get_current_history_length()
@@ -690,9 +706,12 @@ class Grader(cmd_completer.Cmd_Completer):
                     valid_choice = 0
                 case ['-']:
                     valid_choice = -1
+                case ['b']:
+                    printff('going back one')
+                    return GradingMoves.BACK
                 case ['s'] | []:
                     printff('person skipped')
-                    return True
+                    return GradingMoves.SKIP
                 case ['d']:
                     printff('showing person on request')
                     self._dumpone(person, format='long')
@@ -720,7 +739,7 @@ class Grader(cmd_completer.Cmd_Completer):
 
         if not equal(valid_choice, default):
             self._set_grading(person, valid_choice)
-        return True
+        return GradingMoves.NEXT
 
     def _score_with_labels(self, p, use_labels=False):
         add_score = 0
@@ -744,18 +763,6 @@ class Grader(cmd_completer.Cmd_Completer):
         ini = self.applications.ini
         if ini.formula is None:
             raise ValueError('formula not set yet')
-
-        #if self.ranking_done:
-        #    return
-        #else:
-        #    self.ranking_done = True
-        categories = {name:ini.get_ratings(name)
-                      for name in
-                      ('programming',
-                       'open_source',
-                       'python',
-                       'vcs',
-                       'underrep')}
 
         nan_to_value = lambda n: LABEL_VALUES['__nan__'] if np.isnan(n) else n
 
