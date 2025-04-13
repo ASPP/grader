@@ -1,11 +1,17 @@
+import collections
 import configparser
 import csv
 from fnmatch import fnmatch
-import itertools
 import functools
+import io
+import itertools
+import keyword
+import math
+import os
 import pprint
 import re
-import os
+import token
+import tokenize
 
 from . import (person, vector, util)
 from .util import printff
@@ -57,6 +63,22 @@ SECTION_TYPES = {
         'fields' : util.list_of_equivs,
         'motivation_score-*' : int,
         }
+
+KNOWN_GENDER_LABELS = {
+    'female'    : 'F',
+    'male'      : 'M',
+    'other'     : 'O',
+    'non-binary': 'O',
+    ''          : 'U', # unknown
+    'prefer not to say' : 'U'
+}
+
+SCORE_RANGE = (-1, 0, 1)
+
+def find_names(formula):
+    g = tokenize.tokenize(io.BytesIO(formula.encode('utf-8')).readline)
+    return set(tokval for toknum, tokval, _, _, _  in g
+                      if toknum == token.NAME and not keyword.iskeyword(tokval))
 
 # This function does the real hard-work of parsing the CSV header to map columns
 # to known fields
@@ -498,6 +520,8 @@ class Applications:
                                             ini=self.ini,
                                             relaxed=relaxed)
 
+        self.check_formula()
+
     @functools.cache
     def all_nationalities(self):
         return set(p.nationality for p in self.people)
@@ -531,6 +555,15 @@ class Applications:
 
     def __len__(self):
         return len(self.people)
+
+    def check_formula(self, formula=None):
+        if not self.people:
+            return
+
+        # We check with just one person, because if it works with
+        # one person, it should work with all.
+        person = self.people[0]
+        person.calculate_score(formula)
 
     def filter(self, **kwargs):
         """Return a sequence of applications which match certain criteria:
@@ -612,3 +645,83 @@ class Applications:
 
         return matching
 
+    def all_applied(self):
+        s = set(p.n_applied for p in self.people)
+        return sorted(s)
+
+    def find_min_max(self):
+        formula = self.ini.formula
+        location = self.ini.location
+        programming = self.ini.get_ratings('programming')
+        open_source = self.ini.get_ratings('open_source')
+        python = self.ini.get_ratings('python')
+        vcs = self.ini.get_ratings('vcs')
+        underrep = self.ini.get_ratings('underrep')
+        all_applied = self.all_applied()
+        all_nationalities = self.all_nationalities()
+        all_affiliations = self.all_affiliations()
+
+        # Labels are excluded from this list, they add "extra" points.
+        # And we would have to test all combinations of labels, which can be slow.
+
+        # Limit the list of nationalities and affiliations by picking only the ones
+        # that are indeed used in the formula. Note that to estimate the contributions
+        # of terms in the formula that explicitly reference one country, for example
+        # nationality=='Egypt' if we want to favour Egyptians applicants, we really
+        # need to have this string in the list of possible nationalities and affiliation
+        # to evaluate the formula on.
+        # We need to initialize with at least two non existing countries so that, in
+        # case the formula does not contain any explicitly named country,  we still
+        # have something to compare with and to differentiate among, for example for
+        # terms like  nationality=!affiliation.
+        # Also add location so that we take care of terms like nationality!=location
+        nationalities = ['NOWHERE', 'NOWHERE2', location]
+        affiliations = ['NOWHERE', 'NOWHERE2', location]
+        for country in (all_nationalities | all_affiliations):
+            country_str = (f"'{country}'", '"{country}"')
+            found = False
+            for test_str in country_str:
+                if test_str in formula:
+                    found = True
+            if found and (country != location):
+                # no need to add location again
+                nationalities.append(country)
+                affiliations.append(country)
+
+        choices = dict(
+            born=(1900, 2012),
+            gender=tuple(set(KNOWN_GENDER_LABELS.values())),
+            nonmale=(0, 1),
+            applied=(0, max(all_applied)),
+            nationality=nationalities,
+            affiliation=affiliations,
+            location=(location,),
+            motivation=SCORE_RANGE,
+            programming=programming.values(),
+            open_source=open_source.values(),
+            python=python.values(),
+            vcs=vcs.values(),
+            underrep=underrep.values(),
+            labels=())
+
+        to_set = find_names(formula)
+        needed = [[(n, v) for v in choices[n]] for n in to_set]
+        combinations = tuple(itertools.product(*needed))
+
+        candidate = self.people[0]
+        proxies = [person.FormulaProxy(candidate, overrides=dict(combo))
+                   for combo in combinations]
+        scores = [p.evaluate(formula) for p in proxies]
+        if not scores:
+            return math.nan, math.nan, dict(nan=math.nan)
+
+        minsc = min(scores)
+        maxsc = max(scores)
+        # scorporate in single contributions
+        items = collections.OrderedDict()
+        for item in formula.split('+'):
+            scores = [p.evaluate(item) for p in proxies]
+            max_ = max(scores)
+            min_ = min(scores)
+            items[item] = (max_-min_) / (maxsc-minsc)*100
+        return minsc, maxsc, items

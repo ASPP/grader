@@ -7,7 +7,7 @@ import re
 import math
 import numpy as np
 
-from . import applications
+from . import (applications, vector)
 
 # List of valid values for fields in the Person object
 # The values need to match with what is used in the application form
@@ -135,7 +135,7 @@ class Person:
     @property
     def motivation_scores(self):
         if self._ini is None:
-            return []
+            return vector.vector()
         return self._ini.get_motivation_scores(self.fullname)
 
     def get_motivation_score(self, identity):
@@ -145,11 +145,16 @@ class Person:
 
 
     def get_rating(self, name):
-        if name.endswith('_rating'):
-            name = name[:-7]
-
         ratings = self._ini.get_ratings(name)
+        if ratings is None:
+            raise AttributeError(f'There is no {name!r} rating in ini')
+
         val = getattr(self, name)
+        # In some years, we don't ask some questions, so the attribute
+        # containing the answer for a rating might be an empty string.
+        # In that case, this rating cannot be used in the formula.
+        if not val:
+            return math.nan
 
         if not val and not ratings:
             return math.nan
@@ -166,9 +171,11 @@ class Person:
         # and removing trailing whitespace if any.
         key = re.match(r'(.+?)\s*(?:[(/,]|$)', val).group(1).lower()
 
-        if key not in ratings:
-            raise KeyError(f'{name} not rated for {key!r}')
-        return ratings[key]
+        if (val := ratings.get(key)) is not None:
+            return val
+
+        raise KeyError(f'{name} not rated for {key!r}')
+
 
     def set_motivation_score(self, value, identity):
         if self._ini is None:
@@ -364,34 +371,40 @@ class Person:
 
         self.n_applied = found
 
-    # the score property is expensive to compute, because it requires the evaluation
-    # of the formula.
-    @property
-    def score(self):
-        # if we don't have a formula we can't compute the score
-        if self._ini is None:
-            return math.nan
+    # The score is expensive to compute, because it requires the
+    # evaluation of the formula.
+    def calculate_score(self, formula=None):
+        if formula is None:
+            if not self._ini:
+                raise ValueError
+            formula = self._ini.formula
 
         # create a key for the cache of score. We store there our own generation
         # (which is updated every time we change something on Person), the INI
         # file generation (which is updated every time something global changes
         # in the INI file, like for example some override was added or a reload
         # from disk was triggered, and finally the formula, which comes as a string
-        key = (self._generation, self._ini.generation, self._ini.formula)
-        try:
+        if self._ini:
+            key = (self._generation, self._ini.generation, formula)
             # we can return the cached score if nothing has changed
-            return self._score_cache[key]
-        except KeyError:
-            # we must compute the score
-            # instantiate the FormulaProxy
-            fp = FormulaProxy(self)
+            if (v := self._score_cache.get(key, None)) is not None:
+                return v
 
-            # evaluate the formula on the proxy object
-            v = eval(self._ini.formula, {}, fp)
+        # we must compute the score
+        v = FormulaProxy(self).evaluate(formula)
 
-            # store the score in cache and return it
+        # store the score in cache and return it
+        if self._ini:
             self._score_cache[key] = v
-            return v
+
+        return v
+
+    @property
+    def score(self):
+        # str.format() can only access properties, not call functions on objects.
+        # TODO: figure out if this is needed
+        return self.calculate_score()
+
 
 class FormulaProxy:
     # This object proxies formula evaluation for Person
@@ -404,11 +417,16 @@ class FormulaProxy:
     # In other words, this class is a mapping FormulaProxy.attr -> Person.attr (boring)
     # but more interestingly for FormulaProxy.attr_with_rating -> numerical value
     # corresponding to the string rating
-    def __init__(self, person):
+    def __init__(self, person, overrides={}):
         # we keep a reference to Person
         self.person = person
+        self.overrides = overrides
 
     def __getitem__(self, name):
+        try:
+            return self.overrides[name]
+        except KeyError:
+            pass
 
         if name == 'motivation':
             return self.person.motivation_scores.mean()
@@ -416,20 +434,18 @@ class FormulaProxy:
         if name == 'nan':
             return math.nan
 
+        # This may be a global field defined in the section 'formula' of the
+        # INI file, like for example "location = Palermo".
+        if (val := self.person._ini[f'formula.{name}']) is not None:
+            return val
+
         try:
-            # if this works, the attribute is known and we know what to do with it
-            return getattr(self.person, name)
+            return self.person.get_rating(name)
         except AttributeError:
-            # check if the name we are looking for happens to be rating
-            if name.endswith('_rating'):
-                # this is name with the '_rating' removed. All ratings have a
-                # common query procedure, i.e. looking up the corresponding
-                # key in the ini file.
-                return self.person.get_rating(name[:-7])
-            # Otherwise:
-            # this may be a global field defined in the section 'formula' of the
-            # INI file, like for example "location = Palermo"
-            return self.person._ini[f'formula.{name}']
-            # if this also fails, a KeyError will be raised, which should give
-            # enough info to the user in order to understand that the name used
-            # in the formula is not legal?
+            pass
+
+        return getattr(self.person, name)
+
+    def evaluate(self, formula):
+        # evaluate the formula using ourselves as proxy
+        return eval(formula, {}, self)

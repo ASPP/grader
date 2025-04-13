@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 import argparse
 import collections
-import io
 import itertools
-import keyword
 import logging
-import math
 import numbers
 import operator
 import os
@@ -16,8 +13,6 @@ import re
 import readline
 import sys
 import textwrap
-import token
-import tokenize
 import traceback
 
 import numpy as np
@@ -147,8 +142,6 @@ RANK_FORMATS = {'short': _RANK_FMT_SHORT,
                 'country': _RANK_FMT_COUNTRY,
                 }
 
-SCORE_RANGE = (-1, 0, 1)
-
 DEFAULT_ACCEPT_COUNT = 30
 
 COUNTRY_WIDTH = 10
@@ -226,10 +219,6 @@ class Grader(cmd_completer.Cmd_Completer):
             printf('warning: person applied prev. not found on lists: {} <{}>',
                    person.fullname, person.email)
         person.n_applied = max(declared, found)
-
-    def _applied_range(self):
-        s = set(p.n_applied for p in self.applications)
-        return sorted(s)
 
     @property
     def accept_count(self):
@@ -408,11 +397,11 @@ class Grader(cmd_completer.Cmd_Completer):
         # cat_ratings = {f'{k}_rating':v for k,v in cat_ratings.items()}
 
         cat_ratings = {
-            'programming_rating': p.get_rating('programming'),
-            'open_source_rating': p.get_rating('open_source'),
-            'python_rating': p.get_rating('python'),
-            'vcs_rating': p.get_rating('vcs'),
-            'underrep_rating': p.get_rating('underrep'),
+            'programming': p.get_rating('programming'),
+            'open_source': p.get_rating('open_source'),
+            'python':      p.get_rating('python'),
+            'vcs':         p.get_rating('vcs'),
+            'underrep':    p.get_rating('underrep'),
         }
 
         printf(DUMP_FMTS[format],
@@ -496,30 +485,24 @@ class Grader(cmd_completer.Cmd_Completer):
 
         opts = self.formula_options.parse_args(arg.split())
 
+        # First check if the formula seems valid
         if opts.expression:
-            self.applications.ini.formula = ' '.join(opts.expression)
-        minsc, maxsc, contr = find_min_max(
-            formula=self.applications.ini.formula,
-            location=self.applications.ini.location,
-            programming_rating=self.applications.ini.get_ratings('programming'),
-            open_source_rating=self.applications.ini.get_ratings('open_source'),
-            python_rating=self.applications.ini.get_ratings('python'),
-            vcs_rating=self.applications.ini.get_ratings('vcs'),
-            underrep_rating=self.applications.ini.get_ratings('underrep'),
-            applied=self._applied_range(),
-            all_nationalities=self.applications.all_nationalities(),
-            all_affiliations=self.applications.all_affiliations(),
-        )
+            formula = ' '.join(opts.expression)
+            self.applications.check_formula(formula)
+            self.applications.ini.formula = formula
+
+        minsc, maxsc, contr = self.applications.find_min_max()
 
         printf('formula = {}', self.applications.ini.formula)
         printf('score ∈ [{:6.3f},{:6.3f}]', minsc, maxsc)
-        printf('applied ∈ {}', self._applied_range())
+        printf('applied ∈ {}', self.applications.all_applied())
         print('contributions:')
         # print single contributions
         field_width = max(len(item[0].strip()) for item in contr.items())
         items = sorted(contr.items(), key=operator.itemgetter(1), reverse=True)
         for item in items:
             printf('{:{w}} : {:4.1f}%', item[0].strip(), item[1], w=field_width)
+
 
 
     grade_options = (
@@ -680,13 +663,13 @@ class Grader(cmd_completer.Cmd_Completer):
         def is_valid_score(choice):
             try:
                 choice = int(choice)
-                return choice in SCORE_RANGE
+                return choice in applications.SCORE_RANGE
             except:
                 return False
 
         valid_choice = None
-        while valid_choice not in SCORE_RANGE:
-            prompt = 'Your choice {}/s/d/l LABEL [{}]? '.format(SCORE_RANGE, default)
+        while valid_choice not in applications.SCORE_RANGE:
+            prompt = 'Your choice {}/s/d/l LABEL [{}]? '.format(applications.SCORE_RANGE, default)
             try:
                 choice = input(prompt)
             except EOFError:
@@ -766,33 +749,13 @@ class Grader(cmd_completer.Cmd_Completer):
         #    return
         #else:
         #    self.ranking_done = True
-        categories = {
-            'programming_rating': ini.get_ratings("programming"),
-            'open_source_rating': ini.get_ratings("open_source"),
-            'python_rating':      ini.get_ratings("python"),
-            'vcs_rating':         ini.get_ratings("vcs"),
-            'underrep_rating':    ini.get_ratings("underrep"),
-        }
-
-        minsc, maxsc, contr = find_min_max(
-            ini[f'formula.formula'],
-            ini[f'formula.location'],
-            **categories,
-            applied=self._applied_range(),
-            all_nationalities=self.applications.all_nationalities(),
-            all_affiliations=self.applications.all_affiliations(),
-        )
-
-        # for person in self.applications:
-        #     #labels = self.applications.ini.get_labels(person.fullname)
-        #     person.score = rank_person(person,
-        #                                self.applications.ini.formula,
-        #                                self.applications.ini.location,
-        #                                categories,
-        #                                self._get_gradings(person),
-        #                                minsc, maxsc,
-        #                                person.labels,
-        #                                person.n_applied)
+        categories = {name:ini.get_ratings(name)
+                      for name in
+                      ('programming',
+                       'open_source',
+                       'python',
+                       'vcs',
+                       'underrep')}
 
         nan_to_value = lambda n: LABEL_VALUES['__nan__'] if np.isnan(n) else n
 
@@ -911,11 +874,11 @@ class Grader(cmd_completer.Cmd_Completer):
             institute = self._equiv_master(person.institute)
 
             categories = {
-                'programming_rating': self.applications.ini.get_ratings("programming"),
-                'open_source_rating': self.applications.ini.get_ratings("open_source"),
-                'python_rating':      self.applications.ini.get_ratings("python"),
-                'vcs_rating':         self.applications.ini.get_ratings("vcs"),
-                'underrep_rating':    self.applications.ini.get_ratings("underrep"),
+                'programming': self.applications.ini.get_ratings("programming"),
+                'open_source': self.applications.ini.get_ratings("open_source"),
+                'python':      self.applications.ini.get_ratings("python"),
+                'vcs':         self.applications.ini.get_ratings("vcs"),
+                'underrep':    self.applications.ini.get_ratings("underrep"),
             }
             cat_scores = categorical_scores(person, categories)
             cat_scores = {f'{k}_score':v for k,v in cat_scores.items()}
@@ -1271,17 +1234,6 @@ def _write_file_samelab(filename, persons):
         f.write(names+';'+emails+'\n')
     printf("'{}' written with header + {} entries", filename, i + 1)
 
-def eval_formula(formula, vars):
-    try:
-        return eval(formula, vars, {})
-    except (NameError, TypeError) as e:
-        vars.pop('__builtins__', None)
-        msg = 'formula failed: {}\n[{}]\n[{}]'.format(e, formula,
-                                                      pprint.pformat(vars))
-        raise ValueError(msg)
-    else:
-        vars.pop('__builtins__', None)
-
 class MissingRating(KeyError):
     def __str__(self, *args):
         return '{} not rated for "{}"'.format(*self.args)
@@ -1307,18 +1259,6 @@ def get_rating(name, dict, key, fallback=None):
             return fallback
     raise MissingRating(name, key)
 
-KNOWN_GENDER_LABELS = {
-    'female'    : 'F',
-    'male'      : 'M',
-    'other'     : 'O',
-    'non-binary': 'O',
-    ''          : 'U', # unknown
-    'prefer not to say' : 'U'
-}
-def gender_to_formula_label(label):
-    "Convert a gender label from the survey into a single-letter label"
-    return KNOWN_GENDER_LABELS[label.lower()]
-
 def categorical_scores(person, categories):
     return {c: person.get_rating(c) for c in categories}
 
@@ -1335,115 +1275,6 @@ def categorical_scores(person, categories):
     #         value = get_rating(attr, dict, key)
     #         vars[attr] = value
     # return vars
-
-def rank_person(person, formula, location, categories,
-                motivation_scores, minsc, maxsc, labels,
-                applied):
-    "Apply formula to person and return score"
-    vars = categorical_scores(person, categories)
-
-    vars.update(born=int(person.born) if person.born else 0, # if we decide to implement ageism
-                gender=gender_to_formula_label(person.gender), # if we decide, …
-                                                               # oh we already did
-                nonmale=person.nonmale,
-                female=person.nonmale, # a compat mapping for old formulas
-                applied=applied,
-                nationality=person.nationality,
-                affiliation=person.affiliation,
-                location=location,
-                motivation=motivation_scores.mean(),
-                email=person.email, # should we discriminate against gmail?
-                labels=labels,
-                )
-    score = eval_formula(formula, vars)
-    # we want to round the score, to avoid wrong rankings due to numerical
-    # noise. Example: 1.26 and 1.2600000000002 are the same score.
-    # Round to 5 digits. That should be above any numerical noise but still
-    # below what matters for us.
-    score = round(score, 5)
-    assert (math.isnan(score) or minsc <= score <= maxsc or labels), \
-        (minsc, score, maxsc, vars)
-    # labels can cause the score to exceed normal range
-
-    # XXX: Remove scaling until we find a better solution to compare
-    #      different formulas
-    # scale linearly to SCORE_RANGE/min/max
-    #range = max(SCORE_RANGE) - min(SCORE_RANGE)
-    #offset = min(SCORE_RANGE)
-    #score = (score - minsc) / (maxsc - minsc) * range + offset
-    return score
-
-def _yield_values(var, *values):
-    for value in values:
-        yield var, value
-
-def find_names(formula):
-    g = tokenize.tokenize(io.BytesIO(formula.encode('utf-8')).readline)
-    return set(tokval for toknum, tokval, _, _, _  in g
-                      if toknum == token.NAME and not keyword.iskeyword(tokval))
-
-def find_min_max(formula, location,
-                 programming_rating, open_source_rating, python_rating, vcs_rating, underrep_rating,
-                 applied, all_nationalities, all_affiliations):
-    # Coordinate with rank_person!
-    # Labels are excluded from this list, they add "extra" points.
-    # And we would have to test all combinations of labels, which can be slow.
-
-    # Limit the list of nationalities and affiliations by picking only the ones
-    # that are indeed used in the formula. Note that to estimate the contributions
-    # of terms in the formula that explicitly reference one country, for example
-    # nationality=='Egypt' if we want to favour Egyptians applicants, we really
-    # need to have this string in the list of possible nationalities and affiliation
-    # to evaluate the formula on.
-    # We need to initialize with at least two non existing countries so that, in
-    # case the formula does not contain any explicitly named country,  we still
-    # have something to compare with and to differentiate among, for example for
-    # terms like  nationality=!affiliation.
-    # Also add location so that we take care of terms like nationality!=location
-    nationalities = ['NOWHERE', 'NOWHERE2', location]
-    affiliations = ['NOWHERE', 'NOWHERE2', location]
-    for country in (all_nationalities | all_affiliations):
-        country_str = (f"'{country}'", '"{country}"')
-        found = False
-        for test_str in country_str:
-            if test_str in formula:
-                found = True
-        if found and (country != location):
-            # no need to add location again
-            nationalities.append(country)
-            affiliations.append(country)
-
-    choices = dict(
-        born=(1900, 2012),
-        gender=tuple(set(KNOWN_GENDER_LABELS.values())),
-        nonmale=(0, 1),
-        applied=(0, max(applied)),
-        nationality=nationalities,
-        affiliation=affiliations,
-        location=(location,),
-        motivation=SCORE_RANGE,
-        programming_rating=programming_rating.values(),
-        open_source_rating=open_source_rating.values(),
-        python_rating=python_rating.values(),
-        vcs_rating=vcs_rating.values(),
-        underrep_rating=underrep_rating.values(),
-        labels=())
-    needed = list(_yield_values(n, *choices[n]) for n in find_names(formula))
-    options = tuple(itertools.product(*needed))
-    values = [eval_formula(formula, dict(vars)) for vars in options]
-    if not values:
-        return float('nan'), float('nan'), {}
-
-    minsc = min(values)
-    maxsc = max(values)
-    # scorporate in single contributions
-    items = collections.OrderedDict()
-    for item in formula.split('+'):
-        values = [eval_formula(item, dict(vars)) for vars in options]
-        max_ = max(values)
-        min_ = min(values)
-        items[item] = (max_-min_)/(maxsc-minsc)*100
-    return minsc, maxsc, items
 
 def wrap_paragraphs(text, prefix=''):
     prefix = '\n' + ' ' * len(prefix)
