@@ -594,3 +594,21 @@ class Applications:
                             if value == getattr(p, attr)]
 
         return vector.vector(matching)
+
+    def fuzzy_fullname_filter(self, value):
+        """
+        Checks if a subset of the full name is contained in some previous applications (or vice-versa)
+
+        The function takes in a certain value, it expects a full name string, with multiple words.
+        
+        Returns a list of person objects
+        """
+        current_set = set(value.split())
+        matching = []
+        for p in self.people:
+            past_set = set(p.fullname.split())
+            if current_set.issubset(past_set) or past_set.issubset(current_set):
+                matching.append(p)
+
+        return matching
+

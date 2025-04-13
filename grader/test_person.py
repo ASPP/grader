@@ -1,10 +1,13 @@
 import time
 
 from grader.person import (convert_bool, Person, FormulaProxy)
-from grader.applications import ApplicationsIni
+from grader.applications import ApplicationsIni, Applications
 
 import pytest
 import numpy as np
+import math
+
+import csv
 
 from .test_applications import get_ini
 
@@ -16,6 +19,30 @@ MARCIN = dict(
     institute = 'Instytut Pierwszy',
     group = 'Group',
     affiliation = 'Affilliation Affilliation Affilliation',
+    position = 'Other',
+    position_other = 'Whisperer',
+    programming = 'Novice/Advanced Beginner',
+    programming_description = 'Programming Description…',
+    python = 'Competent/Proficient',
+    vcs = 'git',
+    open_source = 'User',
+    open_source_description = 'Open Source Description…',
+    cv = 'cv text is here\nline 2\nline3\n',
+    motivation = 'motivation text is here\nline 2\nline3\n',
+    born = '1980',
+    nationality = 'Nicaragua',
+    applied = 'No',
+)
+
+# This one is used to test for repeated people
+JOSE = dict(
+    name = ' Jose Javier Edmundo ',
+    lastname = ' Garcia Lopez ',
+    email = ' j.garcia@example.com ',
+    gender = 'other',
+    institute = 'Real escuela de Caracas',
+    group = 'Group',
+    affiliation = 'Departamento de astrologia',
     position = 'Other',
     position_other = 'Whisperer',
     programming = 'Novice/Advanced Beginner',
@@ -89,6 +116,23 @@ def test_person_applied():
     assert p.applied is True
     assert p.n_applied == 0
 
+def test_person_without_ini():
+    p = Person(**MARCIN)
+
+    assert p.motivation_scores == []
+    assert math.isnan(p.get_motivation_score(0))
+    assert math.isnan(p.score)
+
+    with pytest.raises(ValueError):
+        p.set_motivation_score(0, 0)
+
+    with pytest.raises(ValueError):
+        p.add_label('VEGAN')
+
+    with pytest.raises(ValueError):
+        p.remove_label('VEGAN')
+
+
 def test_person_with_ini(tmp_path):
     ini = get_ini(tmp_path)
 
@@ -97,6 +141,7 @@ def test_person_with_ini(tmp_path):
     assert p.motivation_scores == [1, None]
 
     p.set_motivation_score(0, identity='other')
+    assert p.get_motivation_score('other') == 0
     assert p.motivation_scores == [1, 0]
     assert ini.data['motivation_score-other'][p.fullname.lower()] == 0
 
@@ -270,3 +315,63 @@ def test_get_rating(tmp_path):
     # The skiing attribute does not exist in the Person dataclass
     with pytest.raises(AttributeError):
         p.get_rating("skiing")
+
+
+# Testing repeated people
+def test_repeated_people(tmp_path, capfd):
+    ini_file = 'just_jose.ini'
+    ini = get_ini(tmp_path, ini_filename=ini_file)
+    ini_path = tmp_path / ini_file
+
+    # Create temporary application csv files
+    my_dict = JOSE
+    filepath = tmp_path / 'JOSE.csv'
+    with open(filepath, 'w', encoding="utf-8") as f:
+        w = csv.DictWriter(f, my_dict.keys())
+        w.writeheader()
+        w.writerow(my_dict)
+
+    # Re-load as applications instance
+    # This avoids having to re-write the Applications init, which usually expects a csv    
+    archive = [Applications(filepath, ini_file=ini_path)]
+
+    # Test two different people
+    p = Person(**MARCIN, _ini=ini)
+    p.set_n_applied(archive)
+    assert p.n_applied == 0
+
+    # Case where the person says they applied but they did not
+    MARCIN_copy = MARCIN.copy()
+    MARCIN_copy['applied'] = 'yes'
+    p = Person(**MARCIN_copy, _ini=ini)
+    p.set_n_applied(archive)
+    assert p.n_applied == 0
+    out, err = capfd.readouterr()
+    assert 'WARNING: person says they applied' in out
+
+    # Test against itself, should find the matching fullname
+    p = Person(**JOSE, _ini=ini)
+    p.set_n_applied(archive)
+    assert p.n_applied == 1
+    out, err = capfd.readouterr()
+    assert 'setting applied=yes' in out
+
+    # In this copy the name is not the same, 
+    # so the email should lead to finding the duplicate
+    JOSE1 = JOSE.copy()
+    JOSE1['name'] = 'Jose'
+    p = Person(**JOSE1, _ini=ini)
+    p.set_n_applied(archive)
+    assert p.n_applied == 1
+    
+    # Here neither the fullname nor the email is the exact same
+    # But fuzzy name comparison should print a warning
+    JOSE2 = JOSE1.copy()
+    JOSE2['email'] = 'joselito@proton.fake'
+    p = Person(**JOSE2, _ini=ini)
+    p.set_n_applied(archive)
+    # Even if the fuzzy match is found do not assume it is correct
+    assert p.n_applied == 0
+    # Check if the fuzzy warning was printed
+    out, err = capfd.readouterr()
+    assert 'WARNING: A partial (fuzzy)' in out
