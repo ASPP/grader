@@ -70,10 +70,10 @@ group: {p.group}
 affiliation: {p.affiliation}
 position: {p.position}{position_other}
 appl.prev.: {have_applied}
-programming: {p.programming}{programming_description} [{programming_rating}]
-python: {p.python} [{python_rating}]
-vcs: {p.vcs} [{vcs_rating}]
-open source: {p.open_source}{open_source_description} [{open_source_rating}]
+programming: {p.programming}{programming_description} [{programming}]
+python: {p.python} [{python}]
+vcs: {p.vcs} [{vcs}]
+open source: {p.open_source}{open_source_description} [{open_source}]
 '''
 
 DUMP_FMT = '''\
@@ -96,10 +96,10 @@ rank: {{p.rank}} {p.score:6.3f} {p.highlander}
 MOTIVATION_DUMP_FMT = '''\
 appl.prev.: {have_applied}
 position: {p.position}{position_other}
-programming: {p.programming}{programming_description} [{programming_rating}]
-python: {p.python} [{python_rating}]
-vcs: {p.vcs} [{vcs_rating}]
-open source: {p.open_source}{open_source_description} [{open_source_rating}]
+programming: {p.programming}{programming_description} [{programming}]
+python: {p.python} [{python}]
+vcs: {p.vcs} [{vcs}]
+open source: {p.open_source}{open_source_description} [{open_source}]
 motivation: %(bold)s{motivation}%(default)s\
 {labels_newline}''' % COLOR
 
@@ -121,9 +121,9 @@ _RANK_FMT_SHORT = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}')
 _RANK_FMT_DETAILED = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' [{motivation_scores}] [appl: {have_applied}]'
-                 ' [prog: {programming_rating}] [python: {python_rating}]'
-                 ' [{gender:^{gender_width}}] [git: {vcs_rating}]'
-                 ' [os: {open_source_rating}]'
+                 ' [prog: {programming}] [python: {python}]'
+                 ' [{gender:^{gender_width}}] [git: {vcs}]'
+                 ' [os: {open_source}]'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}'
                  ' {p.travel_grant}'
                  ' {nationality:{nationality_width}} {affiliation:{affiliation_width}}'
