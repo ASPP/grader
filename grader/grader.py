@@ -270,17 +270,21 @@ class Grader(cmd_completer.Cmd_Completer):
         else:
             print(f'Running as identity {self.identity}')
 
-    exception_options = cmd_completer.PagedArgumentParser('exception')\
-        .add_argument('exception',
-                      help='the exception type to be raised')
+    exception_options = (
+        cmd_completer.PagedArgumentParser('exception')
+            .add_argument('exception',
+                          help='the exception type to be raised')
+    )
 
     def do_exception(self, args):
         "Fake command to test exception capturing"
         opts = self.exception_options.parse_args(args.split())
         raise getattr(__builtins__, opts.exception[0])
 
-    autolabel_options = cmd_completer.PagedArgumentParser('autolabel')\
+    autolabel_options = (
+        cmd_completer.PagedArgumentParser('autolabel')
             .add_argument('N', type=int, help='length of SHORTLIST')
+    )
 
     def do_autolabel(self, args):
         """Automatically label highlanders as INVITE and the next N as SHORTLIST
@@ -304,25 +308,27 @@ class Grader(cmd_completer.Cmd_Completer):
                 else:
                     return
 
-    dump_options = cmd_completer.PagedArgumentParser('dump')\
-        .add_argument('-d', '--detailed', action='store_const',
-                      dest='format', const='long', default='short',
-                      help='do not truncate free texts')\
-        .add_argument('-f', '--format',
-                      dest='format', choices=DUMP_FMTS.keys(),
-                      help='use this format')\
-        .add_argument('-s', '--sorted', action='store_true',
-                      help='print applications sorted by rank')\
-        .add_argument('-L', '--highlanders', action='store_const',
-                      const=True, default=False,
-                      help='print applications only for highlanders')\
-        .add_argument('-l', '--label', type=str, nargs='+', default=(),
-                      help='print applications only for people with label')\
-        .add_argument('-a', '--attribute', nargs='+', metavar='ATTRNAME ATTRVALUE', action='append',
-                      help='print applications only for people with matching attributes'
-                      ', e.g. -a n_applied 3 -a . Call "-a list" to get a list of attributes.')\
-        .add_argument('persons', nargs='*',
-                      help='name fragments of people to display')
+    dump_options = (
+        cmd_completer.PagedArgumentParser('dump')
+            .add_argument('-d', '--detailed', action='store_const',
+                          dest='format', const='long', default='short',
+                          help='do not truncate free texts')
+            .add_argument('-f', '--format',
+                          dest='format', choices=DUMP_FMTS.keys(),
+                          help='use this format')
+            .add_argument('-s', '--sorted', action='store_true',
+                          help='print applications sorted by rank')
+            .add_argument('-L', '--highlanders', action='store_const',
+                          const=True, default=False,
+                          help='print applications only for highlanders')
+            .add_argument('-l', '--label', type=str, nargs='+', default=(),
+                          help='print applications only for people with label')
+            .add_argument('-a', '--attribute', nargs='+', metavar='ATTRNAME ATTRVALUE', action='append',
+                          help='print applications only for people with matching attributes, '
+                          'e.g. -a n_applied 3 -a . Call "-a list" to get a list of attributes.')
+            .add_argument('persons', nargs='*',
+                          help='name fragments of people to display')
+    )
 
     def do_dump(self, args):
         "Print information about applications"
@@ -422,27 +428,29 @@ class Grader(cmd_completer.Cmd_Completer):
                labels_newline=labels + '\n' if labels else '',
                **cat_ratings)
 
-    grep_options = cmd_completer.PagedArgumentParser('grep')\
-        .add_argument('-n', '--fullname', dest='what', action='store_const',
-                      const=operator.attrgetter('fullname'), default=str,
-                      help='grep institutes')\
-        .add_argument('--affiliation', dest='what', action='store_const',
-                      const=operator.attrgetter('affiliation'), default=str,
-                      help='grep affiliation')\
-        .add_argument('--nationality', dest='what', action='store_const',
-                      const=operator.attrgetter('nationality'), default=str,
-                      help='grep nationality')\
-        .add_argument('--institute', dest='what', action='store_const',
-                      const=operator.attrgetter('institute'),
-                      help='grep institutes')\
-        .add_argument('-g', '--group', dest='what', action='store_const',
-                      const=operator.attrgetter('group'),
-                      help='grep groups')\
-        .add_argument('-l', '--long', dest='format',
-                      action='store_const', const='long', default='short',
-                      help='provide full listing')\
-        .add_argument('pattern',
-                      help='pattern to look for')
+    grep_options = (
+        cmd_completer.PagedArgumentParser('grep')
+            .add_argument('-n', '--fullname', dest='what', action='store_const',
+                          const=operator.attrgetter('fullname'), default=str,
+                          help='grep institutes')
+            .add_argument('--affiliation', dest='what', action='store_const',
+                          const=operator.attrgetter('affiliation'), default=str,
+                          help='grep affiliation')
+            .add_argument('--nationality', dest='what', action='store_const',
+                          const=operator.attrgetter('nationality'), default=str,
+                          help='grep nationality')
+            .add_argument('--institute', dest='what', action='store_const',
+                          const=operator.attrgetter('institute'),
+                          help='grep institutes')
+            .add_argument('-g', '--group', dest='what', action='store_const',
+                          const=operator.attrgetter('group'),
+                          help='grep groups')
+            .add_argument('-l', '--long', dest='format',
+                          action='store_const', const='long', default='short',
+                          help='provide full listing')
+            .add_argument('pattern',
+                          help='pattern to look for')
+    )
 
     def do_grep(self, args):
         "Look for string in applications"
@@ -461,20 +469,22 @@ class Grader(cmd_completer.Cmd_Completer):
         stats.rename(index={'nan':'todo', 'NaN':'todo'}, inplace=True)
         print(stats)
 
-    grade_options = cmd_completer.PagedArgumentParser('grade')\
-        .add_argument('what', choices=['motivation', 'formula', 'location'],
-                      help='what to grade | set formula | set location')\
-        .add_argument('-s', '--stat', action='store_true',
-                      help='display statics about the grading process itself')\
-        .add_argument('-g', '--graded', type=int,
-                      nargs='?', const=all, metavar='SCORE',
-                      help='grade already graded too, optionally with specified score')\
-        .add_argument('-l', '--label', nargs='+', default=(),
-                      help='show only people with all of those labels')\
-        .add_argument('-d', '--disagreement', type=int,
-                      nargs='?', const=all, metavar='WHO',
-                      help='grade people who have a >1 pt difference')\
-        .add_argument('person', nargs='*')
+    grade_options = (
+        cmd_completer.PagedArgumentParser('grade')
+            .add_argument('what', choices=['motivation', 'formula', 'location'],
+                          help='what to grade | set formula | set location')
+            .add_argument('-s', '--stat', action='store_true',
+                          help='display statics about the grading process itself')
+            .add_argument('-g', '--graded', type=int,
+                          nargs='?', const=all, metavar='SCORE',
+                          help='grade already graded too, optionally with specified score')
+            .add_argument('-l', '--label', nargs='+', default=(),
+                          help='show only people with all of those labels')
+            .add_argument('-d', '--disagreement', type=int,
+                          nargs='?', const=all, metavar='WHO',
+                          help='grade people who have a >1 pt difference')
+            .add_argument('person', nargs='*')
+    )
 
     @set_completions('formula',
                      'location',
@@ -598,12 +608,14 @@ class Grader(cmd_completer.Cmd_Completer):
 
     RATING_CATEGORIES = ['programming', 'open_source', 'python', 'vcs', 'underrep']
 
-    rate_options = cmd_completer.PagedArgumentParser('rate')\
-        .add_argument('-m', '--missing', action='store_true',
-                      help='rate all missing fields')\
-        .add_argument('what', nargs='?',
-                      choices=RATING_CATEGORIES)\
-        .add_argument('args', nargs='*')
+    rate_options = (
+        cmd_completer.PagedArgumentParser('rate')
+            .add_argument('-m', '--missing', action='store_true',
+                          help='rate all missing fields')
+            .add_argument('what', nargs='?',
+                          choices=RATING_CATEGORIES)
+            .add_argument('args', nargs='*')
+    )
 
     @set_completions(*RATING_CATEGORIES)
     def do_rate(self, arg):
@@ -839,21 +851,23 @@ class Grader(cmd_completer.Cmd_Completer):
                 return key
         return variant.strip()
 
-    rank_options = cmd_completer.PagedArgumentParser('rank')\
-        .add_argument('-s', '--short', action='store_const',
-                      dest='format', const='short', default='long',
-                      help='show only names and emails')\
-        .add_argument('--use-labels', action='store_true', default=True,
-                      help=argparse.SUPPRESS)\
-        .add_argument('-n', '--no-labels', action='store_false', dest='use_labels',
-                      help="don't use labels in ranking")\
-        .add_argument('-l', '--label', nargs='+', default=(),
-                      help='show only people with all of those labels')\
-        .add_argument('-f', '--format', choices=RANK_FORMATS.keys(),
-                      help='use format')\
-        .add_argument('-c', '--column-width',
-                      dest='width', type=int, default=20,
-                      help='specify width of institute and group columns')
+    rank_options = (
+        cmd_completer.PagedArgumentParser('rank')
+            .add_argument('-s', '--short', action='store_const',
+                          dest='format', const='short', default='long',
+                          help='show only names and emails')
+            .add_argument('--use-labels', action='store_true', default=True,
+                          help=argparse.SUPPRESS)
+            .add_argument('-n', '--no-labels', action='store_false', dest='use_labels',
+                          help="don't use labels in ranking")
+            .add_argument('-l', '--label', nargs='+', default=(),
+                          help='show only people with all of those labels')
+            .add_argument('-f', '--format', choices=RANK_FORMATS.keys(),
+                          help='use format')
+            .add_argument('-c', '--column-width',
+                          dest='width', type=int, default=20,
+                          help='specify width of institute and group columns')
+    )
 
     def do_rank(self, args):
         "Print list of people sorted by ranking"
@@ -1167,8 +1181,10 @@ class Grader(cmd_completer.Cmd_Completer):
 
     do_label.completions = _complete_name
 
-    save_options = cmd_completer.PagedArgumentParser('save')\
-        .add_argument('filename', nargs='?')
+    save_options = (
+        cmd_completer.PagedArgumentParser('save')
+            .add_argument('filename', nargs='?')
+    )
 
     def do_save(self, args):
         "Save the fruits of thy labour"
@@ -1438,18 +1454,20 @@ def wrap_paragraphs(text, prefix=''):
     return ('\n'+prefix).join(wrapped)
 
 
-grader_options = cmd_completer.ModArgumentParser('grader')\
-    .add_argument('-i', '--identity',
-                  help='Index of person grading applications')\
-    .add_argument('--history-file',
-                  type=pathlib.Path,
-                  default=pathlib.Path('~/.grader_history').expanduser(),
-                  help='File to record typed in commands')\
-    .add_argument('applications',
-                  nargs='?',
-                  type=pathlib.Path,
-                  default=pathlib.Path('applications.csv'),
-                  help='CSV file with application data')
+grader_options = (
+    cmd_completer.ModArgumentParser('grader')
+        .add_argument('-i', '--identity',
+                      help='Index of person grading applications')
+        .add_argument('--history-file',
+                      type=pathlib.Path,
+                      default=pathlib.Path('~/.grader_history').expanduser(),
+                      help='File to record typed in commands')
+        .add_argument('applications',
+                      nargs='?',
+                      type=pathlib.Path,
+                      default=pathlib.Path('applications.csv'),
+                      help='CSV file with application data')
+)
 
 def main():
     logging.basicConfig(level=logging.INFO)
