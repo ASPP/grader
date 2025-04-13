@@ -106,6 +106,39 @@ def test_grader_bad_identity(tmp_path, capsys):
     assert err == ''
     assert 'Identity set to bad' not in out
 
+
+def test_grader_formula_display(tmp_path, capsys):
+    config_tmp_path, csv_tmp_path = _tmp_application_files(tmp_path, CONF, CSV_APPLICATIONS)
+
+    grader = Grader(csv_file=csv_tmp_path)
+
+    assert grader.applications.ini.formula == '(nationality!=affiliation)'
+
+    grader.do_formula('')
+
+    assert grader.applications.ini.formula == '(nationality!=affiliation)'
+
+    out, err = capsys.readouterr()
+    assert err == ''
+    assert '(nationality!=affiliation)' in out
+
+
+def test_grader_formula_setting(tmp_path, capsys):
+    config_tmp_path, csv_tmp_path = _tmp_application_files(tmp_path, CONF, CSV_APPLICATIONS)
+
+    grader = Grader(csv_file=csv_tmp_path)
+
+    assert grader.applications.ini.formula == '(nationality!=affiliation)'
+
+    grader.do_formula('  (nationality==affiliation) + 2  ')
+
+    assert grader.applications.ini.formula == '(nationality==affiliation) + 2'
+
+    out, err = capsys.readouterr()
+    assert err == ''
+    assert '(nationality==affiliation) + 2' in out
+
+
 def test_grader_rank(tmp_path, capsys):
     # Basic test, just checking that it does not crash
     config_tmp_path, csv_tmp_path = _tmp_application_files(tmp_path, CONF, CSV_APPLICATIONS)

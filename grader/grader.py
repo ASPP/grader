@@ -469,28 +469,14 @@ class Grader(cmd_completer.Cmd_Completer):
         stats.rename(index={'nan':'todo', 'NaN':'todo'}, inplace=True)
         print(stats)
 
-    grade_options = (
-        cmd_completer.PagedArgumentParser('grade')
-            .add_argument('what', choices=['motivation', 'formula', 'location'],
-                          help='what to grade | set formula | set location')
-            .add_argument('-s', '--stat', action='store_true',
-                          help='display statics about the grading process itself')
-            .add_argument('-g', '--graded', type=int,
-                          nargs='?', const=all, metavar='SCORE',
-                          help='grade already graded too, optionally with specified score')
-            .add_argument('-l', '--label', nargs='+', default=(),
-                          help='show only people with all of those labels')
-            .add_argument('-d', '--disagreement', type=int,
-                          nargs='?', const=all, metavar='WHO',
-                          help='grade people who have a >1 pt difference')
-            .add_argument('person', nargs='*')
+
+    formula_options = (
+        cmd_completer.PagedArgumentParser('formula')
+            .add_argument('expression', nargs='*')
     )
 
-    @set_completions('formula',
-                     'location',
-                     motivation=_complete_name)
-    def do_grade(self, arg):
-        """Assign points to motivation statements or set formula/location
+    def do_formula(self, arg):
+        """Display or set the formula
 
         Formula is set with:
           grade formula ...
@@ -506,6 +492,57 @@ class Grader(cmd_completer.Cmd_Completer):
           applied: 0 or 1 or 2 or ...,
           python: float,
           labels: list of str.
+        """
+
+        opts = self.formula_options.parse_args(arg.split())
+
+        if opts.expression:
+            self.applications.ini.formula = ' '.join(opts.expression)
+        minsc, maxsc, contr = find_min_max(
+            formula=self.applications.ini.formula,
+            location=self.applications.ini.location,
+            programming_rating=self.applications.ini.get_ratings('programming'),
+            open_source_rating=self.applications.ini.get_ratings('open_source'),
+            python_rating=self.applications.ini.get_ratings('python'),
+            vcs_rating=self.applications.ini.get_ratings('vcs'),
+            underrep_rating=self.applications.ini.get_ratings('underrep'),
+            applied=self._applied_range(),
+            all_nationalities=self.applications.all_nationalities(),
+            all_affiliations=self.applications.all_affiliations(),
+        )
+
+        printf('formula = {}', self.applications.ini.formula)
+        printf('score ∈ [{:6.3f},{:6.3f}]', minsc, maxsc)
+        printf('applied ∈ {}', self._applied_range())
+        print('contributions:')
+        # print single contributions
+        field_width = max(len(item[0].strip()) for item in contr.items())
+        items = sorted(contr.items(), key=operator.itemgetter(1), reverse=True)
+        for item in items:
+            printf('{:{w}} : {:4.1f}%', item[0].strip(), item[1], w=field_width)
+
+
+    grade_options = (
+        cmd_completer.PagedArgumentParser('grade')
+            .add_argument('what', choices=['motivation', 'location'],
+                          help='what to grade | set location')
+            .add_argument('-s', '--stat', action='store_true',
+                          help='display statics about the grading process itself')
+            .add_argument('-g', '--graded', type=int,
+                          nargs='?', const=all, metavar='SCORE',
+                          help='grade already graded too, optionally with specified score')
+            .add_argument('-l', '--label', nargs='+', default=(),
+                          help='show only people with all of those labels')
+            .add_argument('-d', '--disagreement', type=int,
+                          nargs='?', const=all, metavar='WHO',
+                          help='grade people who have a >1 pt difference')
+            .add_argument('person', nargs='*')
+    )
+
+    @set_completions('location',
+                     motivation=_complete_name)
+    def do_grade(self, arg):
+        """Assign points to motivation statements or set location
 
         Location is set with:
            set location
@@ -515,33 +552,7 @@ class Grader(cmd_completer.Cmd_Completer):
         if opts.graded is not None and opts.person:
             raise ValueError('cannot use --graded option with explicit name')
 
-        if opts.what == 'formula':
-            if opts.person:
-                self.applications.ini.formula = ' '.join(opts.person)
-            minsc, maxsc, contr = find_min_max(
-                formula=self.applications.ini.formula,
-                location=self.applications.ini.location,
-                programming_rating=self.applications.ini.get_ratings('programming'),
-                open_source_rating=self.applications.ini.get_ratings('open_source'),
-                python_rating=self.applications.ini.get_ratings('python'),
-                vcs_rating=self.applications.ini.get_ratings('vcs'),
-                underrep_rating=self.applications.ini.get_ratings('underrep'),
-                applied=self._applied_range(),
-                all_nationalities=self.applications.all_nationalities(),
-                all_affiliations=self.applications.all_affiliations(),
-            )
-
-            printf('formula = {}', self.applications.ini.formula)
-            printf('score ∈ [{:6.3f},{:6.3f}]', minsc, maxsc)
-            printf('applied ∈ {}', self._applied_range())
-            print('contributions:')
-            # print single contributions
-            field_width = max(len(item[0].strip()) for item in contr.items())
-            items = sorted(contr.items(), key=operator.itemgetter(1), reverse=True)
-            for item in items:
-                printf('{:{w}} : {:4.1f}%', item[0].strip(), item[1], w=field_width)
-            return
-        elif opts.what == 'location':
+        if opts.what == 'location':
             if opts.person:
                 self.applications.ini.location = ' '.join(opts.person)
             printf('location = {}', self.applications.ini.location)
