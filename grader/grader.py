@@ -524,8 +524,8 @@ class Grader(cmd_completer.Cmd_Completer):
 
     grade_options = (
         cmd_completer.PagedArgumentParser('grade')
-            .add_argument('what', choices=['motivation', 'location'],
-                          help='what to grade | set location')
+            .add_argument('what', choices=['motivation'],
+                          help='what to grade')
             .add_argument('-s', '--stat', action='store_true',
                           help='display statics about the grading process itself')
             .add_argument('-g', '--graded', type=int,
@@ -539,24 +539,14 @@ class Grader(cmd_completer.Cmd_Completer):
             .add_argument('person', nargs='*')
     )
 
-    @set_completions('location',
-                     motivation=_complete_name)
+    @set_completions(motivation=_complete_name)
     def do_grade(self, arg):
-        """Assign points to motivation statements or set location
-
-        Location is set with:
-           set location
+        """Assign points to motivation statements
         """
 
         opts = self.grade_options.parse_args(arg.split())
         if opts.graded is not None and opts.person:
             raise ValueError('cannot use --graded option with explicit name')
-
-        if opts.what == 'location':
-            if opts.person:
-                self.applications.ini.location = ' '.join(opts.person)
-            printf('location = {}', self.applications.ini.location)
-            return
 
         if opts.label:
             applications = self.applications.filter(label=opts.label)
