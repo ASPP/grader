@@ -1,3 +1,4 @@
+import math
 import time
 
 from grader.person import (convert_bool, Person, FormulaProxy)
@@ -116,12 +117,18 @@ def test_person_applied():
     assert p.applied is True
     assert p.n_applied == 0
 
+
 def test_person_without_ini():
     p = Person(**MARCIN)
 
     assert p.motivation_scores == []
     assert math.isnan(p.get_motivation_score(0))
-    assert math.isnan(p.score)
+
+    with pytest.raises(ValueError):
+        # We don't know the formula without the ini
+        p.calculate_score()
+
+    assert math.isnan(p.calculate_score('motivation'))
 
     with pytest.raises(ValueError):
         p.set_motivation_score(0, 0)
@@ -205,7 +212,7 @@ def test_person_not_in_ini(tmp_path):
 
 ini_extra = '''\
 [formula]
-formula = (nationality!=affiliation)*0.4 + programming_rating*0.2 + cooking_rating*0.2 + nonmale*0.2 + (nationality!=location)*0.1
+formula = (nationality!=affiliation)*0.4 + programming*0.2 + cooking*0.2 + nonmale*0.2 + (nationality!=location)*0.1
 location = Nicaragua
 
 [cooking_rating]
@@ -233,8 +240,8 @@ def test_formula_proxy(tmp_path):
     assert f['gender'] == 'other'
     assert f['nonmale'] == 1
     assert np.isnan(f['nan'])
-    assert f['programming_rating'] == 0.0
-    assert f['cooking_rating'] == -1
+    assert f['programming'] == 0.0
+    assert f['cooking'] == -1
     assert f['location'] == 'Nicaragua'
 
 def test_person_score(tmp_path):
