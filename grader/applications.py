@@ -597,7 +597,11 @@ class Applications:
 
     def fuzzy_fullname_filter(self, value):
         """
-        Checks if a subset of the full name is contained in some previous applications
+        Checks if a subset of the full name is contained in some previous applications (or vice-versa)
+
+        The function takes in a certain value, it expects a full name string, with multiple words.
+        
+        Returns a list of person objects
         """
         current_set = set(value.split())
         matching = []
