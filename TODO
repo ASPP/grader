@@ -1,6 +1,5 @@
 - add tab-completion for label during motivation grading
 - add common labels to criteria.txt
 - tab-completion does not work out of the box in the Mac terminal: https://github.com/ASPP/grader/issues/26
-- if two reviewers add the same label there is a git-conflict
 - add a `o` key to the grade verb that allows to set overrides. Fields that can be overridden must be tab-auto-completed and possible values for the field must be also tab-auto-completed.
 - verify that we can dynamically change the formula and this has an effect on the ranking

@@ -1,11 +1,13 @@
 import collections
 import configparser
+import contextlib
 import csv
 from fnmatch import fnmatch
 import functools
 import io
 import itertools
 import keyword
+import locale
 import math
 import pprint
 import re
@@ -14,6 +16,17 @@ import tokenize
 
 from . import (person, vector, util)
 from .util import printff
+
+
+@contextlib.contextmanager
+def override_locale(category, locale_string):
+    # Context manager to set locale temporarily.
+    # Strangely, it seems that there is no builtin that does that.
+    prev_locale_string = locale.getlocale(category)
+    locale.setlocale(category, locale_string)
+    yield
+    locale.setlocale(category, prev_locale_string)
+
 
 DEBUG_MAPPINGS = False
 
@@ -382,7 +395,23 @@ class ApplicationsIni:
     def save_to_file(self, file):
         # save our data to the INI file
         cp = configparser.ConfigParser(comment_prefixes='#', inline_comment_prefixes='#')
-        cp.read_dict(self.data)
+
+        with override_locale(locale.LC_COLLATE, 'en_US.UTF-8'):
+            # The order of sections is kept stable.
+            #
+            # Within a section, we sort the fields alphabetically,
+            # with the en_US.UTF-8 collation, which puts accented
+            # letters in the expected place, usually right after the
+            # unaccented version.
+            sorted_data = {
+                name:{
+                    k:values[k] for k in sorted(values,
+                                                key=functools.cmp_to_key(locale.strcoll))
+                }
+                for name, values in self.data.items()
+            }
+
+        cp.read_dict(sorted_data)
         cp.write(file)
 
         name = getattr(file, 'name', '(tmp)')

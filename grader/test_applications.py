@@ -1,4 +1,3 @@
-import io
 import pathlib
 import os
 import time
@@ -56,6 +55,31 @@ jędrzej marcin mirosławski piołun = UTF-8, VEGAN
 person one = PALEO
 
 """
+
+ini_sorted = """\
+[extra]
+key_num = 111.5
+key_str = value
+
+[motivation_score-zbyszek]
+jędrzej marcin mirosławski piołun = 1
+person one = 1
+person three = 0
+person two = -1
+some son jr. = -1
+
+[motivation_score-other]
+person one = -1
+person two = 1
+some son jr. = 1
+
+[labels]
+jędrzej marcin mirosławski piołun = UTF-8, VEGAN
+john doe = VEGAN, VIP
+person one = PALEO
+
+"""
+
 
 def get_ini(tmp_path, *extra, ini_filename='ini1.ini'):
     input = tmp_path / ini_filename
@@ -167,7 +191,7 @@ def test_applications_ini_save(tmp_path):
     out = tmp_path / 'ini1.copy'
     ini.save(out)
 
-    assert out.read_text() == ini_string
+    assert out.read_text() == ini_sorted
 
     # Replace an exisiting entry.
     # We use an int, but the type is converted to float internally
