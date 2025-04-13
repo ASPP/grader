@@ -321,19 +321,26 @@ class Person:
                 # they may write the name differently, let's try to match on the email
                 # address
                 candidates = year.filter(email=self.email)
-            ### TODO: we need some form of fuzzy matching here, especially people with
-            ###       more then one first/last-name tend to skip some of their names
-            ###       but they skip different ones every time.
-            ###       For the emails, we could match on the first part of the email
-            ###       for cases of people who have changed institution in the mean
-            ###       time, like for example:
-            ###       foo.bar@uni-xxx.edu -> foo.bar@uni-yyy.edu
-
+            
             # We used to have a check here whether len(candidates) <= 1, but
             # in 2023, a person applied twice from different email addresses,
             # and we didn't notice that until a year later.
             if candidates:
                 found += 1
+            else:
+                # We use fuzzy matching here, especially thought for people with
+                # more then one first/last-name, who tend to skip some of their names
+                # but they skip different ones every time.
+                fuzzy_matches = year.fuzzy_fullname_filter(f'{self.fullname}')
+                
+                # Raise some warning if we find a potential match with 
+                # partially the same name, we cannot be sure if it is a duplicate
+                # The user has to manually write an override for this case based on the warning
+                for p in fuzzy_matches:
+                    print('\nWARNING: A partial (fuzzy) full name match found:\n'
+                          f'\tApplicant name = {self.fullname} <{self.email}>\n'
+                          f'\tPrevious name = {p.fullname} <{p.email}> from {year.ini.filename}\n'
+                         )
 
         # self.applied must be a bool at this point, if not this method is been
         # called at the wrong time
@@ -345,7 +352,7 @@ class Person:
             print(f'INFO: {self.fullname}: n_applied={found}, setting applied=yes')
             self.applied = True
         if not found and self.applied:
-            # warn the user that someone claims to have applied even if we don't
+            # Warn the user that someone claims to have applied even if we don't
             # find them: those cases must be analized manually and solved with
             # a n_applied override if necessary
             print('WARNING: person says they applied, but not found in archive: '
