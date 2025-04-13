@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import collections
+import enum
 import logging
 import numbers
 import operator
@@ -168,6 +169,14 @@ def equal(a, b):
             return False
         # use normal comparison otherwise
     return a == b
+
+
+class GradingMoves(enum.Enum):
+    BACK = enum.auto()
+    SKIP = enum.auto()
+    NEXT = enum.auto()
+    DONE = enum.auto()
+
 
 class Grader(cmd_completer.Cmd_Completer):
     prompt = COLOR['green']+'grader'+COLOR['yellow']+'>'+COLOR['default']+' '
@@ -572,15 +581,27 @@ class Grader(cmd_completer.Cmd_Completer):
         printff('Press ^C or ^D to stop')
 
         random.shuffle(todo)
-        for num, person in enumerate(todo):
-            progress = '┃ {:.1%} done, {} left to go ┃'.format((num + done_already) / total,
-                                                             len(todo) - num)
+
+        pos = 0
+
+        while True:
+            if pos >= len(todo):
+                break
+
+            progress = '┃ {:.1%} done, {} left to go ┃'.format((pos + done_already) / total,
+                                                               len(todo) - pos)
             sep_up = '\n┏'+(len(progress)-2)*'━'+'┓\n'
             sep_down = '\n┗'+(len(progress)-2)*'━'+'┛\n'
             print(sep_up+progress+sep_down)
             print()
-            if not self._grade(person, opts.disagreement is not None):
-                break
+
+            match self.grade_one_motivation(todo[pos], opts.disagreement is not None):
+                case GradingMoves.NEXT | GradingMoves.SKIP:
+                    pos += 1
+                case GradingMoves.BACK:
+                    pos = max(0, pos - 1)
+                case GradingMoves.DONE:
+                    break
 
     do_grade.completions = _complete_name
 
@@ -643,7 +664,7 @@ class Grader(cmd_completer.Cmd_Completer):
         person.set_motivation_score(score, identity=self.identity)
         printff('Motivation score set to {}', score)
 
-    def _grade(self, person, disagreement):
+    def grade_one_motivation(self, person, disagreement):
         "This is the function that does the loop asking question +1/0/-1/…"
         if disagreement:
             scores = self._get_gradings(person)
@@ -664,12 +685,12 @@ class Grader(cmd_completer.Cmd_Completer):
 
         valid_choice = None
         while valid_choice not in applications.SCORE_RANGE:
-            prompt = 'Your choice {}/s/d/l LABEL [{}]? '.format(applications.SCORE_RANGE, default)
+            prompt = 'Your choice {}/b/s/d/l LABEL [{}]? '.format(applications.SCORE_RANGE, default)
             try:
                 choice = input(prompt)
             except EOFError:
                 print()
-                return False
+                return GradingMoves.DONE
 
             if len(choice) <= 2:
                 clen = readline.get_current_history_length()
@@ -685,9 +706,12 @@ class Grader(cmd_completer.Cmd_Completer):
                     valid_choice = 0
                 case ['-']:
                     valid_choice = -1
+                case ['b']:
+                    printff('going back one')
+                    return GradingMoves.BACK
                 case ['s'] | []:
                     printff('person skipped')
-                    return True
+                    return GradingMoves.SKIP
                 case ['d']:
                     printff('showing person on request')
                     self._dumpone(person, format='long')
@@ -715,7 +739,7 @@ class Grader(cmd_completer.Cmd_Completer):
 
         if not equal(valid_choice, default):
             self._set_grading(person, valid_choice)
-        return True
+        return GradingMoves.NEXT
 
     def _score_with_labels(self, p, use_labels=False):
         add_score = 0
