@@ -73,9 +73,6 @@ class vector(list):
     def __add__(self, other):
         return vector(super(vector,self).__add__(other))
 
-    def argsort(self):
-        return vector(key for key,val in sorted(zip(self, xrange(len(self)))))
-
     def mean(self):
         valid = [arg for arg in self if arg is not None]
         if not valid:

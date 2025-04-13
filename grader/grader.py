@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 import argparse
 import collections
-import itertools
 import logging
 import numbers
 import operator
 import os
 import pathlib
-import pprint
 import random
 import re
 import readline
@@ -16,16 +14,14 @@ import textwrap
 import traceback
 
 import numpy as np
+
 try:
     import pandas
 except ImportError:
     pandas = None
 
-from . import cmd_completer
+from . import cmd_completer, vector, applications
 from .flags import flags as FLAGS
-from . import vector
-
-from .applications import Applications
 
 from .util import (
     list_of_equivs,
@@ -181,14 +177,14 @@ class Grader(cmd_completer.Cmd_Completer):
         super().__init__(histfile=history_file)
 
         self.identity = identity
-        self.applications = Applications(csv_file=csv_file)
+        self.applications = applications.Applications(csv_file=csv_file)
         self.archive = []
 
         for path in sorted(csv_file.parent.glob('*/applications.csv'),
                               reverse=True):
             # years before 2012 are to be treated less strictly
             relaxed = any(f'{year}-' in str(path) for year in range(2009,2012))
-            old = Applications(csv_file=path, relaxed=relaxed)
+            old = applications.Applications(csv_file=path, relaxed=relaxed)
             self.archive.append(old)
 
         for person in self.applications:
@@ -281,7 +277,6 @@ class Grader(cmd_completer.Cmd_Completer):
         Note: the last ranking is used to sort applications"""
         opts = self.autolabel_options.parse_args(args.split())
         N = opts.N
-        applications = self.applications
         try:
             ranked = self.last_ranking
         except AttributeError:
@@ -289,11 +284,11 @@ class Grader(cmd_completer.Cmd_Completer):
         counter = 0
         for person in ranked:
             if person.highlander:
-                applications.add_labels(person.fullname, ['INVITE'])
+                self.applications.add_labels(person.fullname, ['INVITE'])
             else:
                 counter += 1
                 if counter <= N:
-                    applications.add_labels(person.fullname, ['SHORTLIST'])
+                    self.applications.add_labels(person.fullname, ['SHORTLIST'])
                 else:
                     return
 
@@ -744,18 +739,6 @@ class Grader(cmd_completer.Cmd_Completer):
         ini = self.applications.ini
         if ini.formula is None:
             raise ValueError('formula not set yet')
-
-        #if self.ranking_done:
-        #    return
-        #else:
-        #    self.ranking_done = True
-        categories = {name:ini.get_ratings(name)
-                      for name in
-                      ('programming',
-                       'open_source',
-                       'python',
-                       'vcs',
-                       'underrep')}
 
         nan_to_value = lambda n: LABEL_VALUES['__nan__'] if np.isnan(n) else n
 

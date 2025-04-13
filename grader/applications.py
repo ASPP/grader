@@ -7,7 +7,6 @@ import io
 import itertools
 import keyword
 import math
-import os
 import pprint
 import re
 import token
@@ -238,7 +237,7 @@ def load_applications_csv(file, field_name_overrides={}, relaxed=False, ini=None
 
         try:
             yield person.Person.from_row(fields, entry, relaxed=relaxed, ini=ini)
-        except Exception as exp:
+        except Exception:
             print(f'Exception raised on entry {count}:', entry)
             print('Detected fields:\n', fields)
             raise
@@ -267,7 +266,7 @@ class ApplicationsIni:
             try:
                 file = open(file)
                 print(f"loading '{self.filename}'")
-            except FileNotFoundError as e:
+            except FileNotFoundError:
                 # if the file doesn't exist yet, we'll create it when writing
                 #print(f'warning: {e}')
                 file = None

@@ -1,14 +1,12 @@
+import csv
 import math
 import time
+import numpy as np
 
 from grader.person import (convert_bool, Person, FormulaProxy)
 from grader.applications import ApplicationsIni, Applications
 
 import pytest
-import numpy as np
-import math
-
-import csv
 
 from .test_applications import get_ini
 
@@ -90,14 +88,14 @@ def test_person():
 def test_person_invalid_born():
     args = MARCIN | dict(born='1700')
     with pytest.raises(ValueError):
-        p = Person(**args)
+        Person(**args)
 
 @pytest.mark.parametrize('field',
                          ['gender', 'programming', 'python', 'position'])
 def test_person_invalid_field(field):
     args = MARCIN | dict(((field, 'cat'),))
     with pytest.raises(ValueError):
-        p = Person(**args)
+        Person(**args)
 
 def test_person_attr_not_set():
     p = Person(**MARCIN)
@@ -108,7 +106,7 @@ def test_person_attr_not_set():
 def test_person_unknown_field():
     args = MARCIN | dict(unkwown_field='123')
     with pytest.raises(TypeError):
-        p = Person(**args)
+        Person(**args)
 
 def test_person_applied():
     args = MARCIN | dict(applied='Yes')
