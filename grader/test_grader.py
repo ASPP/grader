@@ -1,5 +1,6 @@
 from .grader import Grader
 
+import pytest
 
 CSV_APPLICATIONS = """
 "First name","Last name","Nationality","Affiliation","programming","open_source","applied","python","born","gender","email","group","institute","vcs","underrep","position","position_other","programming_description","open_source_description","cv","motivation"
@@ -62,6 +63,10 @@ vcs = vcs
 underrep = underrep
 
 [equivs]
+
+[motivation_score-zbyszek]
+
+[motivation_score-rike]
 """
 
 
@@ -72,6 +77,34 @@ def _tmp_application_files(tmp_path, config_string, csv_string):
     csv_tmp_path.write_text(csv_string)
     return config_tmp_path, csv_tmp_path
 
+
+def test_grader_identity(tmp_path, capsys):
+    config_tmp_path, csv_tmp_path = _tmp_application_files(tmp_path, CONF, CSV_APPLICATIONS)
+
+    grader = Grader(identity='zbyszek', csv_file=csv_tmp_path)
+    assert grader.identity == 'zbyszek'
+
+    grader.do_identity('  rike  ')
+    assert grader.identity == 'rike'
+
+    out, err = capsys.readouterr()
+    assert err == ''
+    assert 'Identity set to rike' in out
+
+def test_grader_bad_identity(tmp_path, capsys):
+    config_tmp_path, csv_tmp_path = _tmp_application_files(tmp_path, CONF, CSV_APPLICATIONS)
+
+    grader = Grader(csv_file=csv_tmp_path)
+
+    assert grader.identity is None
+
+    with pytest.raises(ValueError):
+        grader.do_identity('  bad  ')
+    assert grader.identity is None
+
+    out, err = capsys.readouterr()
+    assert err == ''
+    assert 'Identity set to bad' not in out
 
 def test_grader_rank(tmp_path, capsys):
     # Basic test, just checking that it does not crash
