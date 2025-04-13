@@ -17,7 +17,7 @@
 ### Test
 Type `grader <DIR>`. This will start the grader interactive CLI.
 
-If you get a bunch of info messages and a prompt, everything is setup correctly. 
+If you get a bunch of info messages and a prompt, everything is set up correctly. 
 
 `<DIR>` is the folder which contains the `applications.csv` and `applications.ini` files. If `<DIR>` is not specified, it is assumed to be the current folder. This is usually the `applications` subfolder in the ASPP organization clone on your machine.
 
@@ -35,20 +35,20 @@ Grader is an interactive command line tool for reviewing ASPP applications, assi
   ```
   3. This will show you a motivation letter from the set of applicants that you haven't graded already, together with 
   some additional info
-  4. The prompt will expect you to type one of the following: 
-    - `0, 1, -1` : your grade
-    - `s` : to skip this applicant for now ➔ you will be able to grade it again after restarting the motivation grading in the next grading session
-    - `b` : re-grade the previous motivation letter
-    - `o` : add override (see below for details)
-    - `d` : show the full detail about the current applicant
-    - `l` : add a label to the current applicant (see below for details)
-  5. After pressing enter the next motivation letter will be shown for you to grade
-  6. To quit the grading mode, type `Ctrl+C`.
-  7. By later quitting grader with the command `exit`, your gradings will be stored in the `applications.ini` file. Commit and push to share with the other reviewers. Push often.
+  4. The prompt will expect you to type one of the following:
+      - `0, 1, -1` : your grade
+      - `s` : to skip this applicant for now ➔ you will be able to grade it again after restarting the motivation grading in the next grading session
+      - `b` : re-grade the previous motivation letter
+      - `o` : add override (see below for details)
+      - `d` : show the full detail about the current applicant
+      - `l` : add a label to the current applicant (see below for details)
+  6. After pressing enter the next motivation letter will be shown for you to grade
+  7. To quit the grading mode, type `Ctrl+C`.
+  8. By later quitting grader with the command `exit`, your gradings will be stored in the `applications.ini` file. Commit and push to share with the other reviewers. Push often.
 
 Note 1: Unless you type `d`, the data shown is anonymized as far as possible to help you make unbiased decisions.
 
-Note 2: whenever you make changes, also in the following, remember to commit and push.
+Note 2: Remeber that your changes are only saved locally, to make them permanent and visible to other reviewers, commit and push.
 
 ## Labelling applications
 While in grading mode, you may want to label the current application, for example by setting the `OVERQUALIFIED` label. This marks the applicant as someone who is too much of an *expert* for ASPP. A list of commonly used labels can be found in the `criteria.txt` file.
@@ -71,20 +71,24 @@ When you want to add a label to an applicant, you type `l LABEL` at the grading 
    ```
 
 ## Use case: resolve disagreements
-A *disagreement* between reviewer1 and reviewer2 is an applicant for whom the two reviewers gave diverging grades, i.e.`1` and `-1`. After grading all motivations, you may want to go through all disagreements with other reviewers to check if you simply made a typo or if you really disagree. In case of a real disagreement, a discussion among reviewers will be needed. To go through all disagreements with reviewer `reviewer2` enter grading mode like this:
+A *disagreement* between reviewer1 and reviewer2 is an applicant for whom the two reviewers gave diverging grades, e.g. `1` and `-1`. After grading all motivations, you may want to go through all disagreements with other reviewers to check if you simply made a typo or if you really disagree. In case of a real disagreement, a discussion among reviewers will be needed. To go through all disagreements with all other reviewers, enter grading mode with:
+
+```
+grader> grade -d
+```
+
+This will allow you to change or keep your grade for the corresponding motivation letter.
+
+You can also solve disagreements with another reviewer, for example reviewer2, by:
 
 ```
 grader> grade -d reviewer2
 ```
 
-This will allow you to change or keep your grade for the corresponding motivation letter.
-
-... repeat for all reviewers.
-
 ## Use case: setting overrides
 While grading you may notice that an applicant has misjudge for example their Python proficiency, by self-rating as `novice/advanced-beginner`, when instead you judge them to be rather `competent/proficient`. In this case you should set an override for this field in their application. You type `o python` while in grading mode.
 
-Note that in grading mode you have tab-completion on applicant fields. Once the field is auto-completed, by hitting `<tab>` again you'll get a list of possible values to select from. This will set a permanent override for this applicant in the `applications.ini`
+Note that in grading mode you have tab-completion on applicant fields. Once the field is auto-completed, by hitting `<tab>` again you'll get a list of possible values to select from. This will set a permanent override for this applicant in the `applications.ini`.
 
 ## Use case: ranking applications
 After all reviewers have completed the motivation letter grading, it is possible to *rank* the applications. Each applicant gets a *score* calculated by evaluating a *formula*. 
@@ -103,12 +107,12 @@ For example, if you want to visualize all applicants with Italian nationality, y
 grader> dump -a nationality Italy 
 ```
 
-You can get a list of possible attributes with `dump -a list`
+You can get a list of possible attributes with `dump -a list`.
 
 ## Use case: show stats
 You can get some stats about applicants with the command `stat`. More details with `stat -h`.
 
-## Use case: dynamically change the formula
+## Use case: change the formula
 You can experiment with effect of different weights in the formula on the applicant ranking by changing the formula as in this example:
 
 ```
@@ -128,11 +132,7 @@ open_source*0.2 : 50.0%
 
 By ranking the applicants using the `rank` command you will visualize the new ranking based on the new formula.
 
-To make this change permanent, you need to set the formula with:
-
-```
-grader> formula -s programming*0.2 + open_source*0.2
-```
+Note: the changes to the formula will be saved on exit. You are expected to rely on git to undo any changes, if desired.
 
 
 ## Advanced: admin use cases
