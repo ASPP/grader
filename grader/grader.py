@@ -723,16 +723,16 @@ class Grader(cmd_completer.Cmd_Completer):
         return True
 
     def _score_with_labels(self, p, use_labels=False):
-        if not use_labels:
-            return p.score
-
         add_score = 0
-        for label, value in LABEL_VALUES.items():
-            if label in p.labels:
-                add_score += value
-            elif label=='INVITESL' and any('INVITESL' in l for l in p.labels):
-                add_score += value
-        return p.score + add_score
+
+        if use_labels:
+            for label, value in LABEL_VALUES.items():
+                if label in p.labels:
+                    add_score += value
+                elif label=='INVITESL' and any('INVITESL' in l for l in p.labels):
+                    add_score += value
+
+        return p.calculate_score() + add_score
 
     def _group_institute(self, person):
         group = self._equiv_master(person.group)
