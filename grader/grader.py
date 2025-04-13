@@ -524,8 +524,6 @@ class Grader(cmd_completer.Cmd_Completer):
 
     grade_options = (
         cmd_completer.PagedArgumentParser('grade')
-            .add_argument('what', choices=['motivation'],
-                          help='what to grade')
             .add_argument('-s', '--stat', action='store_true',
                           help='display statics about the grading process itself')
             .add_argument('-g', '--graded', type=int,
@@ -539,7 +537,6 @@ class Grader(cmd_completer.Cmd_Completer):
             .add_argument('person', nargs='*')
     )
 
-    @set_completions(motivation=_complete_name)
     def do_grade(self, arg):
         """Assign points to motivation statements
         """
@@ -606,6 +603,8 @@ class Grader(cmd_completer.Cmd_Completer):
             print()
             if not self._grade(person, opts.disagreement is not None):
                 break
+
+    do_grade.completions = _complete_name
 
     RATING_CATEGORIES = ['programming', 'open_source', 'python', 'vcs', 'underrep']
 
