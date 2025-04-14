@@ -1,7 +1,13 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "grader/__init__.py"
+
 [project]
 name = "grader"
 description = "a Python module and command-line utility to grade applications"
-version = "0.1"
 authors = [{name = "Grader contributors"}]
 keywords = ["grading applications"]
 license = "GPL-3.0-or-later"
@@ -13,6 +19,7 @@ classifiers = [ 'Development Status :: 3 - Alpha',
 urls = {Homepage = "https://github.com/ASPP/grader"}
 requires-python = ">= 3.10"
 dependencies = ['numpy',]
+dynamic = ["version",]
 
 [project.readme]
 file = "README.md"
@@ -23,3 +30,8 @@ grader = "grader.grader:main"
 
 [tool.aliases]
 test = "pytest"
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
