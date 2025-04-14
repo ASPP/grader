@@ -1,11 +1,13 @@
 import collections
 import configparser
+import contextlib
 import csv
 from fnmatch import fnmatch
 import functools
 import io
 import itertools
 import keyword
+import locale
 import math
 import pprint
 import re
@@ -14,6 +16,17 @@ import tokenize
 
 from . import (person, vector, util)
 from .util import printff
+
+
+@contextlib.contextmanager
+def override_locale(category, locale_string):
+    # Context manager to set locale temporarily.
+    # Strangely, it seems that there is no builtin that does that.
+    prev_locale_string = locale.getlocale(category)
+    locale.setlocale(category, locale_string)
+    yield
+    locale.setlocale(category, prev_locale_string)
+
 
 DEBUG_MAPPINGS = False
 
@@ -376,18 +389,41 @@ class ApplicationsIni:
 
     def save(self, filename=None):
         filename = filename or self.filename
-        with open(filename, 'wt') as file:
-            self.save_to_file(file)
+        text = self.to_string()
 
-    def save_to_file(self, file):
+        filename.write_text(text)
+
+        printff(f'Saved changes to {filename}')
+
+    def to_string(self):
         # save our data to the INI file
         cp = configparser.ConfigParser(comment_prefixes='#', inline_comment_prefixes='#')
-        cp.read_dict(self.data)
-        cp.write(file)
 
-        name = getattr(file, 'name', '(tmp)')
-        printff(f'Saved changes to {name}')
+        with override_locale(locale.LC_COLLATE, 'en_US.UTF-8'):
+            # The order of sections is kept stable.
+            #
+            # Within a section, we sort the fields alphabetically,
+            # with the en_US.UTF-8 collation, which puts accented
+            # letters in the expected place, usually right after the
+            # unaccented version.
+            #
+            # As an exception, the [*_rating] sections are not sorted,
+            # so that the items remain from "lowest" to "highest".
+            sorted_data = {
+                name:{
+                    k:values[k] for k in sorted(
+                        values,
+                        key=(lambda x:0) if name.endswith('_rating') else functools.cmp_to_key(locale.strcoll),
+                    )
+                }
+                for name, values in self.data.items()
+            }
 
+        out = io.StringIO()
+
+        cp.read_dict(sorted_data)
+        cp.write(out)
+        return out.getvalue()
 
     def __setitem__(self, key, value):
         # allow to set items in the section of the INI using a dotted form, for ex:

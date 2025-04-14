@@ -1,4 +1,3 @@
-import io
 import pathlib
 import os
 import time
@@ -50,12 +49,47 @@ person one = -1
 person two = 1
 some son jr. = 1
 
+[verify_rating_is_unsorted_rating]
+novice = +10.0
+competent = 0.0
+expert = -10.0
+
 [labels]
 john doe = VEGAN, VIP
 jędrzej marcin mirosławski piołun = UTF-8, VEGAN
 person one = PALEO
 
 """
+
+ini_sorted = """\
+[extra]
+key_num = 111.5
+key_str = value
+
+[motivation_score-zbyszek]
+jędrzej marcin mirosławski piołun = 1
+person one = 1
+person three = 0
+person two = -1
+some son jr. = -1
+
+[motivation_score-other]
+person one = -1
+person two = 1
+some son jr. = 1
+
+[verify_rating_is_unsorted_rating]
+novice = 10.0
+competent = 0.0
+expert = -10.0
+
+[labels]
+jędrzej marcin mirosławski piołun = UTF-8, VEGAN
+john doe = VEGAN, VIP
+person one = PALEO
+
+"""
+
 
 def get_ini(tmp_path, *extra, ini_filename='ini1.ini'):
     input = tmp_path / ini_filename
@@ -167,7 +201,7 @@ def test_applications_ini_save(tmp_path):
     out = tmp_path / 'ini1.copy'
     ini.save(out)
 
-    assert out.read_text() == ini_string
+    assert out.read_text() == ini_sorted
 
     # Replace an exisiting entry.
     # We use an int, but the type is converted to float internally
@@ -292,11 +326,10 @@ def test_applications_labels(app):
     assert app['Person One'].remove_label('PALEO') is True
     assert app['Person One'].labels == []
 
-    out = io.StringIO()
-    app.ini.save_to_file(file=out)
+    text = app.ini.to_string()
 
-    assert 'john doe = VEGAN, VIP' in out.getvalue()
-    assert 'jędrzej marcin mirosławski piołun = UTF-8, VEGAN' in out.getvalue()
+    assert 'john doe = VEGAN, VIP' in text
+    assert 'jędrzej marcin mirosławski piołun = UTF-8, VEGAN' in text
 
 def test_applications_all_labels(app):
     assert app.all_labels() == {'PALEO', 'UTF-8', 'VEGAN'}
