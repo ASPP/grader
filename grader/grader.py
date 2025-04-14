@@ -925,12 +925,12 @@ class Grader(cmd_completer.Cmd_Completer):
                           help="don't use labels in ranking")
             .add_argument('-L', '--highlanders', action='store_true',
                           help='display statistics only for highlanders')
-.add_argument('-l', '--labels',
-                          help='display statistics only for people with label(s).'+
+            .add_argument('-l', '--labels',
+                          help='display statistics only for people with LABELS. '
                                'Multiple labels: INVITE,CONFIRMED or INVITE,-,DECLINED')
             .add_argument('--edition', default='current',
                           help="edition for which we want the stats, e.g. '2010-trento'. "
-                               "'all' means all editions 'current' (default) means the"
+                               "'all' means all editions. 'current' (default) means the "
                                "latest one")
     )
 
@@ -1164,24 +1164,25 @@ class Grader(cmd_completer.Cmd_Completer):
     dumpcsv_options = (
             cmd_completer.PagedArgumentParser('dumpcsv')
                 .add_argument('-l', '--labels',
-                              help='only dump people with label(s).'+
+                              help='only dump people with LABELS. '
                                    'Multiple labels: INVITE,CONFIRMED or INVITE,-,DECLINED')
-                .add_argument('-a', '--attributes', help='comma-separated list of attributes to dump')
+                .add_argument('-a', '--attributes',
+                              required=True,
+                              help='comma-separated list of attributes to dump')
     )
 
     def do_dumpcsv(self, args):
         opts = self.dumpcsv_options.parse_args(args.split())
-        pool = list(self.applications)
-        if opts.labels:
-            # create label filter tuple
-            labels = opts.labels.split(',')
-            pool = self.applications.filter(label=labels)
+
+        labels = opts.labels.split(',') if opts.labels else []
+        pool = self.applications.filter(label=labels)
+
         attributes = opts.attributes.split(',')
         # HEADER
-        header = ';'.join([f'${attr.upper()}$' for attr in attributes])
+        header = ';'.join(f'${attr.upper()}$' for attr in attributes)
         lines = [header]
         for p in pool:
-            line = ';'.join([f'{getattr(p, attr)}' for attr in attributes])
+            line = ';'.join(f'{getattr(p, attr)}' for attr in attributes)
             lines.append(line)
         with open('/tmp/grader.csv', 'wt') as fl:
             fl.write('\n'.join(lines))
