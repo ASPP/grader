@@ -406,10 +406,15 @@ class ApplicationsIni:
             # with the en_US.UTF-8 collation, which puts accented
             # letters in the expected place, usually right after the
             # unaccented version.
+            #
+            # As an exception, the [*_rating] sections are not sorted,
+            # so that the items remain from "lowest" to "highest".
             sorted_data = {
                 name:{
-                    k:values[k] for k in sorted(values,
-                                                key=functools.cmp_to_key(locale.strcoll))
+                    k:values[k] for k in sorted(
+                        values,
+                        key=(lambda x:0) if name.endswith('_rating') else functools.cmp_to_key(locale.strcoll),
+                    )
                 }
                 for name, values in self.data.items()
             }

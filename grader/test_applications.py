@@ -49,6 +49,11 @@ person one = -1
 person two = 1
 some son jr. = 1
 
+[verify_rating_is_unsorted_rating]
+novice = +10.0
+competent = 0.0
+expert = -10.0
+
 [labels]
 john doe = VEGAN, VIP
 jędrzej marcin mirosławski piołun = UTF-8, VEGAN
@@ -72,6 +77,11 @@ some son jr. = -1
 person one = -1
 person two = 1
 some son jr. = 1
+
+[verify_rating_is_unsorted_rating]
+novice = 10.0
+competent = 0.0
+expert = -10.0
 
 [labels]
 jędrzej marcin mirosławski piołun = UTF-8, VEGAN
