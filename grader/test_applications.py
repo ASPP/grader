@@ -188,6 +188,9 @@ def test_applications_object(app):
     assert len(app) == 3
     assert len(app.people) == 3
 
+    alls = app.filter()
+    assert len(alls) == 3
+
     vegans = app.filter(label = ['VEGAN'])
     assert len(vegans) == 1
     assert vegans.name == ['Jędrzej Marcin']
