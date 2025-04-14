@@ -389,10 +389,13 @@ class ApplicationsIni:
 
     def save(self, filename=None):
         filename = filename or self.filename
-        with open(filename, 'wt') as file:
-            self.save_to_file(file)
+        text = self.to_string()
 
-    def save_to_file(self, file):
+        filename.write_text(text)
+
+        printff(f'Saved changes to {filename}')
+
+    def to_string(self):
         # save our data to the INI file
         cp = configparser.ConfigParser(comment_prefixes='#', inline_comment_prefixes='#')
 
@@ -411,12 +414,11 @@ class ApplicationsIni:
                 for name, values in self.data.items()
             }
 
+        out = io.StringIO()
+
         cp.read_dict(sorted_data)
-        cp.write(file)
-
-        name = getattr(file, 'name', '(tmp)')
-        printff(f'Saved changes to {name}')
-
+        cp.write(out)
+        return out.getvalue()
 
     def __setitem__(self, key, value):
         # allow to set items in the section of the INI using a dotted form, for ex:

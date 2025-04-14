@@ -316,11 +316,10 @@ def test_applications_labels(app):
     assert app['Person One'].remove_label('PALEO') is True
     assert app['Person One'].labels == []
 
-    out = io.StringIO()
-    app.ini.save_to_file(file=out)
+    text = app.ini.to_string()
 
-    assert 'john doe = VEGAN, VIP' in out.getvalue()
-    assert 'jędrzej marcin mirosławski piołun = UTF-8, VEGAN' in out.getvalue()
+    assert 'john doe = VEGAN, VIP' in text
+    assert 'jędrzej marcin mirosławski piołun = UTF-8, VEGAN' in text
 
 def test_applications_all_labels(app):
     assert app.all_labels() == {'PALEO', 'UTF-8', 'VEGAN'}
