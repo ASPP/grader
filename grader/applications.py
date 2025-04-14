@@ -13,7 +13,7 @@ import token
 import tokenize
 
 from . import (person, vector, util)
-from .util import printff
+from .util import (printf, printff)
 
 DEBUG_MAPPINGS = False
 
@@ -724,3 +724,19 @@ class Applications:
             min_ = min(scores)
             items[item] = (max_-min_) / (maxsc-minsc)*100
         return minsc, maxsc, items
+
+    def write_to_file(self, labels, attributes, filename):
+        pool = self.filter(label=labels)
+
+        # HEADER
+        header = ';'.join(f'${attr.upper()}$' for attr in attributes)
+        lines = [header]
+        for p in pool:
+            line = ';'.join(f'{getattr(p, attr)}' for attr in attributes)
+            lines += [line]
+
+        with open(filename, 'wt') as fl:
+            fl.write('\n'.join(lines))
+            fl.write('\n')
+
+        printf(f'{filename!r} written with header + {len(lines)} rows')

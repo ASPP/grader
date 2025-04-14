@@ -1171,23 +1171,15 @@ class Grader(cmd_completer.Cmd_Completer):
                               help='comma-separated list of attributes to dump')
     )
 
+
     def do_dumpcsv(self, args):
         opts = self.dumpcsv_options.parse_args(args.split())
 
         labels = opts.labels.split(',') if opts.labels else []
-        pool = self.applications.filter(label=labels)
-
         attributes = opts.attributes.split(',')
-        # HEADER
-        header = ';'.join(f'${attr.upper()}$' for attr in attributes)
-        lines = [header]
-        for p in pool:
-            line = ';'.join(f'{getattr(p, attr)}' for attr in attributes)
-            lines.append(line)
-        with open('/tmp/grader.csv', 'wt') as fl:
-            fl.write('\n'.join(lines))
-            fl.write('\n')
-        print('Dump written to /tmp/grader.csv')
+
+        # TODO: make the output name configurable?
+        self.applications.write_to_file(labels, attributes, '/tmp/grader.csv')
 
 
     def do_write(self, args):
