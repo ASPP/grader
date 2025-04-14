@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "grader"
 description = "a Python module and command-line utility to grade applications"
@@ -23,3 +27,8 @@ grader = "grader.grader:main"
 
 [tool.aliases]
 test = "pytest"
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
