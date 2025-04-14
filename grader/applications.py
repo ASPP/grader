@@ -13,7 +13,7 @@ import token
 import tokenize
 
 from . import (person, vector, util)
-from .util import (printf, printff)
+from .util import (printff, write_csv_file)
 
 DEBUG_MAPPINGS = False
 
@@ -725,18 +725,10 @@ class Applications:
             items[item] = (max_-min_) / (maxsc-minsc)*100
         return minsc, maxsc, items
 
-    def write_to_file(self, labels, attributes, filename):
+    def write_filtered_csv(self, filename, labels, attributes=('name', 'lastname', 'email')):
+        # Pick out the people to save to file
         pool = self.filter(label=labels)
-
-        # HEADER
-        header = ';'.join(f'${attr.upper()}$' for attr in attributes)
-        lines = [header]
-        for p in pool:
-            line = ';'.join(f'{getattr(p, attr)}' for attr in attributes)
-            lines += [line]
-
-        with open(filename, 'wt') as fl:
-            fl.write('\n'.join(lines))
-            fl.write('\n')
-
-        printf(f'{filename!r} written with header + {len(lines)} rows')
+        write_csv_file(filename,
+                       attributes,
+                       [[getattr(p, attr) for attr in attributes]
+                        for p in pool])
