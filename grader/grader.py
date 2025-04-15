@@ -2,10 +2,10 @@
 import argparse
 import collections
 import enum
+import itertools
 import logging
 import numbers
 import operator
-import os
 import pathlib
 import random
 import re
@@ -29,6 +29,7 @@ from .util import (
     list_of_float,
     printf,
     printff,
+    write_csv_file,
 )
 
 def ellipsize(s, width):
@@ -926,11 +927,11 @@ class Grader(cmd_completer.Cmd_Completer):
             .add_argument('-L', '--highlanders', action='store_true',
                           help='display statistics only for highlanders')
             .add_argument('-l', '--labels',
-                          help='display statistics only for people with label(s).'+
+                          help='display statistics only for people with LABELS. '
                                'Multiple labels: INVITE,CONFIRMED or INVITE,-,DECLINED')
             .add_argument('--edition', default='current',
                           help="edition for which we want the stats, e.g. '2010-trento'. "
-                               "'all' means all editions 'current' (default) means the"
+                               "'all' means all editions. 'current' (default) means the "
                                "latest one")
     )
 
@@ -1161,6 +1162,27 @@ class Grader(cmd_completer.Cmd_Completer):
         opts = self.save_options.parse_args(args.split())
         self.applications.ini.save(opts.filename)
 
+    dumpcsv_options = (
+            cmd_completer.PagedArgumentParser('dumpcsv')
+                .add_argument('-l', '--labels',
+                              help='only dump people with LABELS. '
+                                   'Multiple labels: INVITE,CONFIRMED or INVITE,-,DECLINED')
+                .add_argument('-a', '--attributes',
+                              required=True,
+                              help='comma-separated list of attributes to dump')
+    )
+
+
+    def do_dumpcsv(self, args):
+        opts = self.dumpcsv_options.parse_args(args.split())
+
+        labels = opts.labels.split(',') if opts.labels else []
+        attributes = opts.attributes.split(',')
+
+        # TODO: make the output name configurable?
+        self.applications.write_to_file('/tmp/grader.csv', labels, attributes)
+
+
     def do_write(self, args):
         """Write lists of mailing recipients
 
@@ -1175,71 +1197,50 @@ class Grader(cmd_completer.Cmd_Completer):
         """
         if args != '':
             raise ValueError('no args please')
-        applications = self.applications
 
-        _write_file('list_confirmed.csv',
-                    applications.filter(label=('CONFIRMED', '-', 'DECLINED', 'NEXT-YEAR')))
+        self.applications.write_filtered_csv('list_confirmed.csv',
+                                             ('CONFIRMED', '-', 'DECLINED', 'NEXT-YEAR'))
 
-        _write_file('list_invite.csv',
-                    applications.filter(label=('INVITE', '-', 'DECLINED', 'CONFIRMED', 'NEXT-YEAR')))
-        _write_file('list_invite_reminder.csv',
-                    applications.filter(label=('INVITE', '-', 'DECLINED', 'CONFIRMED', 'NEXT-YEAR')))
-        _write_file('list_overqualified.csv',
-                    applications.filter(label=('OVERQUALIFIED', '-', 'CUSTOM-ANSWER')))
-        _write_file('list_custom_answer.csv',
-                    applications.filter(label=('CUSTOM-ANSWER')))
+        self.applications.write_filtered_csv('list_invite.csv',
+                                             ('INVITE', '-', 'DECLINED', 'CONFIRMED', 'NEXT-YEAR'))
+
+        self.applications.write_filtered_csv('list_invite_reminder.csv',
+                                             ('INVITE', '-', 'DECLINED', 'CONFIRMED', 'NEXT-YEAR'))
+
+        self.applications.write_filtered_csv('list_overqualified.csv',
+                                             ('OVERQUALIFIED', '-', 'CUSTOM-ANSWER'))
+
+        self.applications.write_filtered_csv('list_custom_answer.csv',
+                                             ('CUSTOM-ANSWER',))
+
         # get all INVITESL? labels
-        all_labels = self.applications.all_labels()
-        invitesl = [label for label in all_labels
+        invitesl = [label for label in self.applications.all_labels()
                     if label.startswith('INVITESL')]
-        for i, sl_label in enumerate(invitesl):
-            _write_file_samelab(
-                'list_same_lab%d.csv'%(i+1),
-                applications.filter(label=(sl_label,'-', 'CONFIRMED', 'DECLINED', 'NEXT-YEAR')))
-        _write_file('list_shortlist.csv',
-                    applications.filter(label=('SHORTLIST', '-', 'DECLINED', 'NEXT-YEAR', 'CONFIRMED', 'INVITE', *invitesl)))
-        _write_file('list_rejected.csv',
-                    applications.filter(
-                        label=('-', 'DECLINED', 'NEXT-YEAR', 'CONFIRMED', 'INVITE', 'SHORTLIST',
-                               'OVERQUALIFIED', 'CUSTOM-ANSWER', *invitesl)))
-        _write_file('list_invite_nextyear.csv',
-                    applications.filter(label=('NEXT-YEAR')))
-        _write_file('list_declined.csv',
-                    applications.filter(label=('DECLINED', '-', 'NEXT-YEAR')))
 
-def _write_file(filename, persons):
-    header = '$NAME$;$SURNAME$;$EMAIL$'
-    if os.path.exists(filename):
-        printf("'{}' already exists. We cannot overwrite it!", filename)
-        return
-    with open(filename, 'w') as f:
-        f.write(header + '\n')
-        i = -1
-        for i, person in enumerate(persons):
-            row = ';'.join((person.name, person.lastname, person.email))
-            f.write(row + '\n')
-    printf("'{}' written with header + {} rows", filename, i + 1)
+        self.applications.write_filtered_csv('list_shortlist.csv',
+                                             ('SHORTLIST', '-', 'DECLINED', 'NEXT-YEAR', 'CONFIRMED', 'INVITE', *invitesl))
 
-def _write_file_samelab(filename, persons):
-    persons = list(persons)
-    if len(persons) == 0:
-        printf("No matching persons for '{}'. Check labels!", filename)
-    if os.path.exists(filename):
-        printf("'{}' already exists. We cannot overwrite it!", filename)
-        return
-    header = ';'.join('$%dNAME$;$%dSURNAME$'%(d+1,d+1) for d in range(len(persons))) + ';$EMAIL$'
-    with open(filename, 'w') as f:
-        f.write(header + '\n')
-        names = []
-        emails = []
-        i = -1
-        for i, person in enumerate(persons):
-            names.extend([person.name, person.lastname])
-            emails.append(person.email)
-        names = ';'.join(names)
-        emails = ','.join(emails)
-        f.write(names+';'+emails+'\n')
-    printf("'{}' written with header + {} entries", filename, i + 1)
+        for i, sl_label in enumerate(invitesl, start=1):
+            persons = applications.filter(labels=(sl_label, '-', 'CONFIRMED', 'DECLINED', 'NEXT-YEAR'))
+
+            fields = [*itertools.chain.from_iterable(('{d}name', '{d}lastname') for d in range(1, len(persons) + 1)),
+                      'email']
+
+            row = [*itertools.chain.from_iterable((p.name, p.lastname) for p in persons),
+                   ','.join(p.email for p in persons)]
+
+            write_csv_file('list_same_lab{i}.csv', fields, [row])
+
+        self.applications.write_filtered_csv('list_invite_nextyear.csv',
+                                             ('NEXT-YEAR',))
+
+        self.applications.write_filtered_csv('list_rejected.csv',
+                                             ('-', 'DECLINED', 'NEXT-YEAR', 'CONFIRMED', 'INVITE', 'SHORTLIST',
+                                              'OVERQUALIFIED', 'CUSTOM-ANSWER', *invitesl))
+
+        self.applications.write_filtered_csv('list_declined.csv',
+                                             ('DECLINED', '-', 'NEXT-YEAR'))
+
 
 class MissingRating(KeyError):
     def __str__(self, *args):

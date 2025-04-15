@@ -15,7 +15,7 @@ import token
 import tokenize
 
 from . import (person, vector, util)
-from .util import printff
+from .util import (printff, write_csv_file)
 
 
 @contextlib.contextmanager
@@ -760,3 +760,11 @@ class Applications:
             min_ = min(scores)
             items[item] = (max_-min_) / (maxsc-minsc)*100
         return minsc, maxsc, items
+
+    def write_filtered_csv(self, filename, labels, attributes=('name', 'lastname', 'email')):
+        # Pick out the people to save to file
+        pool = self.filter(label=labels)
+        write_csv_file(filename,
+                       attributes,
+                       [[getattr(p, attr) for attr in attributes]
+                        for p in pool])

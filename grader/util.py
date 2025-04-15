@@ -46,3 +46,18 @@ class list_of_str(list):
 
     def __str__(self):
         return ', '.join(self)
+
+
+def write_csv_file(filename, fields, rows):
+    header = ';'.join(f'${field.upper()}$' for field in fields)
+    lines = [header]
+
+    for row in rows:
+        assert len(row) == len(fields)
+        lines += [';'.join(str(item) for item in row)]
+
+    with open(filename, 'wt') as fl:
+        fl.write('\n'.join(lines))
+        fl.write('\n')
+
+    printf(f'{filename!r} written with header + {len(rows)} rows')
