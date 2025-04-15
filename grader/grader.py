@@ -160,18 +160,6 @@ LABEL_VALUES = {
     'OVERQUALIFIED': -650,
 }
 
-def equal(a, b):
-    # Fuck people who designed this nan != nan crap.
-    # Fuck people who implemented it in Python like blind sheep.
-    if isinstance(a, float) and isinstance(b, float):
-        if np.isnan(a) == np.isnan(b):
-            return True
-        if np.isnan(a) != np.isnan(b):
-            return False
-        # use normal comparison otherwise
-    return a == b
-
-
 class GradingMoves(enum.Enum):
     BACK = enum.auto()
     SKIP = enum.auto()
@@ -738,7 +726,7 @@ class Grader(cmd_completer.Cmd_Completer):
                 case _:
                     print('illegal value: {}'.format(choice))
 
-        if not equal(valid_choice, default):
+        if valid_choice != default:
             self._set_grading(person, valid_choice)
         return GradingMoves.NEXT
 
