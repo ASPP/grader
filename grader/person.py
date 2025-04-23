@@ -120,7 +120,7 @@ class Person:
     _relaxed: bool = dataclasses.field(default=False, repr=False)
 
     # Internal attribute keeping a reference to the application.ini file
-    _ini: applications.ApplicationsIni = \
+    _ini: applications.ApplicationsIni | None = \
         dataclasses.field(default=None, repr=False)
 
     # generation counter used to detect changes in Person that need to trigger
@@ -218,7 +218,7 @@ class Person:
             return f'{self.name} {self.lastname}'
 
     @property
-    def nonmale(self) -> str:
+    def nonmale(self) -> bool:
             return self.gender.lower() != 'male'
 
     def __post_init__(self):
