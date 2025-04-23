@@ -3,10 +3,12 @@ __pycache__/
 .cache/
 *~
 .pytest_cache/
+build/
 
 # venv
 venv/
 .venv/
 
-# PyCharm
+# IDE
 .idea/
+.vscode/
