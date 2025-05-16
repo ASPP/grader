@@ -36,15 +36,16 @@ def ellipsize(s, width):
     return s if len(s) <= width else s[:width-1] + '…'
 
 COLOR = {
-    'default': '\x1b[0m',
-    'grey'   : '\x1b[1;30m',
-    'red'    : '\x1b[1;31m',
-    'green'  : '\x1b[1;32m',
-    'yellow' : '\x1b[1;33m',
-    'blue'   : '\x1b[1;34m',
-    'violet' : '\x1b[1;35m',
-    'cyan'   : '\x1b[1;36m',
-    'bold'   : '\x1b[1m',
+    # Each sequence is wrapped by \1 … \2, start … end of a zero-width portion.
+    'default': '\x01\x1b[0m\x02',
+    'grey'   : '\x01\x1b[1;30m\x02',
+    'red'    : '\x01\x1b[1;31m\x02',
+    'green'  : '\x01\x1b[1;32m\x02',
+    'yellow' : '\x01\x1b[1;33m\x02',
+    'blue'   : '\x01\x1b[1;34m\x02',
+    'violet' : '\x01\x1b[1;35m\x02',
+    'cyan'   : '\x01\x1b[1;36m\x02',
+    'bold'   : '\x01\x1b[1m\x02',
     }
 
 def score_color(score):
