@@ -3,10 +3,10 @@ import collections
 import hashlib
 import os
 import csv
-import unicodedata
 import re
-import numpy as np
 
+import numpy as np
+import unidecode
 # Here we define how to weight different contributions to the total
 # energy. For example, we could decide that matching the average
 # python knowledge is more important than matching the average gender.
@@ -73,8 +73,8 @@ def participants():
         if 'CONFIRMED' in labels:
             # get a proposed login name for forgejo
             # try to get a ascii-only form of firstname+lastname[:2]
-            login_first = unicodedata.normalize('NFKD', person.name).encode('ascii', 'ignore').decode('ascii').lower().strip()
-            login_last = unicodedata.normalize('NFKD', person.lastname).encode('ascii', 'ignore').decode('ascii').lower().strip()
+            login_first = unidecode.unidecode(person.name).lower().strip()
+            login_last = unidecode.unidecode(person.lastname).lower().strip()
             # find where to split firstname and lastname -> first non alphabetic character in both strings
             login_first = re.match("^[a-zA-Z]+", login_first).group(0)
             login_last = re.match("^[a-zA-Z]+", login_last).group(0)
