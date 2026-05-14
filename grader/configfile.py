@@ -80,7 +80,10 @@ class ConfigFile:
             self.filename = None
 
     def __getitem__(self, section):
-        return self.sections[section]
+        try:
+            return self.sections[section]
+        except KeyError as ex:
+            raise KeyError(f'Error parsing {self.filename}: {ex}')
 
     def save(self, filename=None):
         filename = filename if filename is not None else self.filename
