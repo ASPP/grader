@@ -91,7 +91,7 @@ gender: {p.gender}
 institute: {p.institute}
 group: {p.group}
 affiliation: {p.affiliation}
-position: {p.position}{position_other}
+position: {p.position}{position_other} [{position_score}]
 appl.prev.: {have_applied}
 programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
@@ -118,7 +118,7 @@ rank: {p.rank} {p.score} {p.highlander}
 
 MOTIVATION_DUMP_FMT = '''\
 appl.prev.: {have_applied}
-position: {p.position}{position_other}
+position: {p.position}{position_other} [{position_score}]
 programming: {p.programming}{programming_description} [{programming_score}]
 python: {p.python} [{python_score}]
 vcs: {p.vcs} [{vcs_score}]
@@ -145,6 +145,7 @@ _RANK_FMT_SHORT = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
 _RANK_FMT_DETAILED = ('{: 4} {p.rank: 4} {labels:{labels_width}} {p.score:6.3f}'
                  ' [{motivation_scores}] [appl: {have_applied}]'
                  ' [prog: {programming_score}] [python: {python_score}]'
+                 ' [pos: {position_score}]'
                  ' [{gender:^{gender_width}}] [git: {vcs_score}]'
                  ' [os: {open_source_score}]'
                  ' {p.fullname:{fullname_width}} {email:{email_width}}'
@@ -322,6 +323,9 @@ class Grader(cmd_completer.Cmd_Completer):
     def python_rating(self):
         return self.config['python_rating']
     @property
+    def position_rating(self):
+        return self.config['position_rating']
+    @property
     def vcs_rating(self):
         return self.config['vcs_rating']
     @property
@@ -475,6 +479,7 @@ class Grader(cmd_completer.Cmd_Completer):
         categories = {'programming': self.programming_rating,
                       'open_source': self.open_source_rating,
                       'python':      self.python_rating,
+                      'position':    self.position_rating,
                       'vcs':         self.vcs_rating,
                       'underrep':    self.underrep_rating}
         cat_scores = categorical_scores(p, categories)
@@ -585,6 +590,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                                self.open_source_rating,
                                                self.python_rating,
                                                self.vcs_rating,
+                                               self.position_rating,
                                                self.underrep_rating,
                                                self._applied_range(),
                                                self.all_nationalities,
@@ -814,6 +820,7 @@ class Grader(cmd_completer.Cmd_Completer):
                                            self.open_source_rating,
                                            self.python_rating,
                                            self.vcs_rating,
+                                           self.position_rating,
                                            self.underrep_rating,
                                            self._applied_range(),
                                            self.all_nationalities,
@@ -822,6 +829,7 @@ class Grader(cmd_completer.Cmd_Completer):
         categories = {'programming': self.programming_rating,
                       'open_source': self.open_source_rating,
                       'python':      self.python_rating,
+                      'position':    self.position_rating,
                       'vcs':         self.vcs_rating,
                       'underrep':    self.underrep_rating}
 
@@ -1431,7 +1439,7 @@ def find_names(formula):
                       if toknum == token.NAME and not keyword.iskeyword(tokval))
 
 def find_min_max(formula, location,
-                 programming_rating, open_source_rating, python_rating, vcs_rating, underrep_rating,
+                 programming_rating, open_source_rating, python_rating, vcs_rating, position_rating, underrep_rating,
                  applied, all_nationalities, all_affiliations):
     # Coordinate with rank_person!
     # Labels are excluded from this list, they add "extra" points.
@@ -1474,6 +1482,7 @@ def find_min_max(formula, location,
         open_source=open_source_rating.values(),
         python=python_rating.values(),
         vcs=vcs_rating.values(),
+        position=position_rating.values(),
         underrep=underrep_rating.values(),
         labels=())
     needed = list(_yield_values(n, *choices[n]) for n in find_names(formula))
