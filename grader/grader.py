@@ -93,10 +93,10 @@ group: {p.group}
 affiliation: {p.affiliation}
 position: {p.position}{position_other} [{position_score}]
 appl.prev.: {have_applied}
-programming: {p.programming}{programming_description} [{programming_score}]
+programming: {p.programming} [{programming_score}] {programming_description}
 python: {p.python} [{python_score}]
 vcs: {p.vcs} [{vcs_score}]
-open source: {p.open_source}{open_source_description} [{open_source_score}]
+open source: {p.open_source} [{open_source_score}] {open_source_description}
 '''
 
 DUMP_FMT = '''\
@@ -119,10 +119,10 @@ rank: {p.rank} {p.score} {p.highlander}
 MOTIVATION_DUMP_FMT = '''\
 appl.prev.: {have_applied}
 position: {p.position}{position_other} [{position_score}]
-programming: {p.programming}{programming_description} [{programming_score}]
+programming: {p.programming} [{programming_score}] {programming_description}
 python: {p.python} [{python_score}]
 vcs: {p.vcs} [{vcs_score}]
-open source: {p.open_source}{open_source_description} [{open_source_score}]
+open source: {p.open_source} [{open_source_score}] {open_source_description}
 motivation: %(bold)s{motivation}%(default)s\
 {labels_newline}''' % COLOR
 
