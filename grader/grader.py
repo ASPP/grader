@@ -960,6 +960,7 @@ class Grader(cmd_completer.Cmd_Completer):
 
             categories = {'programming': self.programming_rating,
                           'open_source': self.open_source_rating,
+                          'position':    self.position_rating,
                           'python':      self.python_rating,
                           'vcs':         self.vcs_rating,
                           'underrep':    self.underrep_rating}
