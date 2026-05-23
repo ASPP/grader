@@ -178,6 +178,7 @@ LABEL_VALUES = {
     '__nan__': -500, # put people without score near the end of the list, but above those we
                      # explicitly reject
     'DECLINED': -650,
+    'REJECTED': -650,
     'NEXT-YEAR': -650,
     'WITHDRAWN': -650,
     'OVERQUALIFIED': -650,
