@@ -60,7 +60,7 @@ RANDOM_SEED = bytes(RANDOM_SEED, encoding='utf8')
 # of unsigned 32bit integers. Then sum them up (normalizing by the number
 # of trials to avoid an integer overflow down the road).
 # The result is one nice random seed.
-RANDOM_SEED = np.fromstring(hashlib.sha512(RANDOM_SEED).digest(),
+RANDOM_SEED = np.frombuffer(hashlib.sha512(RANDOM_SEED).digest(),
                             dtype=np.uint32).sum(dtype=np.uint32)
 
 def participants():
